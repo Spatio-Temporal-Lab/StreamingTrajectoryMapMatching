@@ -65,7 +65,7 @@ public class TiViterbi {
             }
             double logProbability = initialLogProbabilities.get(candidate);
             initialMessage.put(candidate, logProbability);
-        }
+        }//复制所有候选点的观测概率
         isBroken = hmmBreak(initialMessage);
         if (isBroken) {
             return;
