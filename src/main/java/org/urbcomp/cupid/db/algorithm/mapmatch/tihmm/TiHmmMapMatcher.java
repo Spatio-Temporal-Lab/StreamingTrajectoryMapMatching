@@ -115,28 +115,28 @@ public class TiHmmMapMatcher {
         int idx = 0;
         int nbPoints = ptList.size();
         while (idx < nbPoints) {
-            TimeStep timeStep = this.createTimeStep(ptList.get(idx));
+            TimeStep timeStep = this.createTimeStep(ptList.get(idx));//轨迹点+候选点集
             if (timeStep == null) {
-                seq.addAll(viterbi.computeMostLikelySequence());
-                seq.add(new SequenceState(null, ptList.get(idx)));
+                seq.addAll(viterbi.computeMostLikelySequence()); //计算之前最有可能的序列
+                seq.add(new SequenceState(null, ptList.get(idx))); //添加新状态
                 viterbi = new TiViterbi();
                 preTimeStep = null;
             } else {
-                this.computeEmissionProbabilities(timeStep, probabilities);
-                if (preTimeStep == null) {
+                this.computeEmissionProbabilities(timeStep, probabilities);//计算观测概率
+                if (preTimeStep == null) { //第一个点初始化概率
                     viterbi.startWithInitialObservation(
                         timeStep.getObservation(),
                         timeStep.getCandidates(),
                         timeStep.getEmissionLogProbabilities()
                     );
-                } else {
+                } else {//计算转移概率
                     this.computeTransitionProbabilities(preTimeStep, timeStep, probabilities);
                     viterbi.nextStep(
                         timeStep.getObservation(),
                         timeStep.getCandidates(),
                         timeStep.getEmissionLogProbabilities(),
                         timeStep.getTransitionLogProbabilities()
-                    );
+                    );//计算维特比
                 }
                 if (viterbi.isBroken) {
                     seq.addAll(viterbi.computeMostLikelySequence());
@@ -151,7 +151,7 @@ public class TiHmmMapMatcher {
             }
             idx += 1;
         }
-        if (seq.size() < nbPoints) {
+        if (seq.size() < nbPoints) { //添加最后的
             seq.addAll(viterbi.computeMostLikelySequence());
         }
         return seq;
@@ -185,14 +185,14 @@ public class TiHmmMapMatcher {
         final double linearDist = GeoFunctions.getDistanceInM(
             prevTimeStep.getObservation(),
             timeStep.getObservation()
-        );
+        );//观测点的距离
 
         Set<CandidatePoint> startPoints = new HashSet<>(prevTimeStep.getCandidates());
         Set<CandidatePoint> endPoints = new HashSet<>(timeStep.getCandidates());
         Map<RoadNode, Map<RoadNode, Path>> paths = pathAlgo.findShortestPath(
             startPoints,
             endPoints
-        );
+        );//找最短路径
 
         for (CandidatePoint preCandiPt : prevTimeStep.getCandidates()) {
             RoadSegment startRoadSegment = roadNetwork.getRoadSegmentById(
