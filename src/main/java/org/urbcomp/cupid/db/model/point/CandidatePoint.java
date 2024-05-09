@@ -105,7 +105,9 @@ public class CandidatePoint extends SpatialPoint {
             + "|"
             + this.matchedIndex
             + "|"
-            + this.errorDistanceInMeter;
+            + this.errorDistanceInMeter
+            + "|"
+            + this.getX() + " " + this.getY();
     }
 
     @Override

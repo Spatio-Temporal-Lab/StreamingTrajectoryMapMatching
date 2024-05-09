@@ -26,7 +26,7 @@ public class RoadGraph extends AbstractBaseGraph<RoadNode, RoadSegment> {
             null,
             SupplierUtil.createSupplier(RoadSegment.class),
             new DefaultGraphType.Builder(directed, !directed).weighted(true)
-                .allowMultipleEdges(false)
+                .allowMultipleEdges(true)
                 .allowSelfLoops(true)
                 .build()
         );

@@ -58,6 +58,7 @@ public class TiHmmMapMatcherTest {
         System.out.println(mmTrajectory.toGeoJSON());
         assertEquals(trajectory.getGPSPointList().size(), mmTrajectory.getMmPtList().size());
         List<PathOfTrajectory> pTrajectories = recover.recover(mmTrajectory);
+        System.out.println(pTrajectories.get(0).toGeoJSON());
         assertEquals(1, pTrajectories.size());
     }
 }

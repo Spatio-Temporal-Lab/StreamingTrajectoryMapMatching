@@ -113,17 +113,17 @@ public class TiHmmMapMatcher {
         TiViterbi viterbi = new TiViterbi();
         TimeStep preTimeStep = null;
         int idx = 0;
-        int nbPoints = ptList.size();
+        int nbPoints = ptList.size();// 点的数量
         while (idx < nbPoints) {
             TimeStep timeStep = this.createTimeStep(ptList.get(idx));//轨迹点+候选点集
-            if (timeStep == null) {
+            if (timeStep == null) {//没有候选点
                 seq.addAll(viterbi.computeMostLikelySequence()); //计算之前最有可能的序列
                 seq.add(new SequenceState(null, ptList.get(idx))); //添加新状态
                 viterbi = new TiViterbi();
                 preTimeStep = null;
             } else {
                 this.computeEmissionProbabilities(timeStep, probabilities);//计算观测概率
-                if (preTimeStep == null) { //第一个点初始化概率
+                if (preTimeStep == null) { //第一个点初始化概率或者前面的点没有找到候选点
                     viterbi.startWithInitialObservation(
                         timeStep.getObservation(),
                         timeStep.getCandidates(),
