@@ -70,7 +70,7 @@ public class TiViterbi {
         if (isBroken) {
             return;
         }
-        message = initialMessage;
+        message = initialMessage; //保存初始状态概率
         lastExtendedStates = new HashMap<>(candidates.size());
         prevCandidates = new ArrayList<>(candidates.size());
         for (CandidatePoint candidate : candidates) {
