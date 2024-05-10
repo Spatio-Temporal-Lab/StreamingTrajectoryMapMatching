@@ -70,7 +70,7 @@ public class AbstractManyToManyShortestPath {
             Map<RoadNode, Path> tmpMap = new HashMap<>();
             for (RoadNode endNode : endNodes) {
                 GraphPath<RoadNode, RoadSegment> shortestPath = paths.getPath(startNode, endNode);
-                if (shortestPath.getLength() == 0) {
+                if (shortestPath.getLength() == 0 && !(startNode.getLat() == endNode.getLat() && startNode.getLng() == endNode.getLng())) {
                     tmpMap.put(
                         endNode,
                         new Path(Double.MAX_VALUE, new ArrayList<>(), new ArrayList<>())

@@ -62,6 +62,8 @@ public class StreamMapMatcher {
         if (seq.size() < size) { //添加最后的
             seq.addAll(viterbi.computeMostLikelySequence());
         }
+        System.out.println("seq size: " + seq.size());
+        System.out.println("traj size: " + traj.getGPSPointList().size());
         assert traj.getGPSPointList().size() == seq.size();
         List<MapMatchedPoint> mapMatchedPointList = new ArrayList<>(seq.size());
         for (SequenceState ss : seq) {
@@ -115,10 +117,23 @@ public class StreamMapMatcher {
                         timeStep.getEmissionLogProbabilities()
                 );
             }
+//            CandidatePoint maxPoint = this.findMaxValuePoint(viterbi.message);//找到最大概率的候选点
+//            seq.add(new SequenceState(maxPoint, point));
             preTimeStep = timeStep;
         }
         return Tuple3.apply(seq, preTimeStep, viterbi);
     }
+
+
+    public  CandidatePoint findMaxValuePoint(Map<CandidatePoint, Double> map) {
+        Optional<Map.Entry<CandidatePoint, Double>> maxEntry =
+                map.entrySet().stream()
+                        .max(Comparator.comparingDouble(Map.Entry::getValue));
+
+        return maxEntry.map(Map.Entry::getKey).orElse(null);
+    }
+
+
 
     /**
      * 根据time step和概率分布函数计算emission P
