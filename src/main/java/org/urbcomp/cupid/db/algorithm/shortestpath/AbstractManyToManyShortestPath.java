@@ -69,6 +69,13 @@ public class AbstractManyToManyShortestPath {
         for (RoadNode startNode : startNodes) {
             Map<RoadNode, Path> tmpMap = new HashMap<>();
             for (RoadNode endNode : endNodes) {
+                if (!isConnected(startNode, endNode)) {
+                    tmpMap.put(
+                        endNode,
+                        new Path(Double.MAX_VALUE, new ArrayList<>(), new ArrayList<>())
+                    );
+                    continue;
+                }
                 GraphPath<RoadNode, RoadSegment> shortestPath = paths.getPath(startNode, endNode);
                 if (shortestPath.getLength() == 0 && !(startNode.getLat() == endNode.getLat() && startNode.getLng() == endNode.getLng())) {
                     tmpMap.put(
@@ -93,6 +100,11 @@ public class AbstractManyToManyShortestPath {
         return results;
 
     }
+
+    public boolean isConnected(RoadNode startNode, RoadNode endNode) {
+        return algo.getPath(startNode, endNode)!= null;
+    }
+
 
     public Path getCompletePath(
         CandidatePoint startCandidatePoint,
