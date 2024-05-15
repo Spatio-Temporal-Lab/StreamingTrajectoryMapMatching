@@ -17,6 +17,7 @@
 package org.urbcomp.cupid.db.model.sample;
 
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import org.geotools.geojson.geom.GeometryJSON;
 import org.locationtech.jts.geom.Geometry;
@@ -125,6 +126,33 @@ public class ModelGenerator {
         } catch (IOException e) {
             throw new RuntimeException("Generate trajectory error: " + e.getMessage());
         }
+    }
+
+    public static Trajectory generateTrajectoryByStr(String trajStr, int maxLength) {
+        String correctStr = trajStr.replaceFirst("\\[", "[\"").replaceFirst(",", "\",");
+        // 解析 JSON 字符串
+        JSONArray jsonArray = JSON.parseArray(correctStr);
+        String oid = jsonArray.getString(0);
+        JSONArray pointsArray = jsonArray.getJSONArray(1);
+
+        // 创建 GPSPoint 对象列表
+        List<GPSPoint> pointsList = new ArrayList<>();
+        for (Object obj : pointsArray) {
+            JSONArray point = (JSONArray) obj;
+            Timestamp timestamp = Timestamp.valueOf(point.getString(0));
+            double lng = point.getDouble(1);
+            double lat = point.getDouble(2);
+            double[] convertedCoords = CoordTransformUtils.gcj02Towgs84(lng, lat);
+            pointsList.add(new GPSPoint(timestamp, convertedCoords[0], convertedCoords[1]));
+        }
+
+        // 截取指定长度的轨迹
+        if (maxLength > 0 && pointsList.size() > maxLength) {
+            pointsList = pointsList.subList(0, maxLength);
+        }
+
+        // 创建 Trajectory 对象并返回
+        return new Trajectory(oid + pointsList.get(0).getTime(), oid, pointsList);
     }
 
     public static RoadSegment generateRoadSegment() {

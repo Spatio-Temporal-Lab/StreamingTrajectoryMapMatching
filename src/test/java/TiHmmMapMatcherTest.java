@@ -30,9 +30,12 @@ import org.urbcomp.cupid.db.model.trajectory.MapMatchedTrajectory;
 import org.urbcomp.cupid.db.model.trajectory.PathOfTrajectory;
 import org.urbcomp.cupid.db.model.trajectory.Trajectory;
 
+import java.io.*;
 import java.util.List;
+import java.util.Objects;
 
 import static org.junit.Assert.assertEquals;
+import static org.urbcomp.cupid.db.model.sample.ModelGenerator.generateTrajectoryByStr;
 
 public class TiHmmMapMatcherTest {
 
@@ -60,5 +63,27 @@ public class TiHmmMapMatcherTest {
         List<PathOfTrajectory> pTrajectories = recover.recover(mmTrajectory);
         System.out.println(pTrajectories.get(0).toGeoJSON());
         assertEquals(1, pTrajectories.size());
+    }
+
+    @Test
+    public void matchTrajsToMapMatchedTrajs() throws AlgorithmExecuteException, IOException {
+        String trajFile = "data/output.txt";
+        String outputFile = "map_matched_trajectories.geojson";
+        int success_count = 0;
+        try (
+                InputStream in = ModelGenerator.class.getClassLoader().getResourceAsStream(trajFile);
+                BufferedReader br = new BufferedReader(new InputStreamReader(Objects.requireNonNull(in)));
+                BufferedWriter writer = new BufferedWriter(new FileWriter(outputFile))
+        ) {
+            String trajStr;
+            while ((trajStr = br.readLine()) != null) {
+                Trajectory trajectory = generateTrajectoryByStr(trajStr, -1);
+                MapMatchedTrajectory mmTrajectory = mapMatcher.mapMatch(trajectory);
+                writer.write(mmTrajectory.toGeoJSON());
+                writer.newLine();
+                success_count++;
+                System.out.println(success_count);
+            }
+        }
     }
 }
