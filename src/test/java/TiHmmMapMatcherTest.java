@@ -56,8 +56,8 @@ public class TiHmmMapMatcherTest {
     @Test
     public void matchTrajToMapMatchedTraj() throws AlgorithmExecuteException, JsonProcessingException {
         //MapMatchedTrajectory mmTrajectory = mapMatcher2.streamMapMatch(trajectory);
-        MapMatchedTrajectory mmTrajectory = mapMatcher.mapMatch(trajectory);
         System.out.println(trajectory.toGeoJSON());
+        MapMatchedTrajectory mmTrajectory = mapMatcher.mapMatch(trajectory);
         System.out.println(mmTrajectory.toGeoJSON());
         assertEquals(trajectory.getGPSPointList().size(), mmTrajectory.getMmPtList().size());
         List<PathOfTrajectory> pTrajectories = recover.recover(mmTrajectory);
@@ -68,7 +68,7 @@ public class TiHmmMapMatcherTest {
     @Test
     public void matchTrajsToMapMatchedTrajs() throws AlgorithmExecuteException, IOException {
         String trajFile = "data/output.txt";
-        String outputFile = "map_matched_trajectories.geojson";
+        String outputFile = "map_matched_trajectories_labels.geojson";
         int success_count = 0;
         try (
                 InputStream in = ModelGenerator.class.getClassLoader().getResourceAsStream(trajFile);
@@ -86,4 +86,5 @@ public class TiHmmMapMatcherTest {
             }
         }
     }
+
 }

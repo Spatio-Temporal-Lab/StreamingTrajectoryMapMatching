@@ -59,9 +59,9 @@ public class StreamMapMatcher {
             viterbi = tuple2._3();
             index ++;
         }
-        if (seq.size() < size) { //添加最后的
-            seq.addAll(viterbi.computeMostLikelySequence());
-        }
+//        if (seq.size() < size) { //添加最后的
+//            seq.addAll(viterbi.computeMostLikelySequence());
+//        }
         System.out.println("seq size: " + seq.size());
         System.out.println("traj size: " + traj.getGPSPointList().size());
         assert traj.getGPSPointList().size() == seq.size();
@@ -87,7 +87,7 @@ public class StreamMapMatcher {
             throws AlgorithmExecuteException {
         TimeStep timeStep = this.createTimeStep(point);//轨迹点+候选点集
         if (timeStep == null) {
-            seq.addAll(viterbi.computeMostLikelySequence()); //计算之前最有可能的序列
+//            seq.addAll(viterbi.computeMostLikelySequence()); //计算之前最有可能的序列
             seq.add(new SequenceState(null, point)); //添加新状态
             viterbi = new TiViterbi();
             preTimeStep = null;
@@ -109,7 +109,7 @@ public class StreamMapMatcher {
                 );//计算维特比
             }
             if (viterbi.isBroken) {
-                seq.addAll(viterbi.computeMostLikelySequence());
+//                seq.addAll(viterbi.computeMostLikelySequence());
                 viterbi = new TiViterbi();
                 viterbi.startWithInitialObservation(
                         timeStep.getObservation(),
@@ -117,8 +117,8 @@ public class StreamMapMatcher {
                         timeStep.getEmissionLogProbabilities()
                 );
             }
-//            CandidatePoint maxPoint = this.findMaxValuePoint(viterbi.message);//找到最大概率的候选点
-//            seq.add(new SequenceState(maxPoint, point));
+            CandidatePoint maxPoint = this.findMaxValuePoint(viterbi.message);//找到最大概率的候选点
+            seq.add(new SequenceState(maxPoint, point));
             preTimeStep = timeStep;
         }
         return Tuple3.apply(seq, preTimeStep, viterbi);

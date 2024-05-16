@@ -116,6 +116,14 @@ public class TiHmmMapMatcher {
         int nbPoints = ptList.size();// 点的数量
         while (idx < nbPoints) {
             TimeStep timeStep = this.createTimeStep(ptList.get(idx));//轨迹点+候选点集
+//            System.out.println();
+//            System.out.println("now: " + timeStep.getObservation());
+//            if (preTimeStep!= null){
+//                System.out.println("pre:" + preTimeStep.getObservation());
+//                System.out.println("preprob: " + viterbi.message);
+//                System.out.println("preTimeStep:" + preTimeStep.getCandidates());
+//            }
+//            System.out.println("timeStep:" + timeStep.getCandidates());
             if (timeStep == null) {//没有候选点
                 seq.addAll(viterbi.computeMostLikelySequence()); //计算之前最有可能的序列
                 seq.add(new SequenceState(null, ptList.get(idx))); //添加新状态
@@ -146,6 +154,8 @@ public class TiHmmMapMatcher {
                         timeStep.getCandidates(),
                         timeStep.getEmissionLogProbabilities()
                     );
+//                    System.out.println("Ti-HMM: Viterbi algorithm is broken at index " + idx + ptList.get(idx));
+//                    System.out.println();
                 }
                 preTimeStep = timeStep;
             }
@@ -205,6 +215,7 @@ public class TiHmmMapMatcher {
                 Path subPath = paths.get(startRoadSegment.getEndNode())
                     .get(endRoadSegment.getStartNode());
                 Path path = pathAlgo.getCompletePath(preCandiPt, curCandiPt, subPath);
+//                System.out.println("preCandiPt:"+ preCandiPt +"\n" +"curCandiPt:"+ curCandiPt +"\n" + "path:" + path +"\n" + "path.getLengthInMeter():" + path.getLengthInMeter());
 
                 if (path.getLengthInMeter() != Double.MAX_VALUE) {
                     timeStep.addTransitionLogProbability(

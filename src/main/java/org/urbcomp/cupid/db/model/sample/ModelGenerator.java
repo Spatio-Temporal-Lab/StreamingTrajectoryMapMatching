@@ -57,8 +57,10 @@ public class ModelGenerator {
                 new InputStreamReader(Objects.requireNonNull(in))
             )
         ) {
-            String trajStr = br.readLine();
-            trajStr = br.readLine();
+            String trajStr = null;
+            for (int i = 0; i < 33; ++i) {
+                trajStr = br.readLine();
+            }
             String correctStr = trajStr.replaceFirst("\\[", "[\"").replaceFirst(",", "\",");
             List<String> result = JSON.parseArray(correctStr, String.class);
             String oid = result.get(0);
