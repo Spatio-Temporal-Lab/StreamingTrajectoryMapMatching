@@ -65,15 +65,18 @@ public class StreamMapMatcherTest {
     @Test
     public void matchTrajsToMapMatchedTrajs() throws AlgorithmExecuteException, IOException {
         String trajFile = "data/output.txt";
-        String outputFile = "map_matched_trajectories_test.geojson";
+        String outputFile = "map_matched_trajectories_stream.geojson";
         int success_count = 0;
+        int trajectories_count = 2000;
         try (
                 InputStream in = ModelGenerator.class.getClassLoader().getResourceAsStream(trajFile);
                 BufferedReader br = new BufferedReader(new InputStreamReader(Objects.requireNonNull(in)));
                 BufferedWriter writer = new BufferedWriter(new FileWriter(outputFile))
         ) {
             String trajStr;
-            while ((trajStr = br.readLine()) != null) {
+            int count = 0;
+            while ((trajStr = br.readLine()) != null && count < trajectories_count) {
+                count ++;
                 Trajectory trajectory = generateTrajectoryByStr(trajStr, -1);
                 MapMatchedTrajectory mmTrajectory = mapMatcher2.streamMapMatch(trajectory);
                 writer.write(mmTrajectory.toGeoJSON());

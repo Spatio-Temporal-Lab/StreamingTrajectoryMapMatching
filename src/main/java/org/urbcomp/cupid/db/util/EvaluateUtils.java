@@ -16,19 +16,20 @@ public class EvaluateUtils {
         try (BufferedReader br1 = new BufferedReader(new FileReader(baseFile));
              BufferedReader br2 = new BufferedReader(new FileReader(matchFile))) {
             String line1, line2;
-            int i = 0;
+            int index = 0;
             while ((line1 = br1.readLine()) != null && (line2 = br2.readLine()) != null) {
+                index++;
                 FeatureCollectionWithProperties fcp1 = new ObjectMapper().readValue(line1, FeatureCollectionWithProperties.class);
                 FeatureCollectionWithProperties fcp2 = new ObjectMapper().readValue(line2, FeatureCollectionWithProperties.class);
                 double accuracy = getAccuracy(fcp1, fcp2);
+                System.out.println("index:" + index + " accuracy:" + accuracy);
                 accuracies.add(accuracy);
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
         double totalAccuracy = accuracies.stream().mapToDouble(Double::doubleValue).sum();
-        double averageAccuracy = totalAccuracy / accuracies.size();
-        return averageAccuracy;
+        return totalAccuracy / accuracies.size();
     }
 
     private static double getAccuracy(FeatureCollectionWithProperties fcp1, FeatureCollectionWithProperties fcp2) {
