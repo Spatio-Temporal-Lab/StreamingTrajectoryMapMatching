@@ -11,36 +11,36 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class EvaluateUtils {
-    public double calculateAccuracy(String baseFile, String matchFile) {
+    public static double calculateAccuracy(String baseFile, String matchFile) {
         List<Double> accuracies = new ArrayList<>();
-
-        try (BufferedReader br1 = new BufferedReader(new FileReader("baseFile"));
-             BufferedReader br2 = new BufferedReader(new FileReader("matchFile"))) {
+        try (BufferedReader br1 = new BufferedReader(new FileReader(baseFile));
+             BufferedReader br2 = new BufferedReader(new FileReader(matchFile))) {
             String line1, line2;
+            int index = 0;
             while ((line1 = br1.readLine()) != null && (line2 = br2.readLine()) != null) {
+                index++;
                 FeatureCollectionWithProperties fcp1 = new ObjectMapper().readValue(line1, FeatureCollectionWithProperties.class);
                 FeatureCollectionWithProperties fcp2 = new ObjectMapper().readValue(line2, FeatureCollectionWithProperties.class);
                 double accuracy = getAccuracy(fcp1, fcp2);
+                System.out.println("index:" + index + " accuracy:" + accuracy);
                 accuracies.add(accuracy);
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
-
         double totalAccuracy = accuracies.stream().mapToDouble(Double::doubleValue).sum();
-        double averageAccuracy = totalAccuracy / accuracies.size();
-
-        System.out.println("Average Accuracy: " + averageAccuracy);
-        return averageAccuracy;
+        return totalAccuracy / accuracies.size();
     }
 
     private static double getAccuracy(FeatureCollectionWithProperties fcp1, FeatureCollectionWithProperties fcp2) {
         List<Feature> features1 = fcp1.getFeatures();
         List<Feature> features2 = fcp2.getFeatures();
         assert features1.size() == features2.size();
-        int totalPoints = Math.min(features1.size(), features2.size());
-        int matchedPoints = 0;
-
+        double totalPoints = Math.min(features1.size(), features2.size());
+        if (totalPoints == 0) {
+            return 0.0;
+        }
+        double matchedPoints = 0;
         for (int i = 0; i < totalPoints; i++) {
             Point point1 = (Point) features1.get(i).getGeometry();
             Point point2 = (Point) features2.get(i).getGeometry();
@@ -49,7 +49,6 @@ public class EvaluateUtils {
                 matchedPoints++;
             }
         }
-
-        return (double) matchedPoints / totalPoints * 100;
+        return matchedPoints / totalPoints * 100;
     }
 }

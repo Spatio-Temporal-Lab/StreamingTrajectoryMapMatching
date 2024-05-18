@@ -40,7 +40,6 @@ import static org.urbcomp.cupid.db.model.sample.ModelGenerator.generateTrajector
 public class TiHmmMapMatcherTest {
 
     private Trajectory trajectory;
-    private StreamMapMatcher mapMatcher2;
     private TiHmmMapMatcher mapMatcher;
     private ShortestPathPathRecover recover;
 
@@ -69,6 +68,7 @@ public class TiHmmMapMatcherTest {
     public void matchTrajsToMapMatchedTrajs() throws AlgorithmExecuteException, IOException {
         String trajFile = "data/output.txt";
         String outputFile = "map_matched_trajectories_labels.geojson";
+        int trajectories_count = 2000;
         int success_count = 0;
         try (
                 InputStream in = ModelGenerator.class.getClassLoader().getResourceAsStream(trajFile);
@@ -76,7 +76,9 @@ public class TiHmmMapMatcherTest {
                 BufferedWriter writer = new BufferedWriter(new FileWriter(outputFile))
         ) {
             String trajStr;
-            while ((trajStr = br.readLine()) != null) {
+            int count = 0;
+            while ((trajStr = br.readLine()) != null && count < trajectories_count ) {
+                count++;
                 Trajectory trajectory = generateTrajectoryByStr(trajStr, -1);
                 MapMatchedTrajectory mmTrajectory = mapMatcher.mapMatch(trajectory);
                 writer.write(mmTrajectory.toGeoJSON());

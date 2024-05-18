@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright (C) 2022  ST-Lab
  *
  * This program is free software: you can redistribute it and/or modify
@@ -10,12 +10,13 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 package org.urbcomp.cupid.db.algorithm.mapmatch.tihmm;
 
+import org.urbcomp.cupid.db.algorithm.mapmatch.stream.StreamMapMatcher;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.HmmProbabilities;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.SequenceState;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.TiViterbi;
@@ -87,9 +88,9 @@ public class TiHmmMapMatcher {
     private TimeStep createTimeStep(GPSPoint pt) {
         TimeStep timeStep = null;
         List<CandidatePoint> candidates = CandidatePoint.getCandidatePoint(
-            pt,
-            roadNetwork,
-            measurementErrorSigma
+                pt,
+                roadNetwork,
+                measurementErrorSigma
         );
         if (!candidates.isEmpty()) {
             timeStep = new TimeStep(pt, candidates);
@@ -104,11 +105,11 @@ public class TiHmmMapMatcher {
      * @return 保存了每一步step的所有状态
      */
     private List<SequenceState> computeViterbiSequence(List<GPSPoint> ptList)
-        throws AlgorithmExecuteException {
+            throws AlgorithmExecuteException {
         List<SequenceState> seq = new ArrayList<>();
         final HmmProbabilities probabilities = new HmmProbabilities(
-            measurementErrorSigma,
-            transitionProbabilityBeta
+                measurementErrorSigma,
+                transitionProbabilityBeta
         );
         TiViterbi viterbi = new TiViterbi();
         TimeStep preTimeStep = null;
@@ -133,26 +134,27 @@ public class TiHmmMapMatcher {
                 this.computeEmissionProbabilities(timeStep, probabilities);//计算观测概率
                 if (preTimeStep == null) { //第一个点初始化概率或者前面的点没有找到候选点
                     viterbi.startWithInitialObservation(
-                        timeStep.getObservation(),
-                        timeStep.getCandidates(),
-                        timeStep.getEmissionLogProbabilities()
+                            timeStep.getObservation(),
+                            timeStep.getCandidates(),
+                            timeStep.getEmissionLogProbabilities()
                     );
                 } else {//计算转移概率
-                    this.computeTransitionProbabilities(preTimeStep, timeStep, probabilities);
+                    int maxProbPointRSId = StreamMapMatcher.findMaxValuePoint(viterbi.message).getRoadSegmentId();//找到最大概率的候选点
+                    this.computeTransitionProbabilities(preTimeStep, timeStep, probabilities, maxProbPointRSId);
                     viterbi.nextStep(
-                        timeStep.getObservation(),
-                        timeStep.getCandidates(),
-                        timeStep.getEmissionLogProbabilities(),
-                        timeStep.getTransitionLogProbabilities()
+                            timeStep.getObservation(),
+                            timeStep.getCandidates(),
+                            timeStep.getEmissionLogProbabilities(),
+                            timeStep.getTransitionLogProbabilities()
                     );//计算维特比
                 }
                 if (viterbi.isBroken) {
                     seq.addAll(viterbi.computeMostLikelySequence());
                     viterbi = new TiViterbi();
                     viterbi.startWithInitialObservation(
-                        timeStep.getObservation(),
-                        timeStep.getCandidates(),
-                        timeStep.getEmissionLogProbabilities()
+                            timeStep.getObservation(),
+                            timeStep.getCandidates(),
+                            timeStep.getEmissionLogProbabilities()
                     );
 //                    System.out.println("Ti-HMM: Viterbi algorithm is broken at index " + idx + ptList.get(idx));
 //                    System.out.println();
@@ -186,42 +188,59 @@ public class TiHmmMapMatcher {
      * @param prevTimeStep  之前的timestep
      * @param timeStep      当前的timestep
      * @param probabilities 建立好的概率分布函数
+     * @param maxProbPointRSId 最大概率的候选点的路段id
      */
     protected void computeTransitionProbabilities(
-        TimeStep prevTimeStep,
-        TimeStep timeStep,
-        HmmProbabilities probabilities
+            TimeStep prevTimeStep,
+            TimeStep timeStep,
+            HmmProbabilities probabilities,
+            int maxProbPointRSId
     ) throws AlgorithmExecuteException {
         final double linearDist = GeoFunctions.getDistanceInM(
-            prevTimeStep.getObservation(),
-            timeStep.getObservation()
+                prevTimeStep.getObservation(),
+                timeStep.getObservation()
         );//观测点的距离
 
         Set<CandidatePoint> startPoints = new HashSet<>(prevTimeStep.getCandidates());
         Set<CandidatePoint> endPoints = new HashSet<>(timeStep.getCandidates());
         Map<RoadNode, Map<RoadNode, Path>> paths = pathAlgo.findShortestPath(
-            startPoints,
-            endPoints
+                startPoints,
+                endPoints
         );//找最短路径
 
         for (CandidatePoint preCandiPt : prevTimeStep.getCandidates()) {
             RoadSegment startRoadSegment = roadNetwork.getRoadSegmentById(
-                preCandiPt.getRoadSegmentId()
+                    preCandiPt.getRoadSegmentId()
             );
             for (CandidatePoint curCandiPt : timeStep.getCandidates()) {
                 RoadSegment endRoadSegment = roadNetwork.getRoadSegmentById(
-                    curCandiPt.getRoadSegmentId()
+                        curCandiPt.getRoadSegmentId()
                 );
                 Path subPath = paths.get(startRoadSegment.getEndNode())
-                    .get(endRoadSegment.getStartNode());
+                        .get(endRoadSegment.getStartNode());
                 Path path = pathAlgo.getCompletePath(preCandiPt, curCandiPt, subPath);
 //                System.out.println("preCandiPt:"+ preCandiPt +"\n" +"curCandiPt:"+ curCandiPt +"\n" + "path:" + path +"\n" + "path.getLengthInMeter():" + path.getLengthInMeter());
-
+//                System.out.println(timeStep.getObservation().getTime().getTime() - prevTimeStep.getObservation().getTime().getTime());
+                double speed = path.getLengthInMeter() * 1000 / (timeStep.getObservation().getTime().getTime() - prevTimeStep.getObservation().getTime().getTime());
+                if (speed > 55.6 && curCandiPt.getRoadSegmentId() == preCandiPt.getRoadSegmentId() && curCandiPt.getRoadSegmentId() == maxProbPointRSId) {
+//                    System.out.println("speed is too fast at index ");
+//                    System.out.println("" + maxProbPointRSId + " " + curCandiPt.getRoadSegmentId() + " " + preCandiPt.getRoadSegmentId());
+                    double disBtwCurAndPer = GeoFunctions.getDistanceInM(preCandiPt, curCandiPt);
+//                    System.out.println("disBtwCurAndPer:" + disBtwCurAndPer);
+                    if (disBtwCurAndPer < 20) {
+                        timeStep.addTransitionLogProbability(
+                                preCandiPt,
+                                curCandiPt,
+                                probabilities.transitionLogProbability(0.0, 0.0)
+                        );
+                    }
+                    continue;
+                }
                 if (path.getLengthInMeter() != Double.MAX_VALUE) {
                     timeStep.addTransitionLogProbability(
-                        preCandiPt,
-                        curCandiPt,
-                        probabilities.transitionLogProbability(path.getLengthInMeter(), linearDist)
+                            preCandiPt,
+                            curCandiPt,
+                            probabilities.transitionLogProbability(path.getLengthInMeter(), linearDist)
                     );
                 }
             }
