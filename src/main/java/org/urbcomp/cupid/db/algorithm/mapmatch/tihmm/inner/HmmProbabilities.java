@@ -83,4 +83,12 @@ public class HmmProbabilities {
     private static double logExponentialDistribution(double beta, double x) {
         return Math.log(1.0 / beta) - (x / beta);
     }
+
+    public double getSigma() {
+        return sigma;
+    }
+
+    public double getBeta() {
+        return beta;
+    }
 }
