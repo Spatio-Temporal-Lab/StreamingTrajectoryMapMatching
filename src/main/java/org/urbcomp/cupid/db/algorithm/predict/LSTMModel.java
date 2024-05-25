@@ -30,7 +30,6 @@ public class LSTMModel {
     private MultiLayerNetwork model;
 
     public LSTMModel(int inputSize, int outputSize, int lstmLayerSize) {
-        int len = 12;
         MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
                 .seed(123)
                 .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)

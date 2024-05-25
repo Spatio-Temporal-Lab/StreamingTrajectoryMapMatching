@@ -8,14 +8,12 @@ import org.urbcomp.cupid.db.model.point.GPSPoint;
 import org.urbcomp.cupid.db.model.sample.ModelGenerator;
 import org.urbcomp.cupid.db.model.trajectory.Trajectory;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.util.*;
 
 public class DataPreparation {
 
+    private static final String varPath = "var.txt";
     private static double minLat = Double.MAX_VALUE;
     private static double maxLat = Double.MIN_VALUE;
     private static double minLng = Double.MAX_VALUE;
@@ -27,11 +25,8 @@ public class DataPreparation {
 
         try (InputStream in = ModelGenerator.class.getClassLoader().getResourceAsStream(observationsPath);
              BufferedReader br = new BufferedReader(new InputStreamReader(Objects.requireNonNull(in)))) {
-
             String trajStr;
-            int count = 0;
-            while ((trajStr = br.readLine()) != null && count < trajectoriesCount) {
-                count++;
+            while ((trajStr = br.readLine()) != null) {
                 Trajectory observationTrajectory = ModelGenerator.generateTrajectoryByStr(trajStr, -1);
                 trajectories.add(observationTrajectory);
                 updateMinMax(observationTrajectory.getGPSPointList());
@@ -39,25 +34,31 @@ public class DataPreparation {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+        Collections.shuffle(trajectories);
+
+        List<Trajectory> subTrajectories =  trajectories.subList(0,trajectoriesCount);
+        for (Trajectory tr : subTrajectories){
+            updateMinMax(tr.getGPSPointList());
+        }
+        writeVariablesToFile(varPath);
 
         List<DataSet> dataSets = new ArrayList<>();
         ArrayList<double[][]> allIn = new ArrayList<>();
         ArrayList<double[]> allOut = new ArrayList<>();
-        for (Trajectory observationTrajectory : trajectories) {
+        for (Trajectory observationTrajectory : subTrajectories) {
             List<GPSPoint> observationPointList = observationTrajectory.getGPSPointList();
             int size = observationPointList.size();
             if (size > 2 * sequenceLength) {
                 int numTrain = size - 2 * sequenceLength;
-                double[][] inputFeatures = new double[2][sequenceLength];
-                double[] outputFeatures = new double[2];
                 for (int i = 0; i < numTrain; i++) {
+                    double[][] inputFeatures = new double[2][sequenceLength];
+                    double[] outputFeatures = new double[2];
                     for (int j = 0; j < sequenceLength; j++) {
                         inputFeatures[0][j] = normalizeLat(observationPointList.get(i + j).getLat());
                         inputFeatures[1][j] = normalizeLng(observationPointList.get(i + j).getLng());
-
                     }
-                    outputFeatures[0] = normalizeLat(observationPointList.get(i + sequenceLength +1).getLat());
-                    outputFeatures[1] = normalizeLng(observationPointList.get(i + sequenceLength +1).getLng());
+                    outputFeatures[0] = normalizeLat(observationPointList.get(i + sequenceLength).getLat());
+                    outputFeatures[1] = normalizeLng(observationPointList.get(i + sequenceLength).getLng());
                     allIn.add(inputFeatures);
                     allOut.add(outputFeatures);
                 }
@@ -91,11 +92,52 @@ public class DataPreparation {
         }
     }
 
-    private static double normalizeLat(double lat) {
+    public static void writeVariablesToFile(String filePath) {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(filePath))) {
+            writer.write("minLat: " + minLat);
+            writer.newLine();
+            writer.write("maxLat: " + maxLat);
+            writer.newLine();
+            writer.write("minLng: " + minLng);
+            writer.newLine();
+            writer.write("maxLng: " + maxLng);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void readVariablesFromFile() {
+        try (BufferedReader reader = new BufferedReader(new FileReader(varPath))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String[] parts = line.split(": ");
+                if (parts.length == 2) {
+                    switch (parts[0]) {
+                        case "minLat":
+                            minLat = Double.parseDouble(parts[1]);
+                            break;
+                        case "maxLat":
+                            maxLat = Double.parseDouble(parts[1]);
+                            break;
+                        case "minLng":
+                            minLng = Double.parseDouble(parts[1]);
+                            break;
+                        case "maxLng":
+                            maxLng = Double.parseDouble(parts[1]);
+                            break;
+                    }
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static double normalizeLat(double lat) {
         return (lat - minLat) / (maxLat - minLat);
     }
 
-    private static double normalizeLng(double lng) {
+    public static double normalizeLng(double lng) {
         return (lng - minLng) / (maxLng - minLng);
     }
 
