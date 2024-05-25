@@ -19,10 +19,16 @@ public class EvaluateUtils {
             int index = 0;
             while ((line1 = br1.readLine()) != null && (line2 = br2.readLine()) != null) {
                 index++;
+                List<Point> pointList = new ArrayList<>();
+                List<Point> pointList2 = new ArrayList<>();
                 FeatureCollectionWithProperties fcp1 = new ObjectMapper().readValue(line1, FeatureCollectionWithProperties.class);
                 FeatureCollectionWithProperties fcp2 = new ObjectMapper().readValue(line2, FeatureCollectionWithProperties.class);
-                double accuracy = getAccuracy(fcp1, fcp2);
-                System.out.println("index:" + index + " accuracy:" + accuracy);
+                double accuracy = getAccuracy(fcp1, fcp2, pointList, pointList2);
+                System.out.println("index:" + index + " accuracy:" + accuracy );
+                for (int i = 0; i < pointList.size(); i++ ){
+                    System.out.print("pointListLabels:" + pointList.get(i) + " pointListStream:" +pointList2.get(i) + "~~~~~~~~~");
+                }
+                System.out.println();
                 accuracies.add(accuracy);
             }
         } catch (IOException e) {
@@ -32,7 +38,7 @@ public class EvaluateUtils {
         return totalAccuracy / accuracies.size();
     }
 
-    private static double getAccuracy(FeatureCollectionWithProperties fcp1, FeatureCollectionWithProperties fcp2) {
+    private static double getAccuracy(FeatureCollectionWithProperties fcp1, FeatureCollectionWithProperties fcp2, List<Point> pointList, List<Point> pointList2) {
         List<Feature> features1 = fcp1.getFeatures();
         List<Feature> features2 = fcp2.getFeatures();
         assert features1.size() == features2.size();
@@ -43,10 +49,17 @@ public class EvaluateUtils {
         double matchedPoints = 0;
         for (int i = 0; i < totalPoints; i++) {
             Point point1 = (Point) features1.get(i).getGeometry();
+            int id1 = features1.get(i).getProperty("roadSegmentId");
             Point point2 = (Point) features2.get(i).getGeometry();
-
+            int id2 = features2.get(i).getProperty("roadSegmentId");
             if (point1.getCoordinates().equals(point2.getCoordinates())) {
                 matchedPoints++;
+            }else if (id1 == id2){
+                matchedPoints++;
+            }
+            else {
+                pointList.add(point1);
+                pointList2.add(point2);
             }
         }
         return matchedPoints / totalPoints * 100;

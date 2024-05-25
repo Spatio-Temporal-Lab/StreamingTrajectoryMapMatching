@@ -56,7 +56,9 @@ public class TiHmmMapMatcherTest {
     public void matchTrajToMapMatchedTraj() throws AlgorithmExecuteException, JsonProcessingException {
         //MapMatchedTrajectory mmTrajectory = mapMatcher2.streamMapMatch(trajectory);
         System.out.println(trajectory.toGeoJSON());
+        long start = System.nanoTime();
         MapMatchedTrajectory mmTrajectory = mapMatcher.mapMatch(trajectory);
+        System.out.println((System.nanoTime() - start)/1_000_000.0/mmTrajectory.getMmPtList().size());
         System.out.println(mmTrajectory.toGeoJSON());
         assertEquals(trajectory.getGPSPointList().size(), mmTrajectory.getMmPtList().size());
         List<PathOfTrajectory> pTrajectories = recover.recover(mmTrajectory);
