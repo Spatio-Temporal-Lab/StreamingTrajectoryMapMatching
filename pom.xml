@@ -69,6 +69,34 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- deeplearning4j-core: contains main functionality and neural networks -->
+        <dependency>
+            <groupId>org.deeplearning4j</groupId>
+            <artifactId>deeplearning4j-core</artifactId>
+            <version>1.0.0-M2.1</version>
+        </dependency>
+
+        <dependency>
+            <groupId>nz.ac.waikato.cms.weka</groupId>
+            <artifactId>weka-stable</artifactId>
+            <version>3.8.6</version>
+        </dependency>
+
+<!--        <dependency>-->
+<!--            <groupId>org.deeplearning4j</groupId>-->
+<!--            <artifactId>deeplearning4j-ui</artifactId>-->
+<!--            <version>1.0.0-M2.1</version>-->
+<!--        </dependency>-->
+
+        <!--
+        ND4J backend: every project needs one of these. The backend defines the hardware on which network training
+        will occur. "nd4j-native-platform" is for CPUs only (for running on all operating systems).
+        -->
+        <dependency>
+            <groupId>org.nd4j</groupId>
+            <artifactId>nd4j-native</artifactId>
+            <version>1.0.0-M2.1</version>
+        </dependency>
 
     </dependencies>
 
@@ -86,7 +114,7 @@
             <id>jitpack.io</id>
             <url>https://jitpack.io</url>
         </repository>
-    </repositories>
+    </repositories><build><plugins><plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId><configuration><source>8</source><target>8</target></configuration></plugin></plugins></build>
 
 
 

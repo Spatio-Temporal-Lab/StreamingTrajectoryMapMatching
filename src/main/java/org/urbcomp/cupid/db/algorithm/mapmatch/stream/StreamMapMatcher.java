@@ -50,7 +50,6 @@ public class StreamMapMatcher {
         TimeStep preTimeStep = null;
         List<SequenceState> seq = new ArrayList<>();
         TiViterbi viterbi = new TiViterbi();
-        int size = traj.getGPSPointList().size();
         int index = 0;
         for (GPSPoint p : traj.getGPSPointList()) {
             Tuple3<List<SequenceState>, TimeStep, TiViterbi> tuple2 = this.computeViterbiSequence(p, seq, index, preTimeStep, viterbi);
@@ -59,9 +58,9 @@ public class StreamMapMatcher {
             viterbi = tuple2._3();
             index ++;
         }
-        if (seq.size() < size) { //添加最后的
-            seq.addAll(viterbi.computeMostLikelySequence());
-        }
+//        if (seq.size() < size) { //添加最后的
+//            seq.addAll(viterbi.computeMostLikelySequence());
+//        }
         System.out.println("seq size: " + seq.size());
         System.out.println("traj size: " + traj.getGPSPointList().size());
         assert traj.getGPSPointList().size() == seq.size();
@@ -87,7 +86,7 @@ public class StreamMapMatcher {
             throws AlgorithmExecuteException {
         TimeStep timeStep = this.createTimeStep(point);//轨迹点+候选点集
         if (timeStep == null) {
-            seq.addAll(viterbi.computeMostLikelySequence()); //计算之前最有可能的序列
+//            seq.addAll(viterbi.computeMostLikelySequence()); //计算之前最有可能的序列
             seq.add(new SequenceState(null, point)); //添加新状态
             viterbi = new TiViterbi();
             preTimeStep = null;
@@ -100,7 +99,8 @@ public class StreamMapMatcher {
                         timeStep.getEmissionLogProbabilities()
                 );
             } else {//计算转移概率
-                this.computeTransitionProbabilities(preTimeStep, timeStep, probabilities);
+                int maxProbPointRSId = StreamMapMatcher.findMaxValuePoint(viterbi.message).getRoadSegmentId();//找到最大概率的候选点
+                this.computeTransitionProbabilities(preTimeStep, timeStep, probabilities, maxProbPointRSId);
                 viterbi.nextStep(
                         timeStep.getObservation(),
                         timeStep.getCandidates(),
@@ -109,7 +109,7 @@ public class StreamMapMatcher {
                 );//计算维特比
             }
             if (viterbi.isBroken) {
-                seq.addAll(viterbi.computeMostLikelySequence());
+//                seq.addAll(viterbi.computeMostLikelySequence());
                 viterbi = new TiViterbi();
                 viterbi.startWithInitialObservation(
                         timeStep.getObservation(),
@@ -117,20 +117,28 @@ public class StreamMapMatcher {
                         timeStep.getEmissionLogProbabilities()
                 );
             }
-//            CandidatePoint maxPoint = this.findMaxValuePoint(viterbi.message);//找到最大概率的候选点
-//            seq.add(new SequenceState(maxPoint, point));
+            CandidatePoint maxPoint = StreamMapMatcher.findMaxValuePoint(viterbi.message);//找到最大概率的候选点
+            seq.add(new SequenceState(maxPoint, point));
             preTimeStep = timeStep;
         }
         return Tuple3.apply(seq, preTimeStep, viterbi);
     }
 
 
-    public  CandidatePoint findMaxValuePoint(Map<CandidatePoint, Double> map) {
-        Optional<Map.Entry<CandidatePoint, Double>> maxEntry =
-                map.entrySet().stream()
-                        .max(Comparator.comparingDouble(Map.Entry::getValue));
-
-        return maxEntry.map(Map.Entry::getKey).orElse(null);
+    public static CandidatePoint findMaxValuePoint(Map<CandidatePoint, Double> map) {
+        CandidatePoint maxPoint = null;
+        double maxProb = Double.MIN_VALUE;
+        for (CandidatePoint candiPt : map.keySet()){
+            if (maxPoint == null){
+                maxPoint = candiPt;
+                maxProb = map.get(candiPt);
+            }
+            else if (map.get(candiPt) > maxProb){
+                maxPoint = candiPt;
+                maxProb = map.get(candiPt);
+            }
+        }
+        return maxPoint;
     }
 
 
@@ -158,7 +166,8 @@ public class StreamMapMatcher {
     protected void computeTransitionProbabilities(
             TimeStep prevTimeStep,
             TimeStep timeStep,
-            HmmProbabilities probabilities
+            HmmProbabilities probabilities,
+            int maxProbPointRSId
     ) throws AlgorithmExecuteException {
         final double linearDist = GeoFunctions.getDistanceInM(
                 prevTimeStep.getObservation(),
@@ -183,7 +192,23 @@ public class StreamMapMatcher {
                 Path subPath = paths.get(startRoadSegment.getEndNode())
                         .get(endRoadSegment.getStartNode());
                 Path path = pathAlgo.getCompletePath(preCandiPt, curCandiPt, subPath);
-
+//                System.out.println("preCandiPt:"+ preCandiPt +"\n" +"curCandiPt:"+ curCandiPt +"\n" + "path:" + path +"\n" + "path.getLengthInMeter():" + path.getLengthInMeter());
+//                System.out.println(timeStep.getObservation().getTime().getTime() - prevTimeStep.getObservation().getTime().getTime());
+                double speed = path.getLengthInMeter() * 1000 / (timeStep.getObservation().getTime().getTime() - prevTimeStep.getObservation().getTime().getTime());
+                if (speed > 55.6 && curCandiPt.getRoadSegmentId() == preCandiPt.getRoadSegmentId() && curCandiPt.getRoadSegmentId() == maxProbPointRSId) {
+//                    System.out.println("speed is too fast at index ");
+//                    System.out.println("" + maxProbPointRSId + " " + curCandiPt.getRoadSegmentId() + " " + preCandiPt.getRoadSegmentId());
+                    double disBtwCurAndPer = GeoFunctions.getDistanceInM(preCandiPt, curCandiPt);
+//                    System.out.println("disBtwCurAndPer:" + disBtwCurAndPer);
+                    if (disBtwCurAndPer < 20) {
+                        timeStep.addTransitionLogProbability(
+                                preCandiPt,
+                                curCandiPt,
+                                probabilities.transitionLogProbability(0.0, 0.0)
+                        );
+                    }
+                    continue;
+                }
                 if (path.getLengthInMeter() != Double.MAX_VALUE) {
                     timeStep.addTransitionLogProbability(
                             preCandiPt,
