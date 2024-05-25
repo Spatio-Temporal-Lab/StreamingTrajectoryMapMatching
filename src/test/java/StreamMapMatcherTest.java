@@ -40,6 +40,7 @@ import static org.urbcomp.cupid.db.model.sample.ModelGenerator.generateTrajector
 public class StreamMapMatcherTest {
 
     private Trajectory trajectory;
+    private TiHmmMapMatcher mapMatcher;
     private StreamMapMatcher mapMatcher2;
     private ShortestPathPathRecover recover;
 
@@ -47,6 +48,7 @@ public class StreamMapMatcherTest {
     public void setUp() {
         trajectory = ModelGenerator.generateTrajectory();
         RoadNetwork roadNetwork = ModelGenerator.generateRoadNetwork();
+        mapMatcher = new TiHmmMapMatcher(roadNetwork, new ManyToManyShortestPath(roadNetwork));
         mapMatcher2 = new StreamMapMatcher(roadNetwork, new ManyToManyShortestPath(roadNetwork));
         recover = new ShortestPathPathRecover(roadNetwork, new BiDijkstraShortestPath(roadNetwork));
     }
@@ -60,6 +62,16 @@ public class StreamMapMatcherTest {
         List<PathOfTrajectory> pTrajectories = recover.recover(mmTrajectory);
         System.out.println(pTrajectories.get(0).toGeoJSON());
         assertEquals(1, pTrajectories.size());
+    }
+
+    @Test
+    public void matchTrajCompare() throws AlgorithmExecuteException, JsonProcessingException {
+        System.out.println(trajectory.toGeoJSON());
+        MapMatchedTrajectory mmTrajectory = mapMatcher.mapMatch(trajectory);
+        System.out.println(mmTrajectory.toGeoJSON());
+        MapMatchedTrajectory mmTrajectory2 = mapMatcher2.streamMapMatch(trajectory);
+        System.out.println(mmTrajectory2.toGeoJSON());
+
     }
 
     @Test
