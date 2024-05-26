@@ -1,6 +1,7 @@
 package org.urbcomp.cupid.db.algorithm.predict;
 
-import org.deeplearning4j.datasets.iterator.utilty.ListDataSetIterator;
+
+import org.deeplearning4j.datasets.iterator.impl.ListDataSetIterator;
 import org.nd4j.linalg.dataset.DataSet;
 import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
 import org.nd4j.linalg.factory.Nd4j;
@@ -9,6 +10,7 @@ import org.urbcomp.cupid.db.model.sample.ModelGenerator;
 import org.urbcomp.cupid.db.model.trajectory.Trajectory;
 
 import java.io.*;
+import java.nio.file.Files;
 import java.util.*;
 
 public class DataPreparation {
@@ -18,12 +20,12 @@ public class DataPreparation {
     private static double maxLat = Double.MIN_VALUE;
     private static double minLng = Double.MAX_VALUE;
     private static double maxLng = Double.MIN_VALUE;
-    private static final int trajectoriesCount = 20;
+    private static final int trajectoriesCount = 20000;
 
     public static DataSetIterator createTrainingData(String observationsPath, int sequenceLength) {
         List<Trajectory> trajectories = new ArrayList<>();
 
-        try (InputStream in = ModelGenerator.class.getClassLoader().getResourceAsStream(observationsPath);
+        try (InputStream in = Files.newInputStream(new File(observationsPath).toPath());
              BufferedReader br = new BufferedReader(new InputStreamReader(Objects.requireNonNull(in)))) {
             String trajStr;
             while ((trajStr = br.readLine()) != null) {
@@ -72,7 +74,7 @@ public class DataPreparation {
             concatenatedOutputFeatures[i] = allOut.get(i);
         }
         dataSets.add(new DataSet(Nd4j.create(concatenatedInputFeatures), Nd4j.create(concatenatedOutputFeatures)));
-        return new ListDataSetIterator<>(dataSets, 64);
+        return new ListDataSetIterator<>(dataSets, 10);
     }
 
     private static void updateMinMax(List<GPSPoint> points) {

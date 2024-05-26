@@ -6,7 +6,7 @@ import java.io.IOException;
 
 public class TrainModel {
     public static void main(String[] args) throws IOException {
-        String observationsPath = "data/output.txt";
+        String observationsPath = "D:\\StreamingTrajectoryMapMatching\\src\\main\\resources\\data\\output.txt";
         double bestValidationLoss = Double.MAX_VALUE;
         int sequenceLength = 12;
         int numEpochs = 5000;
