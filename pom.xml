@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://www.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>org.urbcomp.cupid.db</groupId>
@@ -57,36 +57,26 @@
             <artifactId>scala-reflect</artifactId>
             <version>2.12.8</version>
         </dependency>
-
-        <!-- deeplearning4j-core: contains main functionality and neural networks -->
         <dependency>
             <groupId>org.deeplearning4j</groupId>
             <artifactId>deeplearning4j-core</artifactId>
             <version>1.0.0-beta7</version>
         </dependency>
-
         <dependency>
             <groupId>nz.ac.waikato.cms.weka</groupId>
             <artifactId>weka-stable</artifactId>
             <version>3.8.6</version>
         </dependency>
-
-<!--        <dependency>-->
-<!--            <groupId>org.deeplearning4j</groupId>-->
-<!--            <artifactId>deeplearning4j-ui</artifactId>-->
-<!--            <version>1.0.0-M2.1</version>-->
-<!--        </dependency>-->
-
-        <!--
-        ND4J backend: every project needs one of these. The backend defines the hardware on which network training
-        will occur. "nd4j-native-platform" is for CPUs only (for running on all operating systems).
-        -->
         <dependency>
             <groupId>org.nd4j</groupId>
-            <artifactId>nd4j-native</artifactId>
+            <artifactId>nd4j-native-platform</artifactId>
             <version>1.0.0-beta7</version>
         </dependency>
-
+        <dependency>
+            <groupId>org.deeplearning4j</groupId>
+            <artifactId>rl4j-core</artifactId>
+            <version>1.0.0-beta7</version>
+        </dependency>
     </dependencies>
 
     <repositories>
@@ -94,7 +84,6 @@
             <id>central-repos1</id>
             <url>https://repo1.maven.org/maven2/</url>
         </repository>
-        <!--for geotools-->
         <repository>
             <id>osgeo-alt</id>
             <url>https://repo.osgeo.org/repository/release/</url>
@@ -143,7 +132,4 @@
             </plugin>
         </plugins>
     </build>
-
-
-
 </project>

@@ -29,11 +29,11 @@ public class TiViterbi {
     /**
      * 上一个状态下每一个candidate point 对应的extended state
      */
-    private Map<CandidatePoint, ExtendedState> lastExtendedStates;
+    public Map<CandidatePoint, ExtendedState> lastExtendedStates;
     /**
      * 上一个状态下原始轨迹点对应的所有candidate point
      */
-    private List<CandidatePoint> prevCandidates;
+    public List<CandidatePoint> prevCandidates;
     /**
      * 每个candidate point 对应的p
      */
@@ -42,6 +42,15 @@ public class TiViterbi {
      * 是否停止初始化状态概率函数
      */
     public Boolean isBroken = false;
+
+    public TiViterbi(Map<CandidatePoint, ExtendedState> lastExtendedStates, List<CandidatePoint> prevCandidates, Map<CandidatePoint, Double> message, Boolean isBroken){
+        this.lastExtendedStates = lastExtendedStates;
+        this.prevCandidates = prevCandidates;
+        this.message = message;
+        this.isBroken = isBroken;
+    }
+    public TiViterbi(){}
+
 
     /**
      * 初始状态概率函数

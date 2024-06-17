@@ -1,5 +1,10 @@
 package org.urbcomp.cupid.db.algorithm.mapmatch.stream;
 
+import org.apache.commons.math3.linear.ArrayRealVector;
+import org.apache.commons.math3.linear.MatrixUtils;
+import org.apache.commons.math3.linear.RealMatrix;
+import org.apache.commons.math3.linear.RealVector;
+import org.urbcomp.cupid.db.algorithm.kalman.KalmanFilter;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.HmmProbabilities;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.SequenceState;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.TiViterbi;
@@ -40,29 +45,52 @@ public class StreamMapMatcher {
     protected final RoadNetwork roadNetwork;
 
     protected final AbstractManyToManyShortestPath pathAlgo;
+    private final KalmanFilter kalmanFilter;
 
     public StreamMapMatcher(RoadNetwork roadNetwork, AbstractManyToManyShortestPath pathAlgo) {
         this.roadNetwork = roadNetwork;
         this.pathAlgo = pathAlgo;
+        double[][] F = new double[][]{
+                {1, 0, 1, 0},
+                {0, 1, 0, 1},
+                {0, 0, 1, 0},
+                {0, 0, 0, 1}
+        };
+        double[][] H = new double[][]{
+                {1, 0, 0, 0},
+                {0, 1, 0, 0},
+                {0, 0, 1, 0},
+                {0, 0, 0, 1}
+        };
+        double pre_var = 15 * 15;
+        double gps_var = 100 * 100;
+        this.kalmanFilter = new KalmanFilter(F, H, gps_var, pre_var);
     }
 
-    public MapMatchedTrajectory streamMapMatch(Trajectory traj) throws AlgorithmExecuteException {
+    public MapMatchedTrajectory streamMapMatch(Trajectory traj, double alpha, double beta) throws AlgorithmExecuteException {
+
         TimeStep preTimeStep = null;
         List<SequenceState> seq = new ArrayList<>();
         TiViterbi viterbi = new TiViterbi();
-        int index = 0;
-        for (GPSPoint p : traj.getGPSPointList()) {
-            Tuple3<List<SequenceState>, TimeStep, TiViterbi> tuple2 = this.computeViterbiSequence(p, seq, index, preTimeStep, viterbi);
+        for (int i = 0; i < traj.getGPSPointList().size(); i++) {
+
+            GPSPoint p = traj.getGPSPointList().get(i);
+
+            double[] estimate = kalmanFilter.process(p.getX(), p.getY(), p.getTime());
+
+            GPSPoint filterPoint = new GPSPoint(p.getTime(), estimate[0], estimate[1]);
+
+            Tuple3<List<SequenceState>, TimeStep, TiViterbi> tuple2;
+            tuple2 = this.computeViterbiSequence(p, seq, preTimeStep, viterbi, filterPoint, i, alpha, beta);
             seq = tuple2._1();
             preTimeStep = tuple2._2();
             viterbi = tuple2._3();
-            index ++;
         }
 //        if (seq.size() < size) { //添加最后的
 //            seq.addAll(viterbi.computeMostLikelySequence());
 //        }
-        System.out.println("seq size: " + seq.size());
-        System.out.println("traj size: " + traj.getGPSPointList().size());
+//        System.out.println("seq size: " + seq.size());
+//        System.out.println("traj size: " + traj.getGPSPointList().size());
         assert traj.getGPSPointList().size() == seq.size();
         List<MapMatchedPoint> mapMatchedPointList = new ArrayList<>(seq.size());
         for (SequenceState ss : seq) {
@@ -82,9 +110,10 @@ public class StreamMapMatcher {
      * @param point 原始轨迹ptList
      * @return 保存了每一步step的所有状态
      */
-    private Tuple3<List<SequenceState>, TimeStep, TiViterbi> computeViterbiSequence(GPSPoint point, List<SequenceState> seq, int index, TimeStep preTimeStep, TiViterbi viterbi)
+    private Tuple3<List<SequenceState>, TimeStep, TiViterbi> computeViterbiSequence(GPSPoint point, List<SequenceState> seq, TimeStep preTimeStep, TiViterbi viterbi, GPSPoint filterPoint, int index, double alpha, double beta)
             throws AlgorithmExecuteException {
         TimeStep timeStep = this.createTimeStep(point);//轨迹点+候选点集
+        TimeStep filterStep = this.createTimeStep(filterPoint);
         if (timeStep == null) {
 //            seq.addAll(viterbi.computeMostLikelySequence()); //计算之前最有可能的序列
             seq.add(new SequenceState(null, point)); //添加新状态
@@ -92,6 +121,10 @@ public class StreamMapMatcher {
             preTimeStep = null;
         } else {
             this.computeEmissionProbabilities(timeStep, probabilities);//计算观测概率
+            if (filterStep != null && index > 15) {
+                this.computeEmissionProbabilities(filterStep, probabilities);
+                adjustEmissionProbabilities(timeStep, filterStep, alpha, beta);
+            }
             if (preTimeStep == null) { //第一个点初始化概率
                 viterbi.startWithInitialObservation(
                         timeStep.getObservation(),
@@ -118,29 +151,40 @@ public class StreamMapMatcher {
                 );
             }
             CandidatePoint maxPoint = StreamMapMatcher.findMaxValuePoint(viterbi.message);//找到最大概率的候选点
+            kalmanFilter.update(maxPoint.getX(),maxPoint.getY(),point.getTime());
             seq.add(new SequenceState(maxPoint, point));
             preTimeStep = timeStep;
         }
         return Tuple3.apply(seq, preTimeStep, viterbi);
     }
 
+    public void adjustEmissionProbabilities(TimeStep timeStep, TimeStep filterTimeStep, double alpha, double beta) {
+        for (Map.Entry<CandidatePoint, Double> candidatePointDoubleEntry : timeStep.getEmissionLogProbabilities().entrySet()) {
+            long roadId = candidatePointDoubleEntry.getKey().getRoadSegmentId();
+            for (Map.Entry<CandidatePoint, Double> filterCandidatePointDoubleEntry : filterTimeStep.getEmissionLogProbabilities().entrySet()) {
+                long filterRoadId = filterCandidatePointDoubleEntry.getKey().getRoadSegmentId();
+                if (roadId == filterRoadId) {
+                    candidatePointDoubleEntry.setValue(candidatePointDoubleEntry.getValue() * alpha + filterCandidatePointDoubleEntry.getValue() * beta);
+                }
+            }
+        }
+
+    }
 
     public static CandidatePoint findMaxValuePoint(Map<CandidatePoint, Double> map) {
         CandidatePoint maxPoint = null;
         double maxProb = Double.MIN_VALUE;
-        for (CandidatePoint candiPt : map.keySet()){
-            if (maxPoint == null){
+        for (CandidatePoint candiPt : map.keySet()) {
+            if (maxPoint == null) {
                 maxPoint = candiPt;
                 maxProb = map.get(candiPt);
-            }
-            else if (map.get(candiPt) > maxProb){
+            } else if (map.get(candiPt) > maxProb) {
                 maxPoint = candiPt;
                 maxProb = map.get(candiPt);
             }
         }
         return maxPoint;
     }
-
 
 
     /**

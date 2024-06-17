@@ -75,7 +75,6 @@ public class EvaluateUtils {
             labelList.add(id1);
             resultList.add(id2);
         }
-
         int errorPointsCount = 0;
         int mayBeError = 0;
         for (int i = 0; i < labelList.size(); i++){
@@ -101,20 +100,6 @@ public class EvaluateUtils {
         }
         return  1 - errorPointsCount * 1.0/ features1.size();
     }
-
-    public static int getDifferentElementCount(Set<Integer> set1, Set<Integer> set2) {
-        // 创建副本集合
-        Set<Integer> set1Copy = new HashSet<>(set1);
-        Set<Integer> set2Copy = new HashSet<>(set2);
-
-        // 移除两个集合的交集部分
-        set2Copy.removeAll(set1);
-        System.out.println(set2Copy);
-        // 计算不同元素的数量
-        return  set2Copy.size();
-    }
-
-
 
     private static double getAccuracy(FeatureCollectionWithProperties fcp1, FeatureCollectionWithProperties fcp2, List<Point> pointList, List<Point> pointList2) {
         List<Feature> features1 = fcp1.getFeatures();

@@ -38,4 +38,16 @@ public class RoadGraph extends AbstractBaseGraph<RoadNode, RoadSegment> {
         super.addEdge(roadSegment.getStartNode(), roadSegment.getEndNode(), roadSegment);
         setEdgeWeight(roadSegment, roadSegment.getLengthInMeter());
     }
+
+    public static boolean areEdgesAdjacent(RoadSegment edge1, RoadSegment edge2) {
+        RoadNode startNode1 = edge1.getStartNode();
+        RoadNode endNode1 = edge1.getEndNode();
+        RoadNode startNode2 = edge2.getStartNode();
+        RoadNode endNode2 = edge2.getEndNode();
+
+        // Check if they share any node
+        return startNode1.equals(startNode2) || startNode1.equals(endNode2) ||
+                endNode1.equals(startNode2) || endNode1.equals(endNode2);
+    }
+
 }
