@@ -49,6 +49,37 @@ public class ModelGenerator {
     public static Trajectory generateTrajectory(String trajFile) {
         return generateTrajectory(trajFile, -1);
     }
+    public static Trajectory generateTrajectory(int index) {
+        String trajFile = "data/output.txt";
+        try (
+                InputStream in = ModelGenerator.class.getClassLoader().getResourceAsStream(trajFile);
+                BufferedReader br = new BufferedReader(
+                        new InputStreamReader(Objects.requireNonNull(in))
+                )
+        ) {
+            String trajStr = null;
+            for (int i = 0; i < index; ++i) {
+                trajStr = br.readLine();
+            }
+            String correctStr = trajStr.replaceFirst("\\[", "[\"").replaceFirst(",", "\",");
+            List<String> result = JSON.parseArray(correctStr, String.class);
+            String oid = result.get(0);
+            List<String> pointsStrList = JSON.parseArray(result.get(1), String.class);
+            List<GPSPoint> pointsList = pointsStrList.stream()
+                    .map(o -> JSON.parseArray(o, String.class))
+                    .map(o -> {
+                        Timestamp timestamp = Timestamp.valueOf(o.get(0));
+                        double lng = Double.parseDouble(o.get(1));
+                        double lat = Double.parseDouble(o.get(2));
+                        double[] convertedCoords = CoordTransformUtils.gcj02Towgs84(lng, lat);
+                        return new GPSPoint(timestamp, convertedCoords[0], convertedCoords[1]);
+                    })
+                    .collect(Collectors.toList());
+            return new Trajectory(oid + pointsList.get(0).getTime(), oid, pointsList);
+        } catch (IOException e) {
+            throw new RuntimeException("Generate trajectory error: " + e.getMessage());
+        }
+    }
 
     public static Trajectory generateTrajectory(String trajFile, int maxLength) {
         try (
@@ -58,7 +89,7 @@ public class ModelGenerator {
             )
         ) {
             String trajStr = null;
-            for (int i = 0; i < 24; ++i) {
+            for (int i = 0; i < 15; ++i) {
                 trajStr = br.readLine();
             }
             String correctStr = trajStr.replaceFirst("\\[", "[\"").replaceFirst(",", "\",");
