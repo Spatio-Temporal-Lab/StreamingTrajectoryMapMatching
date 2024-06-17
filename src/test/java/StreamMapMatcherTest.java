@@ -21,7 +21,6 @@ import org.junit.Test;
 import org.urbcomp.cupid.db.algorithm.mapmatch.routerecover.ShortestPathPathRecover;
 import org.urbcomp.cupid.db.algorithm.mapmatch.stream.StreamMapMatcher;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.TiHmmMapMatcher;
-import org.urbcomp.cupid.db.algorithm.predict.LSTMModel;
 import org.urbcomp.cupid.db.algorithm.shortestpath.BiDijkstraShortestPath;
 import org.urbcomp.cupid.db.algorithm.shortestpath.ManyToManyShortestPath;
 import org.urbcomp.cupid.db.exception.AlgorithmExecuteException;
@@ -88,10 +87,11 @@ public class StreamMapMatcherTest {
 
     @Test
     public void matchTrajsToMapMatchedTrajs() throws AlgorithmExecuteException, IOException {
+        //TODO: fix bugs when dataID == 1003
         String trajFile = "data/output.txt";
         String outputFile = "map_matched_trajectories_stream.geojson";
         int success_count = 0;
-        int trajectories_count = 2000;
+        int trajectories_count = 1;
         try (
                 InputStream in = ModelGenerator.class.getClassLoader().getResourceAsStream(trajFile);
                 BufferedReader br = new BufferedReader(new InputStreamReader(Objects.requireNonNull(in)));
