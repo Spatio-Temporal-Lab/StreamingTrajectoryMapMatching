@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright (C) 2022  ST-Lab
  *
  * This program is free software: you can redistribute it and/or modify
@@ -10,7 +10,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
@@ -52,10 +52,10 @@ public class ModelGenerator {
 
     public static Trajectory generateTrajectory(String trajFile, int maxLength) {
         try (
-            InputStream in = ModelGenerator.class.getClassLoader().getResourceAsStream(trajFile);
-            BufferedReader br = new BufferedReader(
-                new InputStreamReader(Objects.requireNonNull(in))
-            )
+                InputStream in = ModelGenerator.class.getClassLoader().getResourceAsStream(trajFile);
+                BufferedReader br = new BufferedReader(
+                        new InputStreamReader(Objects.requireNonNull(in))
+                )
         ) {
             String trajStr = null;
             for (int i = 0; i < 24; ++i) {
@@ -86,11 +86,11 @@ public class ModelGenerator {
 
     public static Trajectory generateTrajectory(List<String> names, List<String> types) {
         try (
-            InputStream in = ModelGenerator.class.getClassLoader()
-                .getResourceAsStream("data/traj1.txt");
-            BufferedReader br = new BufferedReader(
-                new InputStreamReader(Objects.requireNonNull(in))
-            )
+                InputStream in = ModelGenerator.class.getClassLoader()
+                        .getResourceAsStream("data/traj1.txt");
+                BufferedReader br = new BufferedReader(
+                        new InputStreamReader(Objects.requireNonNull(in))
+                )
         ) {
             String trajStr = br.readLine();
             String correctStr = trajStr.replaceFirst("\\[", "[\"").replaceFirst(",", "\",");
@@ -98,15 +98,15 @@ public class ModelGenerator {
             String oid = result.get(0);
             List<String> pointsStrList = JSON.parseArray(result.get(1), String.class);
             List<GPSPoint> pointsList = pointsStrList.stream()
-                .map(o -> JSON.parseArray(o, String.class))
-                .map(
-                    o -> new GPSPoint(
-                        Timestamp.valueOf(o.get(0)),
-                        Double.parseDouble(o.get(1)),
-                        Double.parseDouble(o.get(2))
+                    .map(o -> JSON.parseArray(o, String.class))
+                    .map(
+                            o -> new GPSPoint(
+                                    Timestamp.valueOf(o.get(0)),
+                                    Double.parseDouble(o.get(1)),
+                                    Double.parseDouble(o.get(2))
+                            )
                     )
-                )
-                .collect(Collectors.toList());
+                    .collect(Collectors.toList());
             int n = names.size();
             GeometryJSON geometryJSON = new GeometryJSON();
             Map<String, Attribute> attributeMap = new HashMap<>();
@@ -115,16 +115,61 @@ public class ModelGenerator {
                 String typeName = types.get(i);
                 Class type = DataTypeUtils.getClass(typeName);
                 attributeMap.put(
-                    name,
-                    new Attribute(
-                        typeName,
-                        Geometry.class.isAssignableFrom(type)
-                            ? type.cast(geometryJSON.read(result.get(i + 2)))
-                            : JSONObject.parseObject(result.get(i + 2), type)
-                    )
+                        name,
+                        new Attribute(
+                                typeName,
+                                Geometry.class.isAssignableFrom(type)
+                                        ? type.cast(geometryJSON.read(result.get(i + 2)))
+                                        : JSONObject.parseObject(result.get(i + 2), type)
+                        )
                 );
             }
             return new Trajectory(oid + pointsList.get(0).getTime(), oid, pointsList, attributeMap);
+        } catch (IOException e) {
+            throw new RuntimeException("Generate trajectory error: " + e.getMessage());
+        }
+    }
+
+    public static List<Trajectory> generateMultiTrajectory(String trajFile, int num, int maxLength) {
+        try (
+                InputStream in = ModelGenerator.class.getClassLoader().getResourceAsStream(trajFile);
+                BufferedReader br = new BufferedReader(
+                        new InputStreamReader(Objects.requireNonNull(in))
+                )
+        ) {
+            List<Trajectory> trajectoryList = new ArrayList<>();
+            String trajStr = null;
+            if (num > 0) {
+                for (int i = 0; i < num; i++) {
+                    trajStr = br.readLine();
+                    trajectoryList.add(generateTrajectoryByStr(trajStr, maxLength));
+                }
+            } else {
+                while ((trajStr = br.readLine()) != null) {
+                    trajectoryList.add(generateTrajectoryByStr(trajStr, maxLength));
+                }
+            }
+            return trajectoryList;
+        } catch (IOException e) {
+            throw new RuntimeException("Generate trajectory error: " + e.getMessage());
+        }
+    }
+
+    public static Trajectory generateSingleTrajectory(String trajFile, int index, int maxLength) {
+        try (
+                InputStream in = ModelGenerator.class.getClassLoader().getResourceAsStream(trajFile);
+                BufferedReader br = new BufferedReader(
+                        new InputStreamReader(Objects.requireNonNull(in))
+                )
+        ) {
+            String trajStr = br.readLine();
+            for (int i = 0; i < index; ++i) {
+                trajStr = br.readLine();
+            }
+            if (trajStr != null) {
+                return generateTrajectoryByStr(trajStr, maxLength);
+            }
+            return null;
         } catch (IOException e) {
             throw new RuntimeException("Generate trajectory error: " + e.getMessage());
         }
@@ -162,9 +207,9 @@ public class ModelGenerator {
         points.add(new SpatialPoint(111.37939453125, 54.00776876193478));
         points.add(new SpatialPoint(116.3671875, 53.05442186546102));
         return new RoadSegment(1, 1, 2, points).setDirection(RoadSegmentDirection.DUAL)
-            .setSpeedLimit(30.0)
-            .setLevel(RoadSegmentLevel.URBAN_ROAD)
-            .setLengthInMeter(120);
+                .setSpeedLimit(30.0)
+                .setLevel(RoadSegmentLevel.URBAN_ROAD)
+                .setLengthInMeter(120);
     }
 
     public static List<RoadSegment> generateRoadSegments() {
@@ -173,11 +218,11 @@ public class ModelGenerator {
 
     public static List<RoadSegment> generateRoadSegments(int maxLength) {
         try (
-            InputStream in = ModelGenerator.class.getClassLoader()
-                .getResourceAsStream("data/outputchengdu.csv");
-            BufferedReader br = new BufferedReader(
-                new InputStreamReader(Objects.requireNonNull(in))
-            )
+                InputStream in = ModelGenerator.class.getClassLoader()
+                        .getResourceAsStream("data/outputchengdu.csv");
+                BufferedReader br = new BufferedReader(
+                        new InputStreamReader(Objects.requireNonNull(in))
+                )
         ) {
             br.readLine(); // read head
             String roadSegmentStr;
@@ -188,19 +233,19 @@ public class ModelGenerator {
                 int startId = Integer.parseInt(roadStrArr[2]);
                 int endId = Integer.parseInt(roadStrArr[3]);
                 RoadSegmentDirection direction = RoadSegmentDirection.valueOf(
-                    Integer.parseInt(roadStrArr[4])
+                        Integer.parseInt(roadStrArr[4])
                 );
                 RoadSegmentLevel level = RoadSegmentLevel.valueOf(Integer.parseInt(roadStrArr[5]));
                 double speedLimit = Double.parseDouble(roadStrArr[6]);
                 double lengthInM = Double.parseDouble(roadStrArr[7]);
                 List<SpatialPoint> points = Arrays.stream(
-                    WKTUtils.read(roadStrArr[1]).getCoordinates()
+                        WKTUtils.read(roadStrArr[1]).getCoordinates()
                 ).map(SpatialPoint::new).collect(Collectors.toList());
                 RoadSegment rs = new RoadSegment(roadSegmentId, startId, endId, points);
                 rs.setDirection(direction)
-                    .setLevel(level)
-                    .setSpeedLimit(speedLimit)
-                    .setLengthInMeter(lengthInM);
+                        .setLevel(level)
+                        .setSpeedLimit(speedLimit)
+                        .setLengthInMeter(lengthInM);
                 roadSegments.add(rs);
                 if (maxLength >= 0 && roadSegments.size() >= maxLength) break;
             }

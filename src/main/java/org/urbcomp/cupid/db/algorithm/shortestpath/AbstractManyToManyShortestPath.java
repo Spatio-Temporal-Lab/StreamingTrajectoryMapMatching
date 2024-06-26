@@ -239,4 +239,25 @@ public class AbstractManyToManyShortestPath {
         );
     }
 
+    public Path findShortestPathBetweenCandidates(CandidatePoint startCandidatePoint, CandidatePoint endCandidatePoint) {
+        Set<CandidatePoint> startPoints = new HashSet<>();
+        Set<CandidatePoint> endPoints = new HashSet<>();
+        startPoints.add(startCandidatePoint);
+        endPoints.add(endCandidatePoint);
+
+        Map<RoadNode, Map<RoadNode, Path>> shortestPaths = findShortestPath(startPoints, endPoints);
+
+        RoadSegment startRoadSegment = roadNetwork.getRoadSegmentById(startCandidatePoint.getRoadSegmentId());
+        RoadSegment endRoadSegment = roadNetwork.getRoadSegmentById(endCandidatePoint.getRoadSegmentId());
+
+        RoadNode startNode = startRoadSegment.getEndNode();
+        RoadNode endNode = endRoadSegment.getStartNode();
+
+        if (shortestPaths.containsKey(startNode) && shortestPaths.get(startNode).containsKey(endNode)) {
+            Path path = shortestPaths.get(startNode).get(endNode);
+            return getCompletePath(startCandidatePoint, endCandidatePoint, path);
+        } else {
+            return new Path(Double.MAX_VALUE, new ArrayList<>(), new ArrayList<>());
+        }
+    }
 }
