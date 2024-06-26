@@ -23,8 +23,10 @@ public class DataPreparation {
     public static DataSetIterator createTrainingData(String observationsPath, int sequenceLength) {
         List<Trajectory> trajectories = new ArrayList<>();
 
-        try (InputStream in = ModelGenerator.class.getClassLoader().getResourceAsStream(observationsPath);
-             BufferedReader br = new BufferedReader(new InputStreamReader(Objects.requireNonNull(in)))) {
+        try (
+                InputStream in = ModelGenerator.class.getClassLoader().getResourceAsStream(observationsPath);
+                BufferedReader br = new BufferedReader(new InputStreamReader(Objects.requireNonNull(in)))
+        ) {
             String trajStr;
             while ((trajStr = br.readLine()) != null) {
                 Trajectory observationTrajectory = ModelGenerator.generateTrajectoryByStr(trajStr, -1);
@@ -36,22 +38,22 @@ public class DataPreparation {
         }
         Collections.shuffle(trajectories);
 
-        List<Trajectory> subTrajectories =  trajectories.subList(0,trajectoriesCount);
-        for (Trajectory tr : subTrajectories){
+        List<Trajectory> subTrajectories = trajectories.subList(0, trajectoriesCount);
+        for (Trajectory tr : subTrajectories) {
             updateMinMax(tr.getGPSPointList());
         }
         writeVariablesToFile(varPath);
 
         List<DataSet> dataSets = new ArrayList<>();
-        ArrayList<double[][]> allIn = new ArrayList<>();
-        ArrayList<double[]> allOut = new ArrayList<>();
+        ArrayList<double[][]> allIn = new ArrayList<>();    // features
+        ArrayList<double[]> allOut = new ArrayList<>();     // labels
         for (Trajectory observationTrajectory : subTrajectories) {
             List<GPSPoint> observationPointList = observationTrajectory.getGPSPointList();
             int size = observationPointList.size();
             if (size > 2 * sequenceLength) {
-                int numTrain = size - 2 * sequenceLength;
+                int numTrain = size - 2 * sequenceLength;   // make sure i plus j less than size - seqLength ??
                 for (int i = 0; i < numTrain; i++) {
-                    double[][] inputFeatures = new double[2][sequenceLength];
+                    double[][] inputFeatures = new double[2][sequenceLength];   // [(lon1,lat1),...(lonL,latL)
                     double[] outputFeatures = new double[2];
                     for (int j = 0; j < sequenceLength; j++) {
                         inputFeatures[0][j] = normalizeLat(observationPointList.get(i + j).getLat());
@@ -68,7 +70,8 @@ public class DataPreparation {
         double[][] concatenatedOutputFeatures = new double[allIn.size()][2];
         for (int i = 0; i < allIn.size(); i++) {
             concatenatedInputFeatures[i] = allIn.get(i);
-        }for (int i = 0; i < allIn.size(); i++) {
+        }
+        for (int i = 0; i < allIn.size(); i++) {
             concatenatedOutputFeatures[i] = allOut.get(i);
         }
         dataSets.add(new DataSet(Nd4j.create(concatenatedInputFeatures), Nd4j.create(concatenatedOutputFeatures)));

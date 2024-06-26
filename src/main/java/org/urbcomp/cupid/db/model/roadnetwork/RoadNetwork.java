@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright (C) 2022  ST-Lab
  *
  * This program is free software: you can redistribute it and/or modify
@@ -10,7 +10,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
@@ -24,10 +24,17 @@ import com.github.davidmoten.rtree.RTree;
 import com.github.davidmoten.rtree.geometry.Geometries;
 import com.github.davidmoten.rtree.geometry.Rectangle;
 import org.geojson.FeatureCollection;
+import org.urbcomp.cupid.db.algorithm.mapmatch.amm.inner.AMMGPSPoint;
+import org.urbcomp.cupid.db.algorithm.mapmatch.amm.inner.Candidate;
+import org.urbcomp.cupid.db.algorithm.mapmatch.amm.inner.PointsSet;
+import org.urbcomp.cupid.db.model.point.CandidatePoint;
+import org.urbcomp.cupid.db.model.point.GPSPoint;
 import org.urbcomp.cupid.db.model.point.SpatialPoint;
 import org.urbcomp.cupid.db.serializer.RoadNetworkDeserializer;
 import org.urbcomp.cupid.db.serializer.RoadNetworkSerializer;
+import org.urbcomp.cupid.db.util.MapUtil;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
@@ -50,8 +57,8 @@ public class RoadNetwork implements java.io.Serializable {
 
     public RoadNetwork(List<RoadSegment> roadSegments) {
         this.roadSegments = roadSegments.stream()
-            .map(RoadSegment::flipBackwardRoadSegment)
-            .collect(Collectors.toList());
+                .map(RoadSegment::flipBackwardRoadSegment)
+                .collect(Collectors.toList());
         this.roadSegments.forEach(o -> {
             idToExpandedRoadSegment.put(o.getRoadSegmentId(), o);
             Optional<RoadSegment> rsOp = o.createReverseRoadSegmentIfDual();
@@ -104,8 +111,8 @@ public class RoadNetwork implements java.io.Serializable {
                             maxLat = Math.max(maxLat, point.getLat());
                         }
                         roadRTree = roadRTree.add(
-                            rs,
-                            Geometries.rectangleGeographic(minLng, minLat, maxLng, maxLat)
+                                rs,
+                                Geometries.rectangleGeographic(minLng, minLat, maxLng, maxLat)
                         );
                     }
                 }
@@ -143,9 +150,9 @@ public class RoadNetwork implements java.io.Serializable {
     public static RoadNetwork fromGeoJSON(String geoJsonStr) throws JsonProcessingException {
         FeatureCollection fc = new ObjectMapper().readValue(geoJsonStr, FeatureCollection.class);
         List<RoadSegment> roadSegmentList = fc.getFeatures()
-            .stream()
-            .map(RoadSegment::fromFeature)
-            .collect(Collectors.toList());
+                .stream()
+                .map(RoadSegment::fromFeature)
+                .collect(Collectors.toList());
         return new RoadNetwork(roadSegmentList);
     }
 
@@ -160,5 +167,51 @@ public class RoadNetwork implements java.io.Serializable {
         } catch (JsonProcessingException e) {
             throw new RuntimeException(e);
         }
+    }
+
+
+    /**
+     * 计算候选点方向与给定方向的差异
+     *
+     * @param point 候选点（CandidatePoint）
+     * @param direction 给定方向（以度为单位）
+     * @return 方向差异（以度为单位）
+     */
+    public double calculateDeltaDirection(CandidatePoint point, double direction) {
+        RoadSegment rs = getRoadSegmentById(point.getRoadSegmentId());
+        if (rs == null) {
+            throw new IllegalArgumentException("Invalid RoadSegment ID");
+        }
+        double direction1 = Double.MAX_VALUE;
+        double direction2 = Double.MAX_VALUE;
+        List<SpatialPoint> rsPoints = rs.getPoints();
+        if (rsPoints.size() < 2) {
+            throw new IllegalArgumentException("Invalid RoadSegment geometry");
+        }
+        RoadSegmentDirection rsDirection = rs.getDirection();
+        if (rsDirection == RoadSegmentDirection.DUAL || rsDirection == RoadSegmentDirection.FORWARD) {
+            direction1 = MapUtil.calculateDirection(rsPoints.get(0), rsPoints.get(1));
+        }
+        if (rsDirection == RoadSegmentDirection.DUAL || rsDirection == RoadSegmentDirection.BACKWARD) {
+            direction2 = MapUtil.calculateDirection(rsPoints.get(rsPoints.size() - 1), rsPoints.get(rsPoints.size() - 2));
+        }
+        return Math.min(
+                Math.min(Math.abs(direction1 - direction), Math.abs(360.0 - Math.abs(direction1 - direction))),
+                Math.min(Math.abs(direction2 - direction), Math.abs(360.0 - Math.abs(direction2 - direction)))
+        );
+    }
+
+
+    public List<PointsSet> generateSequence(List<AMMGPSPoint> AMMGPSPointList,
+                                            RoadNetwork roadNetwork,
+                                            double radius) {
+        List<PointsSet> trackList = new ArrayList<>();
+        for (AMMGPSPoint observation : AMMGPSPointList) {
+            List<CandidatePoint> candidatePoints = CandidatePoint.getCandidatePoint(observation, roadNetwork, radius);
+            List<Candidate> candidates = new ArrayList<>();
+            for (CandidatePoint candidatePoint : candidatePoints) { candidates.add(new Candidate(candidatePoint)); }
+            trackList.add(new PointsSet(observation, candidates));
+        }
+        return trackList;
     }
 }
