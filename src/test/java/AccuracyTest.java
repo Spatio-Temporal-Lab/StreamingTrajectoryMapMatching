@@ -6,7 +6,7 @@ public class AccuracyTest {
     public void testAccuracy() {
         String labelPath = "D:\\StreamingTrajectoryMapMatching\\src\\main\\resources\\data\\map_matched_trajectories_labels.geojson";
         String streamPath = "D:\\StreamingTrajectoryMapMatching\\src\\main\\resources\\data\\map_matched_trajectories_stream.geojson";
-        double accuracy = EvaluateUtils.calculateAccuracy(labelPath, streamPath);
+        double accuracy = EvaluateUtils.calculateAccuracy(labelPath, streamPath, 0);
         System.out.println("Accuracy:" + accuracy);
     }
 }
