@@ -85,8 +85,11 @@ public class TimeStep {
             fromPosition,
             toPosition
         );
+//        System.out.println(transitionLogProbabilities + "  " + transition);
+
         if (transitionLogProbabilities.containsKey(transition)) {
-            throw new IllegalArgumentException("Transition has already been added.");
+            transitionLogProbabilities.remove(transition);
+//            throw new IllegalArgumentException("Transition has already been added.");
         }
         transitionLogProbabilities.put(transition, transitionLogProbability);
     }

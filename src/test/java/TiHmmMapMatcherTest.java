@@ -57,7 +57,7 @@ public class TiHmmMapMatcherTest {
         //MapMatchedTrajectory mmTrajectory = mapMatcher2.streamMapMatch(trajectory);
         System.out.println(trajectory.toGeoJSON());
         long start = System.nanoTime();
-        MapMatchedTrajectory mmTrajectory = mapMatcher.mapMatch(trajectory);
+        MapMatchedTrajectory mmTrajectory = mapMatcher.mapMatch(trajectory, 0.5);
         System.out.println((System.nanoTime() - start)/1_000_000.0/mmTrajectory.getMmPtList().size());
         System.out.println(mmTrajectory.toGeoJSON());
         assertEquals(trajectory.getGPSPointList().size(), mmTrajectory.getMmPtList().size());
@@ -81,8 +81,8 @@ public class TiHmmMapMatcherTest {
             int count = 0;
             while ((trajStr = br.readLine()) != null && count < trajectories_count ) {
                 count++;
-                Trajectory trajectory = generateTrajectoryByStr(trajStr, -1);
-                MapMatchedTrajectory mmTrajectory = mapMatcher.mapMatch(trajectory);
+                Trajectory trajectory = generateTrajectoryByStr(trajStr, 0);
+                MapMatchedTrajectory mmTrajectory = mapMatcher.mapMatch(trajectory,0.5);
                 writer.write(mmTrajectory.toGeoJSON());
                 writer.newLine();
                 success_count++;

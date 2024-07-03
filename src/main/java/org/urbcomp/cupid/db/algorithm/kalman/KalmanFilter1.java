@@ -1,14 +1,10 @@
 package org.urbcomp.cupid.db.algorithm.kalman;
 
 import org.apache.commons.math3.linear.*;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.io.*;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
 
-public class KalmanFilter {
+import java.util.Date;
+
+public class KalmanFilter1 {
     private RealMatrix F; // 状态转移矩阵
     private RealMatrix H; // 观测矩阵
     private RealMatrix Q; // 过程噪声协方差矩阵
@@ -27,7 +23,7 @@ public class KalmanFilter {
     private Date time_stamp; // 时间戳
     private double duration; // 持续时间
 
-    public KalmanFilter(double[][] F, double[][] H, double gps_var, double pre_var) {
+    public KalmanFilter1(double[][] F, double[][] H, double gps_var, double pre_var) {
         // 初始化卡尔曼滤波器
         this.F = MatrixUtils.createRealMatrix(F);
         this.H = MatrixUtils.createRealMatrix(H);
@@ -96,9 +92,9 @@ public class KalmanFilter {
     public void update(double xx, double yy, Date time_stamp) {
         if (this.Z == null){
             this.setState(xx, yy, time_stamp);
+            this.state = 1;
             return;
         }
-        // 更新状态
         this.Z = MatrixUtils.createColumnRealMatrix(new double[]{xx, yy, this.speed_x, this.speed_y});
         RealMatrix y = this.Z.subtract(this.H.multiply(this.X));
         RealMatrix S = this.R.add(this.H.multiply(this.P).multiply(this.H.transpose()));
@@ -109,16 +105,9 @@ public class KalmanFilter {
         this.P = I.subtract(K.multiply(this.H)).multiply(this.P);
     }
 
-    public void updateByReal(double xx, double yy) {
-        // 通过真实值更新状态
-        this.Z = MatrixUtils.createColumnRealMatrix(new double[]{xx, yy, this.speed_x, this.speed_y});
-        RealMatrix y = this.Z.subtract(this.H.multiply(this.X));
-        RealMatrix S = this.R.add(this.H.multiply(this.P).multiply(this.H.transpose()));
-        RealMatrix K = this.P.multiply(this.H.transpose()).multiply(new LUDecomposition(S).getSolver().getInverse());
-        this.X = this.X.add(K.multiply(y));
-        this.pre_X = this.X.copy();
-        RealMatrix I = MatrixUtils.createRealIdentityMatrix(this.n);
-        this.P = I.subtract(K.multiply(this.H)).multiply(this.P);
+    public void setReal(double xx, double yy){
+        this.X.setEntry(0,0, xx);
+        this.X.setEntry(1,0, yy);
     }
 
     public RealMatrix getR() {
