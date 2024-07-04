@@ -36,6 +36,7 @@ import java.util.Objects;
 
 import static org.junit.Assert.assertEquals;
 import static org.urbcomp.cupid.db.model.sample.ModelGenerator.generateTrajectoryByStr;
+import static org.urbcomp.cupid.db.util.EvaluateUtils.getAccuracy;
 
 public class StreamMapMatcherTest {
 
@@ -55,7 +56,7 @@ public class StreamMapMatcherTest {
 
     @Test
     public void matchTrajToMapMatchedTraj() throws AlgorithmExecuteException, JsonProcessingException {
-        MapMatchedTrajectory mmTrajectory = mapMatcher2.streamMapMatch(trajectory);
+        MapMatchedTrajectory mmTrajectory = mapMatcher2.streamMapMatch(trajectory, false);
         System.out.println(trajectory.toGeoJSON());
         System.out.println(mmTrajectory.toGeoJSON());
         assertEquals(trajectory.getGPSPointList().size(), mmTrajectory.getMmPtList().size());
@@ -65,21 +66,26 @@ public class StreamMapMatcherTest {
     }
 
     @Test
-    public void matchTrajCompare() throws AlgorithmExecuteException, JsonProcessingException {
-        System.out.println(trajectory.toGeoJSON());
+    public void matchTrajCompare() throws AlgorithmExecuteException {
+//        System.out.println(trajectory.toGeoJSON());
         MapMatchedTrajectory mmTrajectory = mapMatcher.mapMatch(trajectory);
-        System.out.println(mmTrajectory.toGeoJSON());
-        MapMatchedTrajectory mmTrajectory2 = mapMatcher2.streamMapMatch(trajectory);
-        System.out.println(mmTrajectory2.toGeoJSON());
+//        System.out.println(mmTrajectory.toGeoJSON());
+        MapMatchedTrajectory mmTrajectory2 = mapMatcher2.streamMapMatch(trajectory, false);
+//        System.out.println(mmTrajectory2.toGeoJSON());
+        double accuracy = getAccuracy(mmTrajectory, mmTrajectory2, 0);
+        System.out.println("no rectify accuracy is: " + accuracy);
+        mmTrajectory2 = mapMatcher2.streamMapMatch(trajectory, true);
+        accuracy = getAccuracy(mmTrajectory, mmTrajectory2, 0);
+        System.out.println("rectify accuracy is: " + accuracy);
 
     }
 
     @Test
     public void matchTrajsToMapMatchedTrajs() throws AlgorithmExecuteException, IOException {
         String trajFile = "data/output.txt";
-        String outputFile = "map_matched_trajectories_stream.geojson";
+        String outputFile = "src/main/resources/data/map_matched_trajectories_stream.geojson";
         int success_count = 0;
-        int trajectories_count = 2000;
+        int trajectories_count = 100;
         try (
                 InputStream in = ModelGenerator.class.getClassLoader().getResourceAsStream(trajFile);
                 BufferedReader br = new BufferedReader(new InputStreamReader(Objects.requireNonNull(in)));
@@ -90,7 +96,7 @@ public class StreamMapMatcherTest {
             while ((trajStr = br.readLine()) != null && count < trajectories_count) {
                 count ++;
                 Trajectory trajectory = generateTrajectoryByStr(trajStr, -1);
-                MapMatchedTrajectory mmTrajectory = mapMatcher2.streamMapMatch(trajectory);
+                MapMatchedTrajectory mmTrajectory = mapMatcher2.streamMapMatch(trajectory, false);
                 writer.write(mmTrajectory.toGeoJSON());
                 writer.newLine();
                 success_count++;
@@ -99,5 +105,53 @@ public class StreamMapMatcherTest {
         }
     }
 
+    @Test
+    public void generateRectifyResults() throws IOException {
+        String trajFile = "data/output.txt";
+        String outputFile = "src/main/resources/data/map_matched_trajectories_stream_rectify.geojson";
+        int success_count = 0;
+        int trajectories_count = 10;
+        try (
+                InputStream in = ModelGenerator.class.getClassLoader().getResourceAsStream(trajFile);
+                BufferedReader br = new BufferedReader(new InputStreamReader(Objects.requireNonNull(in)));
+                BufferedWriter writer = new BufferedWriter(new FileWriter(outputFile))
+        ) {
+            String trajStr;
+            int count = 0;
+            while ((trajStr = br.readLine()) != null && count < trajectories_count) {
+                count ++;
+                Trajectory trajectory = generateTrajectoryByStr(trajStr, -1);
+                MapMatchedTrajectory mmTrajectory = mapMatcher2.streamMapMatch(trajectory, true);
+                writer.write(mmTrajectory.toGeoJSON());
+                writer.newLine();
+                success_count++;
+                System.out.println(success_count);
+            }
+        }
+    }
 
+    @Test
+    public void generateNoRectifyResults() throws IOException {
+        String trajFile = "data/output.txt";
+        String outputFile = "src/main/resources/data/map_matched_trajectories_stream.geojson";
+        int success_count = 0;
+        int trajectories_count = 10;
+        try (
+                InputStream in = ModelGenerator.class.getClassLoader().getResourceAsStream(trajFile);
+                BufferedReader br = new BufferedReader(new InputStreamReader(Objects.requireNonNull(in)));
+                BufferedWriter writer = new BufferedWriter(new FileWriter(outputFile))
+        ) {
+            String trajStr;
+            int count = 0;
+            while ((trajStr = br.readLine()) != null && count < trajectories_count) {
+                count ++;
+                Trajectory trajectory = generateTrajectoryByStr(trajStr, -1);
+                MapMatchedTrajectory mmTrajectory = mapMatcher2.streamMapMatch(trajectory, false);
+                writer.write(mmTrajectory.toGeoJSON());
+                writer.newLine();
+                success_count++;
+                System.out.println(success_count);
+            }
+        }
+    }
 }

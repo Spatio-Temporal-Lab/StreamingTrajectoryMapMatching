@@ -3,6 +3,13 @@ package org.urbcomp.cupid.db.util;
 import org.geojson.Feature;
 import org.geojson.Point;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.urbcomp.cupid.db.model.point.CandidatePoint;
+import org.urbcomp.cupid.db.model.point.MapMatchedPoint;
+import org.urbcomp.cupid.db.model.roadnetwork.RoadNetwork;
+import org.urbcomp.cupid.db.model.roadnetwork.RoadNode;
+import org.urbcomp.cupid.db.model.roadnetwork.RoadSegment;
+import org.urbcomp.cupid.db.model.sample.ModelGenerator;
+import org.urbcomp.cupid.db.model.trajectory.MapMatchedTrajectory;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -12,6 +19,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class EvaluateUtils {
+    static RoadNetwork roadNetwork = ModelGenerator.generateRoadNetwork();
+
     public static double calculateAccuracy(String baseFile, String matchFile, int n) {
         List<Double> accuracies = new ArrayList<>();
         int notValid = 0;
@@ -46,6 +55,7 @@ public class EvaluateUtils {
         writeAccuracyToCSV(accuracies, "accuracy_result.csv");
         return totalAccuracy / accuracies.size();
     }
+
     public static double calculateAccuracy(String baseFile, String matchFile) {
         List<Double> accuracies = new ArrayList<>();
         try (BufferedReader br1 = new BufferedReader(new FileReader(baseFile));
@@ -119,4 +129,99 @@ public class EvaluateUtils {
             e.printStackTrace();
         }
     }
+
+    private static boolean isStartOrEnd(MapMatchedPoint p, int roadId) {
+        CandidatePoint point = p.getCandidatePoint();
+        RoadNode start = roadNetwork.getRoadSegmentById(Math.abs(roadId)).getStartNode();
+        RoadNode end = roadNetwork.getRoadSegmentById(Math.abs(roadId)).getEndNode();
+        if (point == null) {
+            return false;
+        }
+        if (point.getLat() == start.getLat() && point.getLng() == start.getLng()) {
+            return true;
+        } else return point.getLat() == end.getLat() && point.getLng() == end.getLng();
+    }
+
+    private static boolean checkLabel(int label, int result) {
+        if (Math.abs(label) == Math.abs(result)) {
+            return true;
+        }
+        RoadSegment rsLabel = roadNetwork.getRoadSegmentById(label);
+        RoadSegment rsResult = roadNetwork.getRoadSegmentById(result);
+        return rsLabel.getStartNode().getLng() == rsResult.getEndNode().getLng() && rsLabel.getStartNode().getLat() == rsResult.getEndNode().getLat() && rsLabel.getLengthInMeter() == rsResult.getLengthInMeter();
+    }
+
+    private static int checkError2(int labelId, int resultId, CandidatePoint label, CandidatePoint result) {
+        int errorCount = 0;
+
+        RoadSegment rsResult = roadNetwork.getRoadSegmentById(resultId);
+        RoadSegment rsLabel = roadNetwork.getRoadSegmentById(labelId);
+        if ((rsResult.getStartNode().getLat() == rsLabel.getEndNode().getLat() && rsResult.getStartNode().getLng() == rsLabel.getEndNode().getLng()) ||
+                (rsResult.getEndNode().getLat() == rsLabel.getStartNode().getLat() && rsResult.getEndNode().getLng() == rsLabel.getStartNode().getLng())) {
+        } else {
+            errorCount++;
+        }
+        return errorCount;
+    }
+
+    public static double getAccuracy(MapMatchedTrajectory labels, MapMatchedTrajectory results, double sampleRate) {
+        double totalPoints = labels.getMmPtList().size();
+        double samplePoints = results.getMmPtList().size();
+        if (totalPoints == 0) {
+            return 0.0;
+        }
+        List<Integer> labelList = new ArrayList<>();
+        List<MapMatchedPoint> sampleLabelList = new ArrayList<>();
+        List<Integer> resultList = new ArrayList<>();
+
+        int skipNum = 0;
+        boolean flag = true;
+        for (int i = 0; i < totalPoints; i++) {
+            if (flag) {
+                if (labels.getMmPtList().get(i).getCandidatePoint() == null) {
+                    labelList.add(0);
+                } else {
+                    int id1 = labels.getMmPtList().get(i).getCandidatePoint().getRoadSegmentId();
+                    labelList.add(id1);
+                }
+                sampleLabelList.add(labels.getMmPtList().get(i));
+                flag = skipNum == sampleRate;
+            } else {
+                skipNum++;
+                if (skipNum == sampleRate) {
+                    skipNum = 0;
+                    flag = true;
+                }
+            }
+        }
+        for (int i = 0; i < samplePoints; i++) {
+            if (results.getMmPtList().get(i).getCandidatePoint() == null) {
+                resultList.add(0);
+            } else {
+                int id2 = results.getMmPtList().get(i).getCandidatePoint().getRoadSegmentId();
+                resultList.add(id2);
+            }
+        }
+
+        int errorPointsCount = 0;
+        int minSize = Math.min(resultList.size(), labelList.size());
+        for (int i = 0; i < minSize; i++) {
+            int label = labelList.get(i);
+            int result = resultList.get(i);
+            if (checkLabel(label, result)) {
+
+            } else if (i > 0 && result != 0 && label != 0 && ((isStartOrEnd(results.getMmPtList().get(i), result)) || isStartOrEnd(sampleLabelList.get(i), label))) {
+                int count = checkError2(label, result, sampleLabelList.get(i).getCandidatePoint(), results.getMmPtList().get(i).getCandidatePoint());
+                errorPointsCount += count;
+            } else {
+//                System.out.println("label3: " + label + " result3:" + result );
+//                System.out.println("labelPoint:" + sampleLabelList.get(i) + " resultPoint:" + results.getMmPtList().get(i));
+//                System.out.println();
+                errorPointsCount++;
+            }
+        }
+        System.out.println("wrong Points : " + errorPointsCount);
+        return 1 - errorPointsCount * 1.0 / minSize;
+    }
+
 }
