@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright (C) 2022  ST-Lab
  *
  * This program is free software: you can redistribute it and/or modify
@@ -10,7 +10,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
@@ -24,6 +24,7 @@ import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.TiHmmMapMatcher;
 import org.urbcomp.cupid.db.algorithm.shortestpath.BiDijkstraShortestPath;
 import org.urbcomp.cupid.db.algorithm.shortestpath.ManyToManyShortestPath;
 import org.urbcomp.cupid.db.exception.AlgorithmExecuteException;
+import org.urbcomp.cupid.db.model.point.GPSPoint;
 import org.urbcomp.cupid.db.model.roadnetwork.RoadNetwork;
 import org.urbcomp.cupid.db.model.sample.ModelGenerator;
 import org.urbcomp.cupid.db.model.trajectory.MapMatchedTrajectory;
@@ -32,6 +33,8 @@ import org.urbcomp.cupid.db.model.trajectory.Trajectory;
 import org.urbcomp.cupid.db.util.EvaluateUtils;
 
 import java.io.*;
+import java.sql.Timestamp;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
@@ -67,22 +70,34 @@ public class StreamMapMatcherTest {
 
     @Test
     public void matchTrajCompare() throws AlgorithmExecuteException, JsonProcessingException {
-        trajectory = ModelGenerator.generateTrajectory(50);
-        System.out.println(trajectory.toGeoJSON());
-        MapMatchedTrajectory mmTrajectory = mapMatcher.mapMatch(trajectory);
-        System.out.println(mmTrajectory.toGeoJSON());
-        MapMatchedTrajectory mmTrajectory2 = mapMatcher2.streamMapMatch(trajectory,1,0);
-        System.out.println(mmTrajectory2.toGeoJSON());
-        double acc1 = EvaluateUtils.getAccuracy(mmTrajectory,mmTrajectory2);
+        Integer allPoint = 0, wrongPoint = 0;
+        for (int i = 1; i < 500; i++) {
+            trajectory = ModelGenerator.generateTrajectory(i);
+            MapMatchedTrajectory mmTrajectory = mapMatcher.mapMatch(trajectory);
+            MapMatchedTrajectory mmTrajectory2 = mapMatcher2.streamMapMatch(trajectory,1,0);
+            List<Integer> num = EvaluateUtils.getAccuracy(mmTrajectory,mmTrajectory2, 0);
+            allPoint = allPoint + num.get(0);
+            wrongPoint = wrongPoint + num.get(1);
+            System.out.println("---"+allPoint + " " + wrongPoint);
+        }
+        double acc1 = 1 - wrongPoint * 1.0 / allPoint;
         System.out.println("alpha:1 beta:0 --- ACC:" + acc1);
-        MapMatchedTrajectory mmTrajectory3 = mapMatcher2.streamMapMatch(trajectory,0.5,0.5);
-        System.out.println(mmTrajectory3.toGeoJSON());
-        double acc2 = EvaluateUtils.getAccuracy(mmTrajectory,mmTrajectory3);
-        System.out.println("alpha:0.5 beta:0.5 --- ACC:" + acc2);
-        MapMatchedTrajectory mmTrajectory4 = mapMatcher2.streamMapMatch(trajectory,0,1);
-        System.out.println(mmTrajectory4.toGeoJSON());
-        double acc3 = EvaluateUtils.getAccuracy(mmTrajectory,mmTrajectory4);
-        System.out.println("alpha:0 beta:1 --- ACC:" + acc3);
+//        trajectory = ModelGenerator.generateTrajectory(500);0.8361  0.8375
+//        System.out.println(trajectory.toGeoJSON());
+//        MapMatchedTrajectory mmTrajectory = mapMatcher.mapMatch(trajectory);
+//        System.out.println(mmTrajectory.toGeoJSON());
+//        MapMatchedTrajectory mmTrajectory2 = mapMatcher2.streamMapMatch(trajectory,1,0);
+//        System.out.println(mmTrajectory2.toGeoJSON());
+//        double acc1 = EvaluateUtils.getAccuracy(mmTrajectory,mmTrajectory2, 0);
+//        System.out.println("alpha:1 beta:0 --- ACC:" + acc1);
+//        MapMatchedTrajectory mmTrajectory3 = mapMatcher2.streamMapMatch(trajectory,0.5,0.5);
+//        System.out.println(mmTrajectory3.toGeoJSON());
+//        double acc2 = EvaluateUtils.getAccuracy(mmTrajectory,mmTrajectory3, 0);
+//        System.out.println("alpha:0.5 beta:0.5 --- ACC:" + acc2);
+//        MapMatchedTrajectory mmTrajectory4 = mapMatcher2.streamMapMatch(trajectory,0,1);
+//        System.out.println(mmTrajectory4.toGeoJSON());
+//        double acc3 = EvaluateUtils.getAccuracy(mmTrajectory,mmTrajectory4, 0);
+//        System.out.println("alpha:0 beta:1 --- ACC:" + acc3);
     }
 
     @Test

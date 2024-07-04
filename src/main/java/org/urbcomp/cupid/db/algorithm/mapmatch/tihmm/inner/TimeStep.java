@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright (C) 2022  ST-Lab
  *
  * This program is free software: you can redistribute it and/or modify
@@ -10,7 +10,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
@@ -44,7 +44,7 @@ public class TimeStep {
      * <candidatePt,candidatePt>为索引 (transition) Tuple2<fromCandidatePoint, toCandidatePoint>
      */
     private final Map<Tuple2<CandidatePoint, CandidatePoint>, Double> transitionLogProbabilities =
-        new HashMap<>();
+            new HashMap<>();
 
     /**
      * @param observation point
@@ -77,13 +77,13 @@ public class TimeStep {
      * @param transitionLogProbability 给定的transition概率
      */
     public void addTransitionLogProbability(
-        CandidatePoint fromPosition,
-        CandidatePoint toPosition,
-        Double transitionLogProbability
+            CandidatePoint fromPosition,
+            CandidatePoint toPosition,
+            Double transitionLogProbability
     ) {
         final Tuple2<CandidatePoint, CandidatePoint> transition = new Tuple2<>(
-            fromPosition,
-            toPosition
+                fromPosition,
+                toPosition
         );
         if (transitionLogProbabilities.containsKey(transition)) {
             throw new IllegalArgumentException("Transition has already been added.");
@@ -105,5 +105,9 @@ public class TimeStep {
 
     public Map<Tuple2<CandidatePoint, CandidatePoint>, Double> getTransitionLogProbabilities() {
         return transitionLogProbabilities;
+    }
+
+    public void addCandidate(CandidatePoint point) {
+        candidates.add(point);
     }
 }
