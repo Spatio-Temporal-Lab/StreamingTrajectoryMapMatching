@@ -131,40 +131,22 @@ public class TiHmmMapMatcher {
                 viterbi = new TiViterbi();
                 preTimeStep = null;
             } else {
-                if (preTimeStep != null) {
-
-                    // 找最短路径
-                    Set<CandidatePoint> startPoints = new HashSet<>(preTimeStep.getCandidates());
-                    Set<CandidatePoint> endPoints = new HashSet<>(timeStep.getCandidates());
-                    Map<RoadNode, Map<RoadNode, Path>> paths = pathAlgo.findShortestPath(
-                            startPoints,
-                            endPoints
-                    );
-
-                    // 处理观测点向后偏移
-                    processBackward(preTimeStep, timeStep, viterbi, paths);
-
-                    //计算观测概率
-                    this.computeEmissionProbabilities(timeStep, probabilities);
-
-                    //计算转移概率
-                    this.computeTransitionProbabilities(preTimeStep, timeStep, probabilities, paths);
-
-                    //计算维特比
-                    viterbi.nextStep(
-                            timeStep.getObservation(),
-                            timeStep.getCandidates(),
-                            timeStep.getEmissionLogProbabilities(),
-                            timeStep.getTransitionLogProbabilities()
-                    );
-                } else {
-                    //第一个点初始化概率
-                    this.computeEmissionProbabilities(timeStep, probabilities);//计算观测概率
+                this.computeEmissionProbabilities(timeStep, probabilities);//计算观测概率
+                if (preTimeStep == null) { //第一个点初始化概率或者前面的点没有找到候选点
                     viterbi.startWithInitialObservation(
                             timeStep.getObservation(),
                             timeStep.getCandidates(),
                             timeStep.getEmissionLogProbabilities()
                     );
+                } else {//计算转移概率
+                    int maxProbPointRSId = StreamMapMatcher.findMaxValuePoint(viterbi.message).getRoadSegmentId();//找到最大概率的候选点
+                    this.computeTransitionProbabilities(preTimeStep, timeStep, probabilities, maxProbPointRSId);
+                    viterbi.nextStep(
+                            timeStep.getObservation(),
+                            timeStep.getCandidates(),
+                            timeStep.getEmissionLogProbabilities(),
+                            timeStep.getTransitionLogProbabilities()
+                    );//计算维特比
                 }
                 if (viterbi.isBroken) {
                     seq.addAll(viterbi.computeMostLikelySequence());
@@ -187,44 +169,6 @@ public class TiHmmMapMatcher {
         return seq;
     }
 
-    // 处理观测点向后偏移的情况
-    public void processBackward(TimeStep preTimeStep, TimeStep curTimeStep, TiViterbi viterbi, Map<RoadNode, Map<RoadNode, Path>> paths) {
-        int roadSegmentId = StreamMapMatcher.findMaxValuePoint(viterbi.message).getRoadSegmentId();
-        List<CandidatePoint> curCandidates = curTimeStep.getCandidates();
-        int i = 0;
-        for (; i < curCandidates.size(); i++) {
-            if (curCandidates.get(i).getRoadSegmentId() == roadSegmentId) {
-                break;
-            }
-        }
-        if (i != curCandidates.size()) {
-            for (CandidatePoint preCandiPt : preTimeStep.getCandidates()) {
-                if (preCandiPt.getRoadSegmentId() == roadSegmentId) {
-
-                    RoadSegment startRoadSegment = roadNetwork.getRoadSegmentById(
-                            preCandiPt.getRoadSegmentId()
-                    );
-                    CandidatePoint curCandiPt = curCandidates.get(i);
-                    if (preCandiPt != curCandiPt) {
-                        RoadSegment endRoadSegment = roadNetwork.getRoadSegmentById(
-                                curCandiPt.getRoadSegmentId()
-                        );
-                        Path subPath = paths.get(startRoadSegment.getEndNode())
-                                .get(endRoadSegment.getStartNode());
-                        Path path = pathAlgo.getCompletePath(preCandiPt, curCandiPt, subPath);
-                        double speed = path.getLengthInMeter() * 1000 / (curTimeStep.getObservation().getTime().getTime() - preTimeStep.getObservation().getTime().getTime());
-                        if (speed > 34) {
-                            double disBtwCurAndPer = GeoFunctions.getDistanceInM(preCandiPt, curCandiPt);
-                            if (disBtwCurAndPer < 20) {
-                                curTimeStep.addCandidate(preCandiPt);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     /**
      * 根据time step和概率分布函数计算emission P
      *
@@ -239,48 +183,59 @@ public class TiHmmMapMatcher {
     }
 
     /**
-     * 计算之前timeStep到当前timeStep的转移概率
+     * 计算之前timeStep到当前timeStep的概率
      *
      * @param prevTimeStep  之前的timestep
      * @param timeStep      当前的timestep
      * @param probabilities 建立好的概率分布函数
-     * @param paths 候选点间最短路径
+     * @param maxProbPointRSId 最大概率的候选点的路段id
      */
     protected void computeTransitionProbabilities(
             TimeStep prevTimeStep,
             TimeStep timeStep,
             HmmProbabilities probabilities,
-            Map<RoadNode, Map<RoadNode, Path>> paths
+            int maxProbPointRSId
     ) throws AlgorithmExecuteException {
-        //观测点的距离
         final double linearDist = GeoFunctions.getDistanceInM(
                 prevTimeStep.getObservation(),
                 timeStep.getObservation()
-        );
+        );//观测点的距离
 
-        // 计算候选点转移概率
+        Set<CandidatePoint> startPoints = new HashSet<>(prevTimeStep.getCandidates());
+        Set<CandidatePoint> endPoints = new HashSet<>(timeStep.getCandidates());
+        Map<RoadNode, Map<RoadNode, Path>> paths = pathAlgo.findShortestPath(
+                startPoints,
+                endPoints
+        );//找最短路径
+
         for (CandidatePoint preCandiPt : prevTimeStep.getCandidates()) {
             RoadSegment startRoadSegment = roadNetwork.getRoadSegmentById(
                     preCandiPt.getRoadSegmentId()
             );
             for (CandidatePoint curCandiPt : timeStep.getCandidates()) {
-
-                // 两个候选点相同，将概率置为极大
-                if (preCandiPt == curCandiPt) {
-                    timeStep.addTransitionLogProbability(
-                            preCandiPt,
-                            curCandiPt,
-                            probabilities.transitionLogProbability(0.0, 0.0)
-                    );
-                    continue;
-                }
-
                 RoadSegment endRoadSegment = roadNetwork.getRoadSegmentById(
                         curCandiPt.getRoadSegmentId()
                 );
                 Path subPath = paths.get(startRoadSegment.getEndNode())
                         .get(endRoadSegment.getStartNode());
                 Path path = pathAlgo.getCompletePath(preCandiPt, curCandiPt, subPath);
+//                System.out.println("preCandiPt:"+ preCandiPt +"\n" +"curCandiPt:"+ curCandiPt +"\n" + "path:" + path +"\n" + "path.getLengthInMeter():" + path.getLengthInMeter());
+//                System.out.println(timeStep.getObservation().getTime().getTime() - prevTimeStep.getObservation().getTime().getTime());
+                double speed = path.getLengthInMeter() * 1000 / (timeStep.getObservation().getTime().getTime() - prevTimeStep.getObservation().getTime().getTime());
+                if (speed > 55.6 && curCandiPt.getRoadSegmentId() == preCandiPt.getRoadSegmentId() && curCandiPt.getRoadSegmentId() == maxProbPointRSId) {
+//                    System.out.println("speed is too fast at index ");
+//                    System.out.println("" + maxProbPointRSId + " " + curCandiPt.getRoadSegmentId() + " " + preCandiPt.getRoadSegmentId());
+                    double disBtwCurAndPer = GeoFunctions.getDistanceInM(preCandiPt, curCandiPt);
+//                    System.out.println("disBtwCurAndPer:" + disBtwCurAndPer);
+                    if (disBtwCurAndPer < 20) {
+                        timeStep.addTransitionLogProbability(
+                                preCandiPt,
+                                curCandiPt,
+                                probabilities.transitionLogProbability(0.0, 0.0)
+                        );
+                    }
+                    continue;
+                }
                 if (path.getLengthInMeter() != Double.MAX_VALUE) {
                     timeStep.addTransitionLogProbability(
                             preCandiPt,
