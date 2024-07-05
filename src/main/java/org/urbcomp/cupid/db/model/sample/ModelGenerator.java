@@ -75,11 +75,32 @@ public class ModelGenerator {
                         return new GPSPoint(timestamp, convertedCoords[0], convertedCoords[1]);
                     })
                     .collect(Collectors.toList());
-            return new Trajectory(oid + pointsList.get(0).getTime(), oid, pointsList);
+            Trajectory trajectory =  new Trajectory(oid + pointsList.get(0).getTime(), oid, pointsList);
+            trajectory.getGPSPointList().sort(Comparator.comparing(GPSPoint::getTime));
+            return trajectory;
         } catch (IOException e) {
             throw new RuntimeException("Generate trajectory error: " + e.getMessage());
         }
     }
+
+    public static Trajectory generateTrajectory(int index, int sampleRate) {
+        String trajFile = "data/output.txt";
+        try (
+                InputStream in = ModelGenerator.class.getClassLoader().getResourceAsStream(trajFile);
+                BufferedReader br = new BufferedReader(
+                        new InputStreamReader(Objects.requireNonNull(in))
+                )
+        ) {
+            String trajStr = null;
+            for (int i = 0; i < index; ++i) {
+                trajStr = br.readLine();
+            }
+            return generateTrajectoryByStr(trajStr , sampleRate);
+        } catch (IOException e) {
+            throw new RuntimeException("Generate trajectory error: " + e.getMessage());
+        }
+    }
+
 
     public static Trajectory generateTrajectory(String trajFile, int maxLength) {
         try (
@@ -109,7 +130,9 @@ public class ModelGenerator {
             if (maxLength > 0) {
                 pointsList = pointsList.subList(0, maxLength);
             }
-            return new Trajectory(oid + pointsList.get(0).getTime(), oid, pointsList);
+            Trajectory trajectory =  new Trajectory(oid + pointsList.get(0).getTime(), oid, pointsList);
+            trajectory.getGPSPointList().sort(Comparator.comparing(GPSPoint::getTime));
+            return trajectory;
         } catch (IOException e) {
             throw new RuntimeException("Generate trajectory error: " + e.getMessage());
         }
@@ -155,13 +178,15 @@ public class ModelGenerator {
                     )
                 );
             }
-            return new Trajectory(oid + pointsList.get(0).getTime(), oid, pointsList, attributeMap);
+            Trajectory trajectory =  new Trajectory(oid + pointsList.get(0).getTime(), oid, pointsList);
+            trajectory.getGPSPointList().sort(Comparator.comparing(GPSPoint::getTime));
+            return trajectory;
         } catch (IOException e) {
             throw new RuntimeException("Generate trajectory error: " + e.getMessage());
         }
     }
 
-    public static Trajectory generateTrajectoryByStr(String trajStr, int maxLength) {
+    public static Trajectory generateTrajectoryByStr(String trajStr, int sampleRate) {
         String correctStr = trajStr.replaceFirst("\\[", "[\"").replaceFirst(",", "\",");
         // 解析 JSON 字符串
         JSONArray jsonArray = JSON.parseArray(correctStr);
@@ -170,22 +195,32 @@ public class ModelGenerator {
 
         // 创建 GPSPoint 对象列表
         List<GPSPoint> pointsList = new ArrayList<>();
+        int skipNum = 0;
+        boolean flag = true;
         for (Object obj : pointsArray) {
-            JSONArray point = (JSONArray) obj;
-            Timestamp timestamp = Timestamp.valueOf(point.getString(0));
-            double lng = point.getDouble(1);
-            double lat = point.getDouble(2);
-            double[] convertedCoords = CoordTransformUtils.gcj02Towgs84(lng, lat);
-            pointsList.add(new GPSPoint(timestamp, convertedCoords[0], convertedCoords[1]));
+            if (flag){
+                JSONArray point = (JSONArray) obj;
+                Timestamp timestamp = Timestamp.valueOf(point.getString(0));
+                double lng = point.getDouble(1);
+                double lat = point.getDouble(2);
+                double[] convertedCoords = CoordTransformUtils.gcj02Towgs84(lng, lat);
+                pointsList.add(new GPSPoint(timestamp, convertedCoords[0], convertedCoords[1]));
+                flag = false;
+                if (skipNum == sampleRate){
+                    flag = true;
+                }
+            }else {
+                skipNum ++;
+                if (skipNum == sampleRate){
+                    skipNum = 0;
+                    flag = true;
+                }
+            }
         }
-
-        // 截取指定长度的轨迹
-        if (maxLength > 0 && pointsList.size() > maxLength) {
-            pointsList = pointsList.subList(0, maxLength);
-        }
-
         // 创建 Trajectory 对象并返回
-        return new Trajectory(oid + pointsList.get(0).getTime(), oid, pointsList);
+        Trajectory trajectory =  new Trajectory(oid + pointsList.get(0).getTime(), oid, pointsList);
+        trajectory.getGPSPointList().sort(Comparator.comparing(GPSPoint::getTime));
+        return trajectory;
     }
 
     public static RoadSegment generateRoadSegment() {

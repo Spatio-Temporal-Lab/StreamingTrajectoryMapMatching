@@ -1,9 +1,5 @@
 import com.fasterxml.jackson.core.JsonProcessingException;
-import org.apache.commons.math3.linear.MatrixUtils;
-import org.apache.commons.math3.linear.RealMatrix;
-import org.urbcomp.cupid.db.algorithm.kalman.AdaptiveKalmanFilter;
-import org.urbcomp.cupid.db.algorithm.kalman.KalmanFilter;
-import org.urbcomp.cupid.db.algorithm.mapmatch.stream.StreamMapMatcher;
+import org.urbcomp.cupid.db.algorithm.kalman.GPSPositionSpeedFilter;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.TiHmmMapMatcher;
 import org.urbcomp.cupid.db.algorithm.shortestpath.ManyToManyShortestPath;
 import org.urbcomp.cupid.db.exception.AlgorithmExecuteException;
@@ -17,7 +13,7 @@ import org.urbcomp.cupid.db.model.trajectory.Trajectory;
 import java.util.ArrayList;
 import java.util.List;
 
-public class test {
+public class test2 {
     public static void main(String[] args) throws JsonProcessingException, AlgorithmExecuteException {
 
         RoadNetwork roadNetwork = ModelGenerator.generateRoadNetwork();
@@ -26,35 +22,24 @@ public class test {
         MapMatchedTrajectory mmTrajectory = mapMatcher.mapMatch(trajectory, 0.5);
         List<GPSPoint> pointList = trajectory.getGPSPointList();
         List<GPSPoint> filterPointList = new ArrayList<>();
-        double[][] F = new double[][]{
-                {1, 0, 1, 0},
-                {0, 1, 0, 1},
-                {0, 0, 1, 0},
-                {0, 0, 0, 1}
-        };
-        double[][] H = new double[][]{
-                {1, 0, 0, 0},
-                {0, 1, 0, 0},
-                {0, 0, 1, 0},
-                {0, 0, 0, 1}
-        };
-        double pre_var = 1 * 1;
-        double gps_var = 1 * 1;
-        AdaptiveKalmanFilter kalmanFilter = new AdaptiveKalmanFilter(F, H, gps_var, pre_var);
-        int index = 0;
-        for (GPSPoint p : pointList){
+
+        GPSPositionSpeedFilter filter = new GPSPositionSpeedFilter(100., 100.);
+
+        int index = 1;
+        GPSPoint filterPoint = new GPSPoint(pointList.get(0).getTime(), pointList.get(0).getLng(), pointList.get(0).getLat());
+        filterPointList.add(filterPoint);
+        for (;index<pointList.size();index++){
             MapMatchedPoint mapMatchedPoint = mmTrajectory.getMmPtList().get(index);
-            double[] estimate = kalmanFilter.process(p.getX(),p.getY(), mapMatchedPoint.getTime());
-            GPSPoint filterPoint = new GPSPoint(p.getTime(), estimate[0], estimate[1]);
+            filter.updatePosition(pointList.get(index).getLng(), pointList.get(index).getLat(), pointList.get(index).getTime().getTime() - pointList.get(index-1).getTime().getTime());
+
+            double[] position = filter.getPosition();
+
+            filterPoint = new GPSPoint(pointList.get(index).getTime(), position[0], position[1]);
             filterPointList.add(filterPoint);
-            kalmanFilter.update(p.getX(),p.getY(), mapMatchedPoint.getTime());
-//            kalmanFilter.updateByReal(mapMatchedPoint.getCandidatePoint().getX(), mapMatchedPoint.getCandidatePoint().getY());
-//            kalmanFilter.updateNoiseCovariances(mapMatchedPoint.getCandidatePoint().getX(), mapMatchedPoint.getCandidatePoint().getY());
-            index++;
         }
         Trajectory filterTrajectory = new Trajectory(trajectory.getTid(),trajectory.getOid(),filterPointList);
-        System.out.println(trajectory.toGeoJSON());
+//        System.out.println(trajectory.toGeoJSON());
+//        System.out.println(mmTrajectory.toGeoJSON());
         System.out.println(filterTrajectory.toGeoJSON());
     }
-
 }

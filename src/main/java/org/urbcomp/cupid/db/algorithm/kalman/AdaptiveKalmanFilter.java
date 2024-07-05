@@ -27,12 +27,12 @@ public class AdaptiveKalmanFilter extends KalmanFilter {
 
         double errorX = GeoFunctions.getDistanceInM(trueX, 0, filteredPointX, 0);
         double errorY = GeoFunctions.getDistanceInM(0, trueY, 0, filteredPointY);
-        System.out.println("errorX: " + errorX + " errorY: " + errorY);
+//        System.out.println("errorX: " + errorX + " errorY: " + errorY);
 
         RealMatrix R = getR();
         RealMatrix Q = getQ();
 
-        double alpha = 0.5; // 学习率
+        double alpha = 1; // 学习率
 
         // 根据误差调整观测噪声协方差矩阵 R
         R.setEntry(0, 0, (1 - alpha) * R.getEntry(0, 0) + alpha * errorX * errorX);

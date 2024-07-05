@@ -248,14 +248,11 @@ public class EvaluateUtils {
         return rsLabel.getStartNode().getLng() == rsResult.getEndNode().getLng() && rsLabel.getStartNode().getLat() == rsResult.getEndNode().getLat() && rsLabel.getLengthInMeter() == rsResult.getLengthInMeter();
     }
 
-    public static List<Integer> getAccuracy(MapMatchedTrajectory labels, MapMatchedTrajectory results, double sampleRate) {
+    public static double getAccuracy(MapMatchedTrajectory labels, MapMatchedTrajectory results, double sampleRate) {
         double totalPoints = labels.getMmPtList().size();
         double samplePoints = results.getMmPtList().size();
-        List<Integer> ans = new ArrayList<>();
         if (totalPoints == 0) {
-            ans.add(0);
-            ans.add(0);
-            return ans;
+            return 0.0;
         }
         List<Integer> labelList = new ArrayList<>();
         List<MapMatchedPoint> sampleLabelList = new ArrayList<>();
@@ -307,9 +304,8 @@ public class EvaluateUtils {
                 errorPointsCount++;
             }
         }
-        ans.add(minSize);
-        ans.add(errorPointsCount);
-        return ans;
+        System.out.println("wrong Points : " + errorPointsCount);
+        return 1 - errorPointsCount * 1.0 / minSize;
     }
 
 

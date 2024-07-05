@@ -64,9 +64,9 @@ public class TiHmmMapMatcher {
      * @param traj 原始轨迹
      * @return map match后的轨迹
      */
-    public MapMatchedTrajectory mapMatch(Trajectory traj) throws AlgorithmExecuteException {
+    public MapMatchedTrajectory mapMatch(Trajectory traj, double beta) throws AlgorithmExecuteException {
 
-        List<SequenceState> seq = this.computeViterbiSequence(traj.getGPSPointList());
+        List<SequenceState> seq = this.computeViterbiSequence(traj.getGPSPointList(), beta);
         assert traj.getGPSPointList().size() == seq.size();
         List<MapMatchedPoint> mapMatchedPointList = new ArrayList<>(seq.size());
         for (SequenceState ss : seq) {
@@ -104,7 +104,7 @@ public class TiHmmMapMatcher {
      * @param ptList 原始轨迹ptList
      * @return 保存了每一步step的所有状态
      */
-    private List<SequenceState> computeViterbiSequence(List<GPSPoint> ptList)
+    private List<SequenceState> computeViterbiSequence(List<GPSPoint> ptList, double beta)
             throws AlgorithmExecuteException {
         List<SequenceState> seq = new ArrayList<>();
         final HmmProbabilities probabilities = new HmmProbabilities(
@@ -117,14 +117,6 @@ public class TiHmmMapMatcher {
         int nbPoints = ptList.size();// 点的数量
         while (idx < nbPoints) {
             TimeStep timeStep = this.createTimeStep(ptList.get(idx));//轨迹点+候选点集
-//            System.out.println();
-//            System.out.println("now: " + timeStep.getObservation());
-//            if (preTimeStep!= null){
-//                System.out.println("pre:" + preTimeStep.getObservation());
-//                System.out.println("preprob: " + viterbi.message);
-//                System.out.println("preTimeStep:" + preTimeStep.getCandidates());
-//            }
-//            System.out.println("timeStep:" + timeStep.getCandidates());
             if (timeStep == null) {//没有候选点
                 seq.addAll(viterbi.computeMostLikelySequence()); //计算之前最有可能的序列
                 seq.add(new SequenceState(null, ptList.get(idx))); //添加新状态
@@ -155,7 +147,8 @@ public class TiHmmMapMatcher {
                             timeStep.getObservation(),
                             timeStep.getCandidates(),
                             timeStep.getEmissionLogProbabilities(),
-                            timeStep.getTransitionLogProbabilities()
+                            timeStep.getTransitionLogProbabilities(),
+                            beta
                     );
                 } else {
                     //第一个点初始化概率
@@ -163,7 +156,8 @@ public class TiHmmMapMatcher {
                     viterbi.startWithInitialObservation(
                             timeStep.getObservation(),
                             timeStep.getCandidates(),
-                            timeStep.getEmissionLogProbabilities()
+                            timeStep.getEmissionLogProbabilities(),
+                            beta
                     );
                 }
                 if (viterbi.isBroken) {
@@ -172,7 +166,8 @@ public class TiHmmMapMatcher {
                     viterbi.startWithInitialObservation(
                             timeStep.getObservation(),
                             timeStep.getCandidates(),
-                            timeStep.getEmissionLogProbabilities()
+                            timeStep.getEmissionLogProbabilities(),
+                            beta
                     );
 //                    System.out.println("Ti-HMM: Viterbi algorithm is broken at index " + idx + ptList.get(idx));
 //                    System.out.println();

@@ -51,6 +51,12 @@ public class MapMatchedPoint implements java.io.Serializable {
         return candidatePoint;
     }
 
+
+    @Override
+    public String toString(){
+        return candidatePoint.getLng() + "," + candidatePoint.getLat() + "  " + rawPoint.getTime();
+    }
+
     @Override
     public int hashCode() {
         String code = String.format(

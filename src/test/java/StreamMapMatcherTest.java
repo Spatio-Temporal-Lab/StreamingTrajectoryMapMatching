@@ -1,4 +1,4 @@
-/*
+/* 
  * Copyright (C) 2022  ST-Lab
  *
  * This program is free software: you can redistribute it and/or modify
@@ -24,7 +24,6 @@ import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.TiHmmMapMatcher;
 import org.urbcomp.cupid.db.algorithm.shortestpath.BiDijkstraShortestPath;
 import org.urbcomp.cupid.db.algorithm.shortestpath.ManyToManyShortestPath;
 import org.urbcomp.cupid.db.exception.AlgorithmExecuteException;
-import org.urbcomp.cupid.db.model.point.GPSPoint;
 import org.urbcomp.cupid.db.model.roadnetwork.RoadNetwork;
 import org.urbcomp.cupid.db.model.sample.ModelGenerator;
 import org.urbcomp.cupid.db.model.trajectory.MapMatchedTrajectory;
@@ -33,8 +32,8 @@ import org.urbcomp.cupid.db.model.trajectory.Trajectory;
 import org.urbcomp.cupid.db.util.EvaluateUtils;
 
 import java.io.*;
-import java.sql.Timestamp;
-import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 
@@ -59,7 +58,7 @@ public class StreamMapMatcherTest {
 
     @Test
     public void matchTrajToMapMatchedTraj() throws AlgorithmExecuteException, JsonProcessingException {
-        MapMatchedTrajectory mmTrajectory = mapMatcher2.streamMapMatch(trajectory,1,0);
+        MapMatchedTrajectory mmTrajectory = mapMatcher2.streamMapMatch(trajectory, 0);
         System.out.println(trajectory.toGeoJSON());
         System.out.println(mmTrajectory.toGeoJSON());
         assertEquals(trajectory.getGPSPointList().size(), mmTrajectory.getMmPtList().size());
@@ -70,34 +69,107 @@ public class StreamMapMatcherTest {
 
     @Test
     public void matchTrajCompare() throws AlgorithmExecuteException, JsonProcessingException {
-        Integer allPoint = 0, wrongPoint = 0;
-        for (int i = 1; i < 500; i++) {
-            trajectory = ModelGenerator.generateTrajectory(i);
-            MapMatchedTrajectory mmTrajectory = mapMatcher.mapMatch(trajectory);
-            MapMatchedTrajectory mmTrajectory2 = mapMatcher2.streamMapMatch(trajectory,1,0);
-            List<Integer> num = EvaluateUtils.getAccuracy(mmTrajectory,mmTrajectory2, 0);
-            allPoint = allPoint + num.get(0);
-            wrongPoint = wrongPoint + num.get(1);
-            System.out.println("---"+allPoint + " " + wrongPoint);
+        int i = 1000;
+        int sampleRate = 0;
+        int size = 0;
+        double normal;
+        double fix;
+        double minValue = Double.MAX_VALUE;
+        double totalFix = 0;
+        double totalSize = 0;
+        for (int index = 1; index< i; index++){
+            System.out.println("Index:" + index);
+            Trajectory filterTrajectory;
+            Trajectory trajectorySampleRate = ModelGenerator.generateTrajectory(index, sampleRate);
+            trajectory = ModelGenerator.generateTrajectory(index);
+//            System.out.println("--------------------------------");
+////            System.out.println(trajectory.toGeoJSON());
+//            System.out.println("--------------------------------");
+            MapMatchedTrajectory mmTrajectory = mapMatcher.mapMatch(trajectory, 0.5);
+//            System.out.println(mmTrajectory.toGeoJSON());
+//            System.out.println("--------------------------------");
+//            MapMatchedTrajectory mmTrajectory2 = mapMatcher2.streamMapMatch(trajectorySampleRate, 1, 0.5);
+////            System.out.println(mmTrajectory2.toGeoJSON());
+//            filterTrajectory = new Trajectory(trajectory.getTid(), trajectory.getOid(), mapMatcher2.filteredPoints);
+////            System.out.println(filterTrajectory.toGeoJSON());
+//            double acc1 = EvaluateUtils.getAccuracy(mmTrajectory, mmTrajectory2, sampleRate);
+//            System.out.println("alpha:1 beta:0 --- ACC:" + acc1 + "totalPoints: " + mmTrajectory2.getMmPtList().size());
+//            System.out.println("--------------------------------");
+//            MapMatchedTrajectory mmTrajectory3 = mapMatcher2.streamMapMatch(trajectorySampleRate, 0, 0.7);
+////            System.out.println(mmTrajectory3.toGeoJSON());
+//            filterTrajectory = new Trajectory(trajectory.getTid(), trajectory.getOid(), mapMatcher2.filteredPoints);
+////            System.out.println(filterTrajectory.toGeoJSON());
+//            double acc2 = EvaluateUtils.getAccuracy(mmTrajectory, mmTrajectory3, sampleRate);
+//            System.out.println("alpha:0.5 beta:0.5 --- ACC:" + acc2 + "totalPoints: " + mmTrajectory3.getMmPtList().size());
+//            System.out.println("--------------------------------");
+
+            MapMatchedTrajectory mmTrajectory4 = mapMatcher2.streamMapMatch(trajectorySampleRate, 0.5);
+            double acc3 = EvaluateUtils.getAccuracy(mmTrajectory, mmTrajectory4,sampleRate);
+            normal = (1 - acc3) * size;
+            size =  mmTrajectory4.getMmPtList().size();
+            totalSize += size;
+            System.out.println("totalPoint: " + "totalPoints: " + mmTrajectory4.getMmPtList().size());
+            System.out.println("beta:0.5 --- ACC:" + acc3 );
+            mmTrajectory4 = mapMatcher2.streamMapMatch(trajectorySampleRate, 0.0);
+            acc3 = EvaluateUtils.getAccuracy(mmTrajectory, mmTrajectory4,sampleRate);
+            fix = (1 - acc3) * size;
+            minValue = Math.min(fix , minValue);
+            System.out.println("beta:0.0 --- ACC:" + acc3);
+            mmTrajectory4 = mapMatcher2.streamMapMatch(trajectorySampleRate, 0.1);
+            acc3 = EvaluateUtils.getAccuracy(mmTrajectory, mmTrajectory4,sampleRate);
+            fix = (1 - acc3) * size;
+            minValue = Math.min(fix , minValue);
+            System.out.println("beta:0.1 --- ACC:" + acc3);
+            mmTrajectory4 = mapMatcher2.streamMapMatch(trajectorySampleRate, 0.2);
+            acc3 = EvaluateUtils.getAccuracy(mmTrajectory, mmTrajectory4,sampleRate);
+            fix = (1 - acc3) * size;
+            minValue = Math.min(fix , minValue);
+            System.out.println("beta:0.2 --- ACC:" + acc3);
+            mmTrajectory4 = mapMatcher2.streamMapMatch(trajectorySampleRate, 0.3);
+            acc3 = EvaluateUtils.getAccuracy(mmTrajectory, mmTrajectory4,sampleRate);
+            fix = (1 - acc3) * size;
+            minValue = Math.min(fix , minValue);
+            System.out.println("beta:0.3 --- ACC:" + acc3);
+            mmTrajectory4 = mapMatcher2.streamMapMatch(trajectorySampleRate, 0.4);
+            acc3 = EvaluateUtils.getAccuracy(mmTrajectory, mmTrajectory4,sampleRate);
+            fix = (1 - acc3) * size;
+            minValue = Math.min(fix , minValue);
+            System.out.println("beta:0.4 --- ACC:" + acc3);
+            mmTrajectory4 = mapMatcher2.streamMapMatch(trajectorySampleRate, 0.6);
+            acc3 = EvaluateUtils.getAccuracy(mmTrajectory, mmTrajectory4,sampleRate);
+            fix = (1 - acc3) * size;
+            minValue = Math.min(fix , minValue);
+            System.out.println("beta:0.6 --- ACC:" + acc3);
+            mmTrajectory4 = mapMatcher2.streamMapMatch(trajectorySampleRate, 0.7);
+            acc3 = EvaluateUtils.getAccuracy(mmTrajectory, mmTrajectory4,sampleRate);
+            fix = (1 - acc3) * size;
+            minValue = Math.min(fix , minValue);
+            System.out.println("beta:0.7 --- ACC:" + acc3);
+            mmTrajectory4 = mapMatcher2.streamMapMatch(trajectorySampleRate, 0.8);
+            acc3 = EvaluateUtils.getAccuracy(mmTrajectory, mmTrajectory4,sampleRate);
+            fix = (1 - acc3) * size;
+            minValue = Math.min(fix , minValue);
+            System.out.println("beta:0.8 --- ACC:" + acc3);
+            mmTrajectory4 = mapMatcher2.streamMapMatch(trajectorySampleRate, 0.9);
+            acc3 = EvaluateUtils.getAccuracy(mmTrajectory, mmTrajectory4,sampleRate);
+            fix = (1 - acc3) * size;
+            minValue = Math.min(fix , minValue);
+            System.out.println("beta:0.9 --- ACC:" + acc3);
+            mmTrajectory4 = mapMatcher2.streamMapMatch(trajectorySampleRate, 1.0);
+            acc3 = EvaluateUtils.getAccuracy(mmTrajectory, mmTrajectory4,sampleRate);
+            fix = (1 - acc3) * size;
+            minValue = Math.min(fix , minValue);
+            System.out.println("beta:1.0 --- ACC:" + acc3);
+
+            if (normal > minValue){
+                totalFix += normal - minValue;
+            }else {
+                totalFix += 0;
+            }
+            System.out.println("fix prob: " +  totalFix/totalSize);
         }
-        double acc1 = 1 - wrongPoint * 1.0 / allPoint;
-        System.out.println("alpha:1 beta:0 --- ACC:" + acc1);
-//        trajectory = ModelGenerator.generateTrajectory(500);0.8361  0.8375
-//        System.out.println(trajectory.toGeoJSON());
-//        MapMatchedTrajectory mmTrajectory = mapMatcher.mapMatch(trajectory);
-//        System.out.println(mmTrajectory.toGeoJSON());
-//        MapMatchedTrajectory mmTrajectory2 = mapMatcher2.streamMapMatch(trajectory,1,0);
-//        System.out.println(mmTrajectory2.toGeoJSON());
-//        double acc1 = EvaluateUtils.getAccuracy(mmTrajectory,mmTrajectory2, 0);
-//        System.out.println("alpha:1 beta:0 --- ACC:" + acc1);
-//        MapMatchedTrajectory mmTrajectory3 = mapMatcher2.streamMapMatch(trajectory,0.5,0.5);
-//        System.out.println(mmTrajectory3.toGeoJSON());
-//        double acc2 = EvaluateUtils.getAccuracy(mmTrajectory,mmTrajectory3, 0);
-//        System.out.println("alpha:0.5 beta:0.5 --- ACC:" + acc2);
-//        MapMatchedTrajectory mmTrajectory4 = mapMatcher2.streamMapMatch(trajectory,0,1);
-//        System.out.println(mmTrajectory4.toGeoJSON());
-//        double acc3 = EvaluateUtils.getAccuracy(mmTrajectory,mmTrajectory4, 0);
-//        System.out.println("alpha:0 beta:1 --- ACC:" + acc3);
+
+
     }
 
     @Test
@@ -115,9 +187,9 @@ public class StreamMapMatcherTest {
             String trajStr;
             int count = 0;
             while ((trajStr = br.readLine()) != null && count < trajectories_count) {
-                count ++;
-                Trajectory trajectory = generateTrajectoryByStr(trajStr, -1);
-                MapMatchedTrajectory mmTrajectory = mapMatcher2.streamMapMatch(trajectory,0.5,0.5);
+                count++;
+                Trajectory trajectory = generateTrajectoryByStr(trajStr, 0);
+                MapMatchedTrajectory mmTrajectory = mapMatcher2.streamMapMatch(trajectory, 0.5);
                 writer.write(mmTrajectory.toGeoJSON());
                 writer.newLine();
                 success_count++;
@@ -125,4 +197,61 @@ public class StreamMapMatcherTest {
             }
         }
     }
+    @Test
+    public void weightTest() throws AlgorithmExecuteException, JsonProcessingException {
+        int testNum = 2000;
+        int startIndex = 1;
+        testNum += startIndex;
+        int sampleRate = 0;
+        List<Double> weightList = new ArrayList<>();
+        HashMap<Double, Integer> countNum = new HashMap<>();
+        HashMap<Double, Double> accuracyNum = new HashMap<>();
+        addWeight(weightList);
+        for (; startIndex < testNum; startIndex++) {
+            System.out.println("Index: " + startIndex);
+            trajectory = ModelGenerator.generateTrajectory(startIndex);
+            Trajectory trajectorySampleRate = ModelGenerator.generateTrajectory(startIndex, sampleRate);
+//            System.out.println("Ob : ");
+//            System.out.println(trajectorySampleRate.toGeoJSON());
+            MapMatchedTrajectory mmTrajectory = mapMatcher.mapMatch(trajectory, 0.5);
+//            System.out.println("Label : ");
+//            System.out.println(mmTrajectory.toGeoJSON());
+            MapMatchedTrajectory mmTrajectory2;
+            double bestAcc = Double.MIN_VALUE;
+            int length = 0;
+            for (double weight : weightList){
+                mmTrajectory2 = mapMatcher2.streamMapMatch(trajectorySampleRate, weight);
+//                mmTrajectory2 = mapMatcher.mapMatch(trajectorySampleRate, weight);
+                assert mmTrajectory2 != null;
+                countNum.merge(weight, mmTrajectory2.getMmPtList().size(), Integer::sum);
+                double accuracy = EvaluateUtils.getAccuracy(mmTrajectory, mmTrajectory2, sampleRate);
+                bestAcc = Math.max(bestAcc, accuracy);
+                length = mmTrajectory2.getMmPtList().size();
+                double accNum = accuracy * length;
+                accuracyNum.merge(weight, accNum, Double::sum);
+                System.out.println("weight: " + weight + " acc: " + accuracyNum.get(weight)/countNum.get(weight));
+//                System.out.println(mmTrajectory2.toGeoJSON());
+            }
+            double bestAccNum = bestAcc * length;
+            accuracyNum.merge(2.0, bestAccNum, Double::sum);
+            System.out.println("best acc: " +  accuracyNum.get(2.0)/countNum.get(0.5));
+            System.out.println("---------------------------------------------");
+        }
+    }
+
+    private void addWeight(List<Double> weightList){
+        weightList.add(0.5);
+//        weightList.add(0.0);
+//        weightList.add(0.1);
+//        weightList.add(0.2);
+//        weightList.add(0.3);
+//        weightList.add(0.4);
+//        weightList.add(0.6);
+//        weightList.add(0.7);
+//        weightList.add(0.8);
+//        weightList.add(0.9);
+//        weightList.add(1.0);
+    }
+
+
 }

@@ -1,9 +1,5 @@
 package org.urbcomp.cupid.db.algorithm.mapmatch.stream;
 
-import org.apache.commons.math3.linear.ArrayRealVector;
-import org.apache.commons.math3.linear.MatrixUtils;
-import org.apache.commons.math3.linear.RealMatrix;
-import org.apache.commons.math3.linear.RealVector;
 import org.urbcomp.cupid.db.algorithm.kalman.KalmanFilter;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.HmmProbabilities;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.SequenceState;
@@ -33,7 +29,7 @@ public class StreamMapMatcher {
     /**
      * transition p 的指数概率函数参数
      */
-    private static final double transitionProbabilityBeta = 2.0;
+    private static final double transitionProbabilityBeta = 2;
 
     final HmmProbabilities probabilities = new HmmProbabilities(
             measurementErrorSigma,
@@ -45,29 +41,13 @@ public class StreamMapMatcher {
     protected final RoadNetwork roadNetwork;
 
     protected final AbstractManyToManyShortestPath pathAlgo;
-    private final KalmanFilter kalmanFilter;
 
     public StreamMapMatcher(RoadNetwork roadNetwork, AbstractManyToManyShortestPath pathAlgo) {
         this.roadNetwork = roadNetwork;
         this.pathAlgo = pathAlgo;
-        double[][] F = new double[][]{
-                {1, 0, 1, 0},
-                {0, 1, 0, 1},
-                {0, 0, 1, 0},
-                {0, 0, 0, 1}
-        };
-        double[][] H = new double[][]{
-                {1, 0, 0, 0},
-                {0, 1, 0, 0},
-                {0, 0, 1, 0},
-                {0, 0, 0, 1}
-        };
-        double pre_var = 15 * 15;
-        double gps_var = 100 * 100;
-        this.kalmanFilter = new KalmanFilter(F, H, gps_var, pre_var);
     }
 
-    public MapMatchedTrajectory streamMapMatch(Trajectory traj, double alpha, double beta) throws AlgorithmExecuteException {
+    public MapMatchedTrajectory streamMapMatch(Trajectory traj, double beta) throws AlgorithmExecuteException {
 
         TimeStep preTimeStep = null;
         List<SequenceState> seq = new ArrayList<>();
@@ -76,21 +56,12 @@ public class StreamMapMatcher {
 
             GPSPoint p = traj.getGPSPointList().get(i);
 
-            double[] estimate = kalmanFilter.process(p.getX(), p.getY(), p.getTime());
-
-            GPSPoint filterPoint = new GPSPoint(p.getTime(), estimate[0], estimate[1]);
-
             Tuple3<List<SequenceState>, TimeStep, TiViterbi> tuple2;
-            tuple2 = this.computeViterbiSequence(p, seq, preTimeStep, viterbi, filterPoint, i, alpha, beta);
+            tuple2 = this.computeViterbiSequence(p, seq, preTimeStep, viterbi, beta);
             seq = tuple2._1();
             preTimeStep = tuple2._2();
             viterbi = tuple2._3();
         }
-//        if (seq.size() < size) { //添加最后的
-//            seq.addAll(viterbi.computeMostLikelySequence());
-//        }
-//        System.out.println("seq size: " + seq.size());
-//        System.out.println("traj size: " + traj.getGPSPointList().size());
         assert traj.getGPSPointList().size() == seq.size();
         List<MapMatchedPoint> mapMatchedPointList = new ArrayList<>(seq.size());
         for (SequenceState ss : seq) {
@@ -110,15 +81,14 @@ public class StreamMapMatcher {
      * @param point 原始轨迹ptList
      * @return 保存了每一步step的所有状态
      */
-    private Tuple3<List<SequenceState>, TimeStep, TiViterbi> computeViterbiSequence(GPSPoint point, List<SequenceState> seq, TimeStep preTimeStep, TiViterbi viterbi, GPSPoint filterPoint, int index, double alpha, double beta)
+    private Tuple3<List<SequenceState>, TimeStep, TiViterbi> computeViterbiSequence(GPSPoint point, List<SequenceState> seq, TimeStep preTimeStep, TiViterbi viterbi, Double beta)
             throws AlgorithmExecuteException {
         TimeStep timeStep = this.createTimeStep(point);//轨迹点+候选点集
-        TimeStep filterStep = this.createTimeStep(filterPoint);
         if (timeStep == null) {
-//            seq.addAll(viterbi.computeMostLikelySequence()); //计算之前最有可能的序列
             seq.add(new SequenceState(null, point)); //添加新状态
             viterbi = new TiViterbi();
             preTimeStep = null;
+
         } else {
             if (preTimeStep != null) {
 
@@ -144,7 +114,8 @@ public class StreamMapMatcher {
                         timeStep.getObservation(),
                         timeStep.getCandidates(),
                         timeStep.getEmissionLogProbabilities(),
-                        timeStep.getTransitionLogProbabilities()
+                        timeStep.getTransitionLogProbabilities(),
+                        beta
                 );
             } else {
                 //第一个点初始化概率
@@ -152,7 +123,8 @@ public class StreamMapMatcher {
                 viterbi.startWithInitialObservation(
                         timeStep.getObservation(),
                         timeStep.getCandidates(),
-                        timeStep.getEmissionLogProbabilities()
+                        timeStep.getEmissionLogProbabilities(),
+                        beta
                 );
             }
             if (viterbi.isBroken) {
@@ -161,11 +133,11 @@ public class StreamMapMatcher {
                 viterbi.startWithInitialObservation(
                         timeStep.getObservation(),
                         timeStep.getCandidates(),
-                        timeStep.getEmissionLogProbabilities()
+                        timeStep.getEmissionLogProbabilities(),
+                        beta
                 );
             }
             CandidatePoint maxPoint = StreamMapMatcher.findMaxValuePoint(viterbi.message);//找到最大概率的候选点
-            kalmanFilter.update(maxPoint.getX(),maxPoint.getY(),point.getTime());
             seq.add(new SequenceState(maxPoint, point));
             preTimeStep = timeStep;
         }
