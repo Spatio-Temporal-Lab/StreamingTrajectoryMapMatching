@@ -133,4 +133,33 @@ public class GeoFunctions {
             )
         );
     }
+
+    public static double calculateBearing(double lat1, double lon1, double lat2, double lon2) {
+        double lat1Rad = Math.toRadians(lat1);
+        double lon1Rad = Math.toRadians(lon1);
+        double lat2Rad = Math.toRadians(lat2);
+        double lon2Rad = Math.toRadians(lon2);
+
+        double dLon = lon2Rad - lon1Rad;
+
+        double x = Math.sin(dLon) * Math.cos(lat2Rad);
+        double y = Math.cos(lat1Rad) * Math.sin(lat2Rad) -
+                (Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLon));
+
+        double initialBearing = Math.atan2(x, y);
+
+        // 将结果转换到0到360度之间
+        double compassBearing = Math.toDegrees(initialBearing);
+        compassBearing = (compassBearing + 360) % 360;
+
+        return compassBearing;
+    }
+
+    public static double calculateBearing(SpatialPoint p1, SpatialPoint p2) {
+        double lat1 = p1.getLat();
+        double lon1 = p1.getLng();
+        double lat2 = p2.getLat();
+        double lon2 = p2.getLng();
+        return calculateBearing(lat1, lon1, lat2, lon2);
+    }
 }

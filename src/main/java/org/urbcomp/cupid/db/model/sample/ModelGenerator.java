@@ -43,14 +43,14 @@ import java.util.stream.Collectors;
 
 public class ModelGenerator {
     public static Trajectory generateTrajectory() {
-        return generateTrajectory("data/output.txt");
+        return generateTrajectory("data/prepare/trajectories_chengdu.txt");
     }
 
     public static Trajectory generateTrajectory(String trajFile) {
         return generateTrajectory(trajFile, -1);
     }
     public static Trajectory generateTrajectory(int index) {
-        String trajFile = "data/output.txt";
+        String trajFile = "data/prepare/trajectories_chengdu.txt";
         try (
                 InputStream in = ModelGenerator.class.getClassLoader().getResourceAsStream(trajFile);
                 BufferedReader br = new BufferedReader(
@@ -84,7 +84,7 @@ public class ModelGenerator {
     }
 
     public static Trajectory generateTrajectory(int index, int sampleRate) {
-        String trajFile = "data/output.txt";
+        String trajFile = "data/prepare/trajectories_chengdu.txt";
         try (
                 InputStream in = ModelGenerator.class.getClassLoader().getResourceAsStream(trajFile);
                 BufferedReader br = new BufferedReader(
@@ -198,7 +198,7 @@ public class ModelGenerator {
         int skipNum = 0;
         boolean flag = true;
         for (Object obj : pointsArray) {
-            if (flag){
+            if (flag) {
                 JSONArray point = (JSONArray) obj;
                 Timestamp timestamp = Timestamp.valueOf(point.getString(0));
                 double lng = point.getDouble(1);
@@ -206,10 +206,10 @@ public class ModelGenerator {
                 double[] convertedCoords = CoordTransformUtils.gcj02Towgs84(lng, lat);
                 pointsList.add(new GPSPoint(timestamp, convertedCoords[0], convertedCoords[1]));
                 flag = false;
-                if (skipNum == sampleRate){
+                if (skipNum == sampleRate) {
                     flag = true;
                 }
-            }else {
+            } else {
                 skipNum ++;
                 if (skipNum == sampleRate){
                     skipNum = 0;
@@ -239,9 +239,9 @@ public class ModelGenerator {
 
     public static List<RoadSegment> generateRoadSegments(int maxLength) {
         try (
-            InputStream in = ModelGenerator.class.getClassLoader()
-                .getResourceAsStream("data/outputchengdu.csv");
-            BufferedReader br = new BufferedReader(
+                InputStream in = ModelGenerator.class.getClassLoader()
+                .getResourceAsStream("data/prepare/roadnetwork_chengdu.csv");
+                BufferedReader br = new BufferedReader(
                 new InputStreamReader(Objects.requireNonNull(in))
             )
         ) {

@@ -21,7 +21,7 @@ package org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner;
  */
 public class HmmProbabilities {
     /**
-     * emission p的log正太分布参数
+     * emission p的log正态分布参数
      */
     private final double sigma;
     /**
@@ -31,7 +31,7 @@ public class HmmProbabilities {
 
     /**
      * 构造函数
-     * @param sigma emission p的log正太分布参数
+     * @param sigma emission p的log正态分布参数
      * @param beta transition p的指数分布参数
      */
     public HmmProbabilities(double sigma, double beta) {
@@ -65,7 +65,31 @@ public class HmmProbabilities {
     }
 
     /**
-     * 数学方程，正太分布
+     * @param routeLength    Length of the shortest route [m] between two consecutive map matching candidates
+     * @param linearDistance Linear distance [m] between two consecutive GPS measurements
+     * @return 概率p
+     */
+    public double transitionPositionProbability(double routeLength, double linearDistance) {
+        double transitionMetric = Math.abs(linearDistance - routeLength);
+        if (transitionMetric > 500) {
+            return Double.NEGATIVE_INFINITY;
+        } else {
+            return exponentialDistribution(this.beta, transitionMetric);
+        }
+    }
+
+    public double transitionBearingProbability(double candiBearing, double gpsBearing) {
+        double deltaBearing = Math.min(Math.abs(gpsBearing - candiBearing), 360 - Math.abs(gpsBearing - candiBearing));
+//        System.out.println("delta bearing: " + deltaBearing);
+        if (deltaBearing > 90) {
+            return Double.NEGATIVE_INFINITY;
+        } else {
+            return exponentialDistribution(this.beta, Math.toRadians(deltaBearing));
+        }
+    }
+
+    /**
+     * 数学方程，正态分布
      * @param sigma 正太分布参数
      * @param x 距离
      * @return 概率 p
@@ -82,5 +106,18 @@ public class HmmProbabilities {
      */
     private static double logExponentialDistribution(double beta, double x) {
         return Math.log(1.0 / beta) - (x / beta);
+    }
+
+    /**
+     * 数学方程， 指数分布
+     * @param beta 指数分布参数
+     * @param x 距离
+     * @return 概率p
+     */
+    private static double exponentialDistribution(double beta, double x) {
+        return (1.0 / beta) * (Math.exp(-x / beta));
+    }
+    private static double normalDistribution(double sigma, double x) {
+        return 1.0 / (Math.sqrt(2.0 * Math.PI) * sigma) * Math.exp((-0.5 * Math.pow(x / sigma, 2)));
     }
 }

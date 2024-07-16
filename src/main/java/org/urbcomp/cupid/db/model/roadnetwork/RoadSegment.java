@@ -137,6 +137,10 @@ public class RoadSegment implements java.io.Serializable {
             && Objects.equals(this.lengthInMeter, rs.lengthInMeter);
     }
 
+    public boolean isEndPoint(SpatialPoint point) {
+        return (this.getEndNode().getLat() == point.getLat()) && (this.getEndNode().getLng() == point.getLng());
+    }
+
     public Feature toFeature() {
         Feature f = new Feature();
         f.setProperty("rsId", roadSegmentId);

@@ -48,4 +48,8 @@ public class RoadNode extends SpatialPoint {
     public int hashCode() {
         return nodeId;
     }
+
+    public boolean equalsByGeometry (RoadNode r) {
+        return ((this.getLng() == r.getLng()) && (this.getLat() == r.getLat()));
+    }
 }
