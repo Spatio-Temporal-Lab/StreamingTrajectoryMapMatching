@@ -17,6 +17,7 @@
 package org.urbcomp.cupid.db.util;
 
 import org.locationtech.jts.geom.*;
+import org.urbcomp.cupid.db.model.point.CandidatePoint;
 import org.urbcomp.cupid.db.model.point.SpatialPoint;
 
 import java.util.ArrayList;
@@ -132,5 +133,23 @@ public class GeoFunctions {
                 ).getCoordinateSequence()
             )
         );
+    }
+
+    public static double calculateBearing(SpatialPoint p1, SpatialPoint p2) {
+        double lat1 = Math.toRadians(p1.getLat());
+        double lon1 = Math.toRadians(p1.getLng());
+        double lat2 = Math.toRadians(p2.getLat());
+        double lon2 = Math.toRadians(p2.getLng());
+        double dLon = lon2 - lon1;
+
+        double y = Math.sin(dLon) * Math.cos(lat2);
+        double x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+
+        double bearing = Math.toDegrees(Math.atan2(y, x));
+
+        // Normalize the bearing to 0-360 degrees
+        bearing = (bearing + 360) % 360;
+
+        return bearing;
     }
 }

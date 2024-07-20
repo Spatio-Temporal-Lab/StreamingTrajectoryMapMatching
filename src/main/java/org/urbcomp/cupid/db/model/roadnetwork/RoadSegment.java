@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright (C) 2022  ST-Lab
  *
  * This program is free software: you can redistribute it and/or modify
@@ -10,7 +10,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
@@ -53,6 +53,8 @@ public class RoadSegment implements java.io.Serializable {
     private RoadSegmentLevel level;
     // the length of the road, m
     private double lengthInMeter;
+    // the angle of the road
+    private double bearing;
 
     public RoadSegment(int roadSegmentId, int startId, int endId, List<SpatialPoint> points) {
         this.roadSegmentId = roadSegmentId;
@@ -113,6 +115,15 @@ public class RoadSegment implements java.io.Serializable {
         return this;
     }
 
+    public double getBearing() {
+        return bearing;
+    }
+
+    public RoadSegment setBearing(double bearing) {
+        this.bearing = bearing;
+        return this;
+    }
+
     public Envelope getBBox() {
         return GeoFunctions.getBBox(points);
     }
@@ -128,13 +139,26 @@ public class RoadSegment implements java.io.Serializable {
         if (o == null || getClass() != o.getClass()) return false;
         RoadSegment rs = (RoadSegment) o;
         return Objects.equals(this.roadSegmentId, rs.roadSegmentId)
-            && Objects.equals(this.startNode, rs.startNode)
-            && Objects.equals(this.endNode, rs.endNode)
-            && Objects.equals(this.points, rs.points)
-            && Objects.equals(this.direction, rs.direction)
-            && Objects.equals(this.speedLimit, rs.speedLimit)
-            && Objects.equals(this.level, rs.level)
-            && Objects.equals(this.lengthInMeter, rs.lengthInMeter);
+                && Objects.equals(this.startNode, rs.startNode)
+                && Objects.equals(this.endNode, rs.endNode)
+                && Objects.equals(this.points, rs.points)
+                && Objects.equals(this.direction, rs.direction)
+                && Objects.equals(this.speedLimit, rs.speedLimit)
+                && Objects.equals(this.level, rs.level)
+                && Objects.equals(this.lengthInMeter, rs.lengthInMeter)
+                && Objects.equals(this.bearing, rs.bearing);
+    }
+
+    public boolean equals(RoadSegment rs) {
+        return Objects.equals(this.roadSegmentId, rs.roadSegmentId)
+                && Objects.equals(this.startNode, rs.startNode)
+                && Objects.equals(this.endNode, rs.endNode)
+                && Objects.equals(this.points, rs.points)
+                && Objects.equals(this.direction, rs.direction)
+                && Objects.equals(this.speedLimit, rs.speedLimit)
+                && Objects.equals(this.level, rs.level)
+                && Objects.equals(this.lengthInMeter, rs.lengthInMeter)
+                && Objects.equals(this.bearing, rs.bearing);
     }
 
     public Feature toFeature() {
@@ -146,9 +170,10 @@ public class RoadSegment implements java.io.Serializable {
         f.setProperty("startId", startNode.getNodeId());
         f.setProperty("endId", endNode.getNodeId());
         f.setProperty("lengthInMeter", lengthInMeter);
+        f.setProperty("bearing", bearing);
         LngLatAlt[] lngLats = points.stream()
-            .map(o -> new LngLatAlt(o.getLng(), o.getLat()))
-            .toArray(LngLatAlt[]::new);
+                .map(o -> new LngLatAlt(o.getLng(), o.getLat()))
+                .toArray(LngLatAlt[]::new);
         f.setGeometry(new org.geojson.LineString(lngLats));
         return f;
     }
@@ -156,18 +181,23 @@ public class RoadSegment implements java.io.Serializable {
     public static RoadSegment fromFeature(Feature f) {
         org.geojson.LineString lineString = (org.geojson.LineString) f.getGeometry();
         List<SpatialPoint> points = lineString.getCoordinates()
-            .stream()
-            .map(o -> new SpatialPoint(o.getLongitude(), o.getLatitude()))
-            .collect(Collectors.toList());
+                .stream()
+                .map(o -> new SpatialPoint(o.getLongitude(), o.getLatitude()))
+                .collect(Collectors.toList());
         return new RoadSegment(
-            f.getProperty("rsId"),
-            f.getProperty("startId"),
-            f.getProperty("endId"),
-            points
+                f.getProperty("rsId"),
+                f.getProperty("startId"),
+                f.getProperty("endId"),
+                points
         ).setDirection(RoadSegmentDirection.valueOf((Integer) f.getProperty("direction")))
-            .setSpeedLimit(f.getProperty("speedLimit"))
-            .setLevel(RoadSegmentLevel.valueOf((Integer) f.getProperty("level")))
-            .setLengthInMeter(f.getProperty("lengthInMeter"));
+                .setSpeedLimit(f.getProperty("speedLimit"))
+                .setLevel(RoadSegmentLevel.valueOf((Integer) f.getProperty("level")))
+                .setLengthInMeter(f.getProperty("lengthInMeter"))
+                .setBearing(f.getProperty("bearing"));
+    }
+
+    public boolean isEndPoint(SpatialPoint point) {
+        return (this.getEndNode().getLat() == point.getLat()) && (this.getEndNode().getLng() == point.getLng());
     }
 
     /**
@@ -201,8 +231,8 @@ public class RoadSegment implements java.io.Serializable {
      */
     public RoadSegment flipBackwardRoadSegment() {
         return direction == RoadSegmentDirection.BACKWARD
-            ? safeReverse(roadSegmentId, RoadSegmentDirection.FORWARD)
-            : this;
+                ? safeReverse(roadSegmentId, RoadSegmentDirection.FORWARD)
+                : this;
     }
 
     private RoadSegment safeReverse(int reverseRoadSegmentId, RoadSegmentDirection dir) {
@@ -211,14 +241,15 @@ public class RoadSegment implements java.io.Serializable {
             pointsReverse.add(new SpatialPoint(points.get(i).getCoordinate()));
         }
         return new RoadSegment(
-            reverseRoadSegmentId,
-            endNode.getNodeId(),
-            startNode.getNodeId(),
-            pointsReverse
+                reverseRoadSegmentId,
+                endNode.getNodeId(),
+                startNode.getNodeId(),
+                pointsReverse
         ).setDirection(dir)
-            .setSpeedLimit(speedLimit)
-            .setLevel(level)
-            .setLengthInMeter(lengthInMeter);
+                .setSpeedLimit(speedLimit)
+                .setLevel(level)
+                .setLengthInMeter(lengthInMeter)
+                .setBearing(bearing);
     }
 
     @Override

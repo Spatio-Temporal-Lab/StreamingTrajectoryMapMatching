@@ -251,24 +251,36 @@ public class EvaluateUtils {
     public static double getAccuracy(MapMatchedTrajectory labels, MapMatchedTrajectory results, double sampleRate) {
         double totalPoints = labels.getMmPtList().size();
         double samplePoints = results.getMmPtList().size();
+
         if (totalPoints == 0) {
             return 0.0;
         }
+
         List<Integer> labelList = new ArrayList<>();
         List<MapMatchedPoint> sampleLabelList = new ArrayList<>();
         List<Integer> resultList = new ArrayList<>();
 
+        // Generate labelList and sampleLabelList
+        populateLabelList(labels, sampleRate, labelList, sampleLabelList);
+
+        // Generate resultList
+        populateResultList(results, resultList);
+
+        int errorPointsCount = calculateErrorPoints(labelList, sampleLabelList, resultList, results);
+
+        System.out.println("Wrong Points: " + errorPointsCount);
+        return 1 - errorPointsCount * 1.0 / Math.min(resultList.size(), labelList.size());
+    }
+
+    private static void populateLabelList(MapMatchedTrajectory labels, double sampleRate, List<Integer> labelList, List<MapMatchedPoint> sampleLabelList) {
         int skipNum = 0;
         boolean flag = true;
-        for (int i = 0; i < totalPoints; i++) {
+
+        for (MapMatchedPoint point : labels.getMmPtList()) {
             if (flag) {
-                if (labels.getMmPtList().get(i).getCandidatePoint() == null) {
-                    labelList.add(0);
-                } else {
-                    int id1 = labels.getMmPtList().get(i).getCandidatePoint().getRoadSegmentId();
-                    labelList.add(id1);
-                }
-                sampleLabelList.add(labels.getMmPtList().get(i));
+                int id = (point.getCandidatePoint() != null) ? point.getCandidatePoint().getRoadSegmentId() : 0;
+                labelList.add(id);
+                sampleLabelList.add(point);
                 flag = skipNum == sampleRate;
             } else {
                 skipNum++;
@@ -278,25 +290,69 @@ public class EvaluateUtils {
                 }
             }
         }
-        for (int i = 0; i < samplePoints; i++) {
-            if (results.getMmPtList().get(i).getCandidatePoint() == null) {
-                resultList.add(0);
-            } else {
-                int id2 = results.getMmPtList().get(i).getCandidatePoint().getRoadSegmentId();
-                resultList.add(id2);
+    }
+
+    private static void populateResultList(MapMatchedTrajectory results, List<Integer> resultList) {
+        for (MapMatchedPoint point : results.getMmPtList()) {
+            int id = (point.getCandidatePoint() != null) ? point.getCandidatePoint().getRoadSegmentId() : 0;
+            resultList.add(id);
+        }
+    }
+
+    private static int calculateErrorPoints(List<Integer> labelList, List<MapMatchedPoint> sampleLabelList, List<Integer> resultList, MapMatchedTrajectory results) {
+        int errorPointsCount = 0;
+        int minSize = Math.min(resultList.size(), labelList.size());
+
+        for (int i = 0; i < minSize; i++) {
+            int label = labelList.get(i);
+            int result = resultList.get(i);
+
+            if (!checkLabel(label, result)) {
+                if (i > 0 && result != 0 && label != 0 &&
+                        (isStartOrEnd(results.getMmPtList().get(i), result) || isStartOrEnd(sampleLabelList.get(i), label))) {
+                    errorPointsCount += checkError2(label, result, sampleLabelList.get(i).getCandidatePoint(), results.getMmPtList().get(i).getCandidatePoint());
+                } else {
+                    errorPointsCount++;
+                }
             }
+        }
+        return errorPointsCount;
+    }
+
+    public static AccuracyResult getAccuracyResult(MapMatchedTrajectory labels, MapMatchedTrajectory results, double sampleRate) {
+        List<MapMatchedPoint> labelPoints = labels.getMmPtList();
+        List<MapMatchedPoint> resultPoints = results.getMmPtList();
+        double totalPoints = labels.getMmPtList().size();
+
+        if (totalPoints == 0) {
+            return new AccuracyResult(0.0, 0);
+        }
+
+        List<Integer> labelList = new ArrayList<>();    // 存储真实路段 id
+        List<MapMatchedPoint> sampleLabelList = new ArrayList<>();  // 存储匹配点
+        List<Integer> resultList = new ArrayList<>();   // 存储匹配路段 id
+
+        int step = (int) (sampleRate + 1);
+        for (int i = 0; i < totalPoints; i += step) {
+            MapMatchedPoint point = labelPoints.get(i);
+            labelList.add(point.getCandidatePoint() == null ? 0 : point.getCandidatePoint().getRoadSegmentId());
+            sampleLabelList.add(point);
+        }
+
+        for (MapMatchedPoint point : resultPoints) {
+            resultList.add(point.getCandidatePoint() == null ? 0 : point.getCandidatePoint().getRoadSegmentId());
         }
 
         int errorPointsCount = 0;
         int minSize = Math.min(resultList.size(), labelList.size());
+
         for (int i = 0; i < minSize; i++) {
-            int label = labelList.get(i);
-            int result = resultList.get(i);
+            int label = labelList.get(i);   // 真实路段 id
+            int result = resultList.get(i); // 匹配路段 id
             if (checkLabel(label, result)) {
 
-            } else if (i > 0 && result != 0 && label != 0 && ((isStartOrEnd(results.getMmPtList().get(i), result)) || isStartOrEnd(sampleLabelList.get(i), label))) {
-                int count = checkError2(label, result, sampleLabelList.get(i).getCandidatePoint(), results.getMmPtList().get(i).getCandidatePoint());
-                errorPointsCount += count;
+            } else if (i > 0 && result != 0 && label != 0 && (isStartOrEnd(resultPoints.get(i), result) || isStartOrEnd(sampleLabelList.get(i), label))) {
+                errorPointsCount += checkError2(label, result, sampleLabelList.get(i).getCandidatePoint(), resultPoints.get(i).getCandidatePoint());
             } else {
 //                System.out.println("label3: " + label + " result3:" + result );
 //                System.out.println("labelPoint:" + sampleLabelList.get(i) + " resultPoint:" + results.getMmPtList().get(i));
@@ -304,9 +360,28 @@ public class EvaluateUtils {
                 errorPointsCount++;
             }
         }
+
         System.out.println("wrong Points : " + errorPointsCount);
-        return 1 - errorPointsCount * 1.0 / minSize;
+        double accuracy = 1 - errorPointsCount * 1.0 / minSize;
+        return new AccuracyResult(accuracy, errorPointsCount);
     }
 
+    public static class AccuracyResult {
+        private final double accuracy;
+        private final int wrongPoints;
+
+        public AccuracyResult(double accuracy, int wrongPoints) {
+            this.accuracy = accuracy;
+            this.wrongPoints = wrongPoints;
+        }
+
+        public double getAccuracy() {
+            return accuracy;
+        }
+
+        public int getWrongPoints() {
+            return wrongPoints;
+        }
+    }
 
 }

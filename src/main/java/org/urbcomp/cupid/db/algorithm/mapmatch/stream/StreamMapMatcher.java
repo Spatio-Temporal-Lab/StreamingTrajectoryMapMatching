@@ -19,6 +19,9 @@ import org.urbcomp.cupid.db.model.trajectory.Trajectory;
 import org.urbcomp.cupid.db.util.GeoFunctions;
 import scala.Tuple3;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.*;
 
 public class StreamMapMatcher {
@@ -42,9 +45,27 @@ public class StreamMapMatcher {
 
     protected final AbstractManyToManyShortestPath pathAlgo;
 
+    private static final Map<String, Double> hisProb = new HashMap<>();
+
     public StreamMapMatcher(RoadNetwork roadNetwork, AbstractManyToManyShortestPath pathAlgo) {
         this.roadNetwork = roadNetwork;
         this.pathAlgo = pathAlgo;
+    }
+
+    static {
+        try (BufferedReader br = new BufferedReader(new FileReader(
+                "src/main/resources/data/history-prob/prob_every_time.csv"))) {
+            br.readLine();
+            String line;
+            while ((line = br.readLine()) != null) {
+                String[] parts = line.split(",");
+                String key = parts[2] + "," + parts[3] + "," + parts[6] + "," + parts[7]; // 构建键
+                Double probability = Double.parseDouble(parts[4]); // 解析概率
+                hisProb.put(key, probability); // 存储在Map中
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public MapMatchedTrajectory streamMapMatch(Trajectory traj, double beta) throws AlgorithmExecuteException {
@@ -101,15 +122,18 @@ public class StreamMapMatcher {
                 );
 
                 // 处理观测点向后偏移
-                processBackward(preTimeStep, timeStep, viterbi, paths);
+//                processBackward(preTimeStep, timeStep, viterbi, paths);
 
-                //计算观测概率
+//                CandidatePoint preCandiPt = findMaxValuePoint(viterbi.message);
+                // 计算观测概率
+//                this.computeEmissionProbabilities(preCandiPt, timeStep, probabilities);
+                // 计算观测概率
                 this.computeEmissionProbabilities(timeStep, probabilities);
 
-                //计算转移概率
+                // 计算转移概率
                 this.computeTransitionProbabilities(preTimeStep, timeStep, probabilities, paths);
 
-                //计算维特比
+                // 计算维特比
                 viterbi.nextStep(
                         timeStep.getObservation(),
                         timeStep.getCandidates(),
@@ -226,55 +250,70 @@ public class StreamMapMatcher {
     }
 
     /**
-     * 计算之前timeStep到当前timeStep的转移概率
+     * 根据time step, previous time step和概率分布函数计算emission P
      *
-     * @param prevTimeStep  之前的timestep
-     * @param timeStep      当前的timestep
-     * @param probabilities 建立好的概率分布函数
-     * @param paths 候选点间最短路径
+     * @param preCandiPt  上一个timeStep概率最大的候选点
+     * @param timeStep    timeStep
+     * @param probability 建立好的概率分布函数
      */
+    private void computeEmissionProbabilities(CandidatePoint preCandiPt, TimeStep timeStep, HmmProbabilities probability) {
+        for (CandidatePoint candiPt : timeStep.getCandidates()) {
+            final double dist = candiPt.getErrorDistanceInMeter();
+            double emissionLogProb = probability.emissionLogProbability(dist);
+            emissionLogProb = correctEmissionProbability(emissionLogProb, preCandiPt, candiPt);
+            timeStep.addEmissionLogProbability(candiPt, emissionLogProb);
+        }
+    }
+
     protected void computeTransitionProbabilities(
             TimeStep prevTimeStep,
             TimeStep timeStep,
             HmmProbabilities probabilities,
             Map<RoadNode, Map<RoadNode, Path>> paths
-    ) throws AlgorithmExecuteException {
-        //观测点的距离
+    ) {
+        // 观测点的距离
         final double linearDist = GeoFunctions.getDistanceInM(
                 prevTimeStep.getObservation(),
                 timeStep.getObservation()
         );
 
-        // 计算候选点转移概率
         for (CandidatePoint preCandiPt : prevTimeStep.getCandidates()) {
-            RoadSegment startRoadSegment = roadNetwork.getRoadSegmentById(
-                    preCandiPt.getRoadSegmentId()
-            );
-            for (CandidatePoint curCandiPt : timeStep.getCandidates()) {
+            RoadSegment startRoadSegment = roadNetwork.getRoadSegmentById(preCandiPt.getRoadSegmentId());
+            boolean needCorrect = true;
 
-                // 两个候选点相同，将概率置为极大
+            // 初步判定是否需要修正
+            for (CandidatePoint curCandiPt : timeStep.getCandidates()) {
+                RoadSegment endRoadSegment = roadNetwork.getRoadSegmentById(curCandiPt.getRoadSegmentId());
+                if (endRoadSegment.equals(startRoadSegment) || startRoadSegment.isEndPoint(curCandiPt)) {
+//                    System.out.println("don't need correct:");
+//                    System.out.println("end road segment: " + endRoadSegment);
+//                    System.out.println("start road segment: " + startRoadSegment);
+//                    System.out.println(endRoadSegment.equals(startRoadSegment));
+//                    System.out.println("end node of start road segment: " + startRoadSegment.getEndNode());
+//                    System.out.println("curr candidate point: " + curCandiPt);
+//                    System.out.println(startRoadSegment.isEndPoint(curCandiPt));
+                    needCorrect = false;
+                }
+
                 if (preCandiPt == curCandiPt) {
+                    System.out.println("don't need correct:");
+                    System.out.println("previous candidate point equals current candidate point!");
+                    needCorrect = false;
                     timeStep.addTransitionLogProbability(
                             preCandiPt,
                             curCandiPt,
                             probabilities.transitionLogProbability(0.0, 0.0)
                     );
-                    continue;
+                    break;
                 }
+            }
 
-                RoadSegment endRoadSegment = roadNetwork.getRoadSegmentById(
-                        curCandiPt.getRoadSegmentId()
-                );
-                Path subPath = paths.get(startRoadSegment.getEndNode())
-                        .get(endRoadSegment.getStartNode());
-                Path path = pathAlgo.getCompletePath(preCandiPt, curCandiPt, subPath);
-                if (path.getLengthInMeter() != Double.MAX_VALUE) {
-                    timeStep.addTransitionLogProbability(
-                            preCandiPt,
-                            curCandiPt,
-                            probabilities.transitionLogProbability(path.getLengthInMeter(), linearDist)
-                    );
-                }
+//            needCorrect = false;
+
+            if (needCorrect) {
+                correctTransitionProbabilities(preCandiPt, prevTimeStep, timeStep, probabilities, paths, linearDist, startRoadSegment);
+            } else {
+                simpleTransitionProbabilities(preCandiPt, timeStep, probabilities, paths, linearDist, startRoadSegment);
             }
         }
     }
@@ -293,5 +332,154 @@ public class StreamMapMatcher {
         return timeStep;
     }
 
+    private double correctEmissionProbability(double emissionProbability, CandidatePoint preCandiPt, CandidatePoint curCandiPt) {
+        double candiBearing = GeoFunctions.calculateBearing(preCandiPt, curCandiPt);
+        double w1 = 1.0, w2 = 1.0;
+//        System.out.println("modify before: " + emissionProbability);
+        // 直线行驶
+        if (candiBearing <= 10 || candiBearing >= 350) {
+//            System.out.println("preCandiPt: " + preCandiPt.getLat() + "," + preCandiPt.getLng());
+//            System.out.println("curCandiPt: " + curCandiPt.getLat() + "," + curCandiPt.getLng());
+            return emissionProbability;
+        }
 
+        RoadSegment roadSegment1 = roadNetwork.getRoadSegmentById(curCandiPt.getRoadSegmentId());
+        RoadSegment roadSegment2 = roadNetwork.getRoadSegmentById(preCandiPt.getRoadSegmentId());
+        double segmentBearing1 = roadSegment1.getBearing();
+        double segmentBearing2 = roadSegment2.getBearing();
+        double segmentBearing = (segmentBearing1 + segmentBearing2) / 2;
+
+        double alpha = Math.abs(candiBearing - segmentBearing);
+        alpha = Math.min(alpha, 360 - alpha);
+        double directionProbability = (1 + Math.cos(Math.toRadians(alpha))) / 2;
+
+//        System.out.println("modify after: " + (emissionProbability + Math.log(directionProbability)));
+        return w1 * emissionProbability + w2 * Math.log(directionProbability);
+    }
+
+    private void correctTransitionProbabilities(
+            CandidatePoint preCandiPt,
+            TimeStep prevTimeStep,
+            TimeStep timeStep,
+            HmmProbabilities probabilities,
+            Map<RoadNode, Map<RoadNode, Path>> paths,
+            double linearDist,
+            RoadSegment startRoadSegment
+    ) {
+        Map<CandidatePoint, Double> transitionProbTobeCorrected = new HashMap<>();
+        Map<CandidatePoint, Double> hisProbTobeCorrected = new HashMap<>();
+
+        for (CandidatePoint curCandiPt : timeStep.getCandidates()) {
+            RoadSegment endRoadSegment = roadNetwork.getRoadSegmentById(curCandiPt.getRoadSegmentId());
+            Path subPath = paths.get(startRoadSegment.getEndNode()).get(endRoadSegment.getStartNode());
+            Path path = pathAlgo.getCompletePath(preCandiPt, curCandiPt, subPath);
+
+            if (path.getLengthInMeter() != Double.MAX_VALUE) {
+                double transitionProb = probabilities.transitionProbability(path.getLengthInMeter(), linearDist);
+                transitionProbTobeCorrected.put(curCandiPt, transitionProb);
+
+                String key = getKey(prevTimeStep, preCandiPt, curCandiPt);
+                if (hisProb.containsKey(key)) {
+                    hisProbTobeCorrected.put(curCandiPt, hisProb.get(key));
+                }
+            }
+        }
+
+        double transitionSum = calculateSum(transitionProbTobeCorrected, hisProbTobeCorrected);
+        double historySum = hisProbTobeCorrected.values().stream().mapToDouble(Double::doubleValue).sum();
+
+        applyCorrectedProbabilities(preCandiPt, timeStep, transitionProbTobeCorrected, hisProbTobeCorrected, transitionSum, historySum);
+    }
+
+    private void simpleTransitionProbabilities(
+            CandidatePoint preCandiPt,
+            TimeStep timeStep,
+            HmmProbabilities probabilities,
+            Map<RoadNode, Map<RoadNode, Path>> paths,
+            double linearDist,
+            RoadSegment startRoadSegment
+    ) {
+        for (CandidatePoint curCandiPt : timeStep.getCandidates()) {
+            RoadSegment endRoadSegment = roadNetwork.getRoadSegmentById(curCandiPt.getRoadSegmentId());
+            Path subPath = paths.get(startRoadSegment.getEndNode()).get(endRoadSegment.getStartNode());
+            Path path = pathAlgo.getCompletePath(preCandiPt, curCandiPt, subPath);
+
+            if (path.getLengthInMeter() != Double.MAX_VALUE) {
+                timeStep.addTransitionLogProbability(
+                        preCandiPt,
+                        curCandiPt,
+                        probabilities.transitionLogProbability(path.getLengthInMeter(), linearDist)
+                );
+            }
+        }
+    }
+
+    private double calculateSum(Map<CandidatePoint, Double> transitionProbTobeCorrected, Map<CandidatePoint, Double> hisProbTobeCorrected) {
+        double transitionSum = 0;
+        for (CandidatePoint candi : hisProbTobeCorrected.keySet()) {
+            // 负无穷大的概率不计入
+            if (transitionProbTobeCorrected.containsKey(candi) &&
+                    transitionProbTobeCorrected.get(candi) != Double.NEGATIVE_INFINITY) {
+                transitionSum += transitionProbTobeCorrected.get(candi);
+            }
+        }
+        return transitionSum;
+    }
+
+    private void applyCorrectedProbabilities(
+            CandidatePoint preCandiPt,
+            TimeStep timeStep,
+            Map<CandidatePoint, Double> transitionProbTobeCorrected,
+            Map<CandidatePoint, Double> hisProbTobeCorrected,
+            double transitionSum,
+            double historySum
+    ) {
+        for (CandidatePoint curCandiPt : transitionProbTobeCorrected.keySet()) {
+            double correctedProb = transitionProbTobeCorrected.get(curCandiPt);
+            if (correctedProb == Double.NEGATIVE_INFINITY) {
+                timeStep.addTransitionLogProbability(
+                        preCandiPt,
+                        curCandiPt,
+                        correctedProb
+                );
+                continue;
+            }
+            if (hisProbTobeCorrected.containsKey(curCandiPt) && isAdjacent(preCandiPt, curCandiPt)) {
+                System.out.println("correct before: " + Math.log(correctedProb));
+                double scale = transitionSum / historySum;
+                double historyProbability = hisProbTobeCorrected.get(curCandiPt);
+//                System.out.println("transition sum: " + transitionSum);
+//                System.out.println("history sum: " + historySum);
+//                System.out.println("history prob: " + historyProbability);
+//                System.out.println("transition prob: " + correctedProb);
+//                correctedProb = Math.log(0.5 * (transitionSum * (historyProbability / historySum) + correctedProb));
+//                correctedProb = Math.log(transitionSum * (historyProbability / historySum) + correctedProb);
+                correctedProb = Math.log(transitionSum * (historyProbability / historySum)) + Math.log(correctedProb);
+//                correctedProb = Math.log(scale * (transitionSum * (historyProbability / historySum) + correctedProb));
+                System.out.println("correct after: " + correctedProb);
+            } else correctedProb = Math.log(correctedProb);
+            timeStep.addTransitionLogProbability(
+                    preCandiPt,
+                    curCandiPt,
+                    correctedProb
+            );
+        }
+
+        transitionProbTobeCorrected.clear();
+        hisProbTobeCorrected.clear();
+    }
+
+    private String getKey(TimeStep prevTimeStep, CandidatePoint preCandiPt, CandidatePoint curCandiPt) {
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTime(prevTimeStep.getObservation().getTime());
+        int hour = calendar.get(Calendar.HOUR_OF_DAY);
+        int dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK);
+        return hour + "," + dayOfWeek + "," + preCandiPt.getRoadSegmentId() + "," + curCandiPt.getRoadSegmentId();
+    }
+
+    private boolean isAdjacent(CandidatePoint preCandiPt, CandidatePoint curCandiPt) {
+        RoadNode r1 = roadNetwork.getRoadSegmentById(preCandiPt.getRoadSegmentId()).getEndNode();
+        RoadNode r2 = roadNetwork.getRoadSegmentById(curCandiPt.getRoadSegmentId()).getStartNode();
+        return (r1.getLat() == r2.getLat()) && (r1.getLng() == r2.getLng());
+    }
 }
