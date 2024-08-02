@@ -124,11 +124,15 @@ public class TiViterbi {
         double beta
     ) {
         final ForwardStepResult result = new ForwardStepResult(curCandidates.size());
-        assert prevCandidates.size() != 0;
+        assert !prevCandidates.isEmpty();
         for (CandidatePoint curState : curCandidates) {
             double maxLogProbability = Double.NEGATIVE_INFINITY;
             CandidatePoint maxPreState = null;
+//            System.out.println("----------------------------------------");
+//            System.out.println("start compare:");
             for (CandidatePoint preState : prevCandidates) {
+//                System.out.println("previous state probability: " + message.get(preState));
+//                System.out.println("current transition probability: " + transitionLogProbability(preState, curState, transitionLogProbabilities));
                 final double logProbability = message.get(preState) + beta * transitionLogProbability(
                     preState,
                     curState,
@@ -139,6 +143,10 @@ public class TiViterbi {
                     maxPreState = preState;
                 }
             }
+//            System.out.println("----------------------------------------");
+//            System.out.println("get max probability:");
+//            System.out.println("max log probability: " + maxLogProbability);
+//            System.out.println("emission log probability: " + emissionLogProbabilities.get(curState));
             result.getNewMessage()
                 .put(curState, (maxLogProbability + (1-beta) * emissionLogProbabilities.get(curState)));
             // Note that max_prev_state == None if there is no transition with non-zero probability.

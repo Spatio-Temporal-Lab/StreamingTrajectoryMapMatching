@@ -225,6 +225,51 @@ public class ModelGenerator {
         return trajectory;
     }
 
+    public static Trajectory generateSingleTrajectory(String trajFile, int index, int maxLength) {
+        try (
+                InputStream in = ModelGenerator.class.getClassLoader().getResourceAsStream(trajFile);
+                BufferedReader br = new BufferedReader(
+                        new InputStreamReader(Objects.requireNonNull(in))
+                )
+        ) {
+            String trajStr = br.readLine();
+            for (int i = 0; i < index; ++i) {
+                trajStr = br.readLine();
+            }
+            if (trajStr != null) {
+                return generateTrajectoryByStr(trajStr, maxLength);
+            }
+            return null;
+        } catch (IOException e) {
+            throw new RuntimeException("Generate trajectory error: " + e.getMessage());
+        }
+    }
+
+    public static List<Trajectory> generateMultiTrajectory(String trajFile, int num, int maxLength) {
+        try (
+                InputStream in = ModelGenerator.class.getClassLoader().getResourceAsStream(trajFile);
+                BufferedReader br = new BufferedReader(
+                        new InputStreamReader(Objects.requireNonNull(in))
+                )
+        ) {
+            List<Trajectory> trajectoryList = new ArrayList<>();
+            String trajStr = null;
+            if (num > 0) {
+                for (int i = 0; i < num; i++) {
+                    trajStr = br.readLine();
+                    trajectoryList.add(generateTrajectoryByStr(trajStr, maxLength));
+                }
+            } else {
+                while ((trajStr = br.readLine()) != null) {
+                    trajectoryList.add(generateTrajectoryByStr(trajStr, maxLength));
+                }
+            }
+            return trajectoryList;
+        } catch (IOException e) {
+            throw new RuntimeException("Generate trajectory error: " + e.getMessage());
+        }
+    }
+
     public static RoadSegment generateRoadSegment() {
         List<SpatialPoint> points = new ArrayList<>();
         points.add(new SpatialPoint(111.37939453125, 54.00776876193478));

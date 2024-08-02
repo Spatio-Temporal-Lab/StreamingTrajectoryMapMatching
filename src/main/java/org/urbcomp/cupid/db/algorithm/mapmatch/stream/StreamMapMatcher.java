@@ -1,11 +1,18 @@
 package org.urbcomp.cupid.db.algorithm.mapmatch.stream;
 
-import org.urbcomp.cupid.db.algorithm.kalman.KalmanFilter;
+import com.mxgraph.layout.hierarchical.mxHierarchicalLayout;
+import com.mxgraph.swing.mxGraphComponent;
+import com.mxgraph.util.mxCellRenderer;
+import com.mxgraph.view.mxGraph;
+import org.jgrapht.Graph;
+import org.jgrapht.graph.DefaultDirectedWeightedGraph;
+import org.jgrapht.graph.DefaultWeightedEdge;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.HmmProbabilities;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.SequenceState;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.TiViterbi;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.TimeStep;
 import org.urbcomp.cupid.db.algorithm.shortestpath.AbstractManyToManyShortestPath;
+import org.urbcomp.cupid.db.algorithm.shortestpath.ManyToManyShortestPath;
 import org.urbcomp.cupid.db.exception.AlgorithmExecuteException;
 import org.urbcomp.cupid.db.model.point.CandidatePoint;
 import org.urbcomp.cupid.db.model.point.GPSPoint;
@@ -14,12 +21,18 @@ import org.urbcomp.cupid.db.model.roadnetwork.Path;
 import org.urbcomp.cupid.db.model.roadnetwork.RoadNetwork;
 import org.urbcomp.cupid.db.model.roadnetwork.RoadNode;
 import org.urbcomp.cupid.db.model.roadnetwork.RoadSegment;
+import org.urbcomp.cupid.db.model.sample.ModelGenerator;
 import org.urbcomp.cupid.db.model.trajectory.MapMatchedTrajectory;
 import org.urbcomp.cupid.db.model.trajectory.Trajectory;
 import org.urbcomp.cupid.db.util.GeoFunctions;
+import scala.Tuple2;
 import scala.Tuple3;
 
+import javax.imageio.ImageIO;
+import javax.swing.*;
+import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.*;
@@ -73,12 +86,17 @@ public class StreamMapMatcher {
         TimeStep preTimeStep = null;
         List<SequenceState> seq = new ArrayList<>();
         TiViterbi viterbi = new TiViterbi();
+
+        Graph<String, DefaultWeightedEdge> graph = new DefaultDirectedWeightedGraph<>(DefaultWeightedEdge.class);
+        Map<String, Double> nodeEmissionProb = new HashMap<>();
+        Map<DefaultWeightedEdge, Double> edgeWeights = new HashMap<>();
+
         for (int i = 0; i < traj.getGPSPointList().size(); i++) {
 
             GPSPoint p = traj.getGPSPointList().get(i);
 
             Tuple3<List<SequenceState>, TimeStep, TiViterbi> tuple2;
-            tuple2 = this.computeViterbiSequence(p, seq, preTimeStep, viterbi, beta);
+            tuple2 = this.computeViterbiSequence(p, seq, preTimeStep, viterbi, beta, graph, nodeEmissionProb, edgeWeights, i);
             seq = tuple2._1();
             preTimeStep = tuple2._2();
             viterbi = tuple2._3();
@@ -92,6 +110,7 @@ public class StreamMapMatcher {
             }
             mapMatchedPointList.add(new MapMatchedPoint(ss.getObservation(), candiPt));
         }
+//        visualizeGraph(graph, edgeWeights, nodeEmissionProb);
         return new MapMatchedTrajectory(traj.getTid(), traj.getOid(), mapMatchedPointList);
     }
 
@@ -102,7 +121,15 @@ public class StreamMapMatcher {
      * @param point 原始轨迹ptList
      * @return 保存了每一步step的所有状态
      */
-    private Tuple3<List<SequenceState>, TimeStep, TiViterbi> computeViterbiSequence(GPSPoint point, List<SequenceState> seq, TimeStep preTimeStep, TiViterbi viterbi, Double beta)
+    private Tuple3<List<SequenceState>, TimeStep, TiViterbi> computeViterbiSequence(GPSPoint point,
+                                                                                    List<SequenceState> seq,
+                                                                                    TimeStep preTimeStep,
+                                                                                    TiViterbi viterbi,
+                                                                                    Double beta,
+                                                                                    Graph<String, DefaultWeightedEdge> graph,
+                                                                                    Map<String, Double> nodeEmissionProb,
+                                                                                    Map<DefaultWeightedEdge, Double> edgeWeights,
+                                                                                    int gpsIndex)
             throws AlgorithmExecuteException {
         TimeStep timeStep = this.createTimeStep(point);//轨迹点+候选点集
         if (timeStep == null) {
@@ -141,6 +168,9 @@ public class StreamMapMatcher {
                         timeStep.getTransitionLogProbabilities(),
                         beta
                 );
+
+//                addNodesAndEdgesToGraph(graph, edgeWeights, nodeEmissionProb, preTimeStep, timeStep, gpsIndex);
+
             } else {
                 //第一个点初始化概率
                 this.computeEmissionProbabilities(timeStep, probabilities);//计算观测概率
@@ -296,8 +326,8 @@ public class StreamMapMatcher {
                 }
 
                 if (preCandiPt == curCandiPt) {
-                    System.out.println("don't need correct:");
-                    System.out.println("previous candidate point equals current candidate point!");
+//                    System.out.println("don't need correct:");
+//                    System.out.println("previous candidate point equals current candidate point!");
                     needCorrect = false;
                     timeStep.addTransitionLogProbability(
                             preCandiPt,
@@ -308,7 +338,7 @@ public class StreamMapMatcher {
                 }
             }
 
-//            needCorrect = false;
+            needCorrect = false;
 
             if (needCorrect) {
                 correctTransitionProbabilities(preCandiPt, prevTimeStep, timeStep, probabilities, paths, linearDist, startRoadSegment);
@@ -444,8 +474,11 @@ public class StreamMapMatcher {
                 );
                 continue;
             }
-            if (hisProbTobeCorrected.containsKey(curCandiPt) && isAdjacent(preCandiPt, curCandiPt)) {
-                System.out.println("correct before: " + Math.log(correctedProb));
+//            System.out.println("--------------------------------------------------");
+//            System.out.println("start correct!");
+//             && isAdjacent(preCandiPt, curCandiPt)
+            if (hisProbTobeCorrected.containsKey(curCandiPt)) {
+//                System.out.println("correct before: " + Math.log(correctedProb));
                 double scale = transitionSum / historySum;
                 double historyProbability = hisProbTobeCorrected.get(curCandiPt);
 //                System.out.println("transition sum: " + transitionSum);
@@ -454,9 +487,10 @@ public class StreamMapMatcher {
 //                System.out.println("transition prob: " + correctedProb);
 //                correctedProb = Math.log(0.5 * (transitionSum * (historyProbability / historySum) + correctedProb));
 //                correctedProb = Math.log(transitionSum * (historyProbability / historySum) + correctedProb);
-                correctedProb = Math.log(transitionSum * (historyProbability / historySum)) + Math.log(correctedProb);
-//                correctedProb = Math.log(scale * (transitionSum * (historyProbability / historySum) + correctedProb));
-                System.out.println("correct after: " + correctedProb);
+//                correctedProb = Math.log(transitionSum * (historyProbability / historySum));
+//                correctedProb = Math.log(transitionSum * (historyProbability / historySum)) + Math.log(correctedProb);
+                correctedProb = Math.log(scale * (transitionSum * (historyProbability / historySum) + correctedProb));
+//                System.out.println("correct after: " + correctedProb);
             } else correctedProb = Math.log(correctedProb);
             timeStep.addTransitionLogProbability(
                     preCandiPt,
@@ -481,5 +515,95 @@ public class StreamMapMatcher {
         RoadNode r1 = roadNetwork.getRoadSegmentById(preCandiPt.getRoadSegmentId()).getEndNode();
         RoadNode r2 = roadNetwork.getRoadSegmentById(curCandiPt.getRoadSegmentId()).getStartNode();
         return (r1.getLat() == r2.getLat()) && (r1.getLng() == r2.getLng());
+    }
+
+    private void visualizeGraph(Graph<String, DefaultWeightedEdge> graph, Map<DefaultWeightedEdge, Double> edgeWeights, Map<String, Double> nodeEmissionProb) {
+        mxGraph jGraph = new mxGraph();
+        Object parent = jGraph.getDefaultParent();
+
+        jGraph.getModel().beginUpdate();
+        try {
+            Map<String, Object> vertices = new HashMap<>();
+            for (String vertex : graph.vertexSet()) {
+                Double emissionProb = nodeEmissionProb.get(vertex);
+                String vertexLabel = vertex + "\nE: " + (emissionProb != null ? emissionProb : "N/A");
+                vertices.put(vertex, jGraph.insertVertex(parent, null, vertexLabel, 0, 0, 80, 30)); // Adjust initial position and size
+            }
+            for (DefaultWeightedEdge edge : graph.edgeSet()) {
+                String source = graph.getEdgeSource(edge);
+                String target = graph.getEdgeTarget(edge);
+                Double weight = edgeWeights.get(edge);
+                jGraph.insertEdge(parent, null, weight, vertices.get(source), vertices.get(target));
+            }
+        } finally {
+            jGraph.getModel().endUpdate();
+        }
+
+        // Apply layout for better spacing
+        mxHierarchicalLayout layout = new mxHierarchicalLayout(jGraph);
+        layout.setIntraCellSpacing(100); // Increase spacing between nodes
+        layout.execute(parent);
+
+        // Save the graph to a file
+        saveGraphToFile(jGraph, "graph.png");
+
+        // Display the graph in a JFrame
+        mxGraphComponent graphComponent = new mxGraphComponent(jGraph);
+        JFrame frame = new JFrame("Graph Visualization");
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.getContentPane().add(graphComponent);
+        frame.setSize(1200, 800); // Set a larger size for the window
+        frame.setVisible(true);
+    }
+
+
+    private void saveGraphToFile(mxGraph jGraph, String filename) {
+        try {
+            BufferedImage image = mxCellRenderer.createBufferedImage(jGraph, null, 2, java.awt.Color.WHITE, true, null);
+            File imgFile = new File(filename);
+            ImageIO.write(image, "PNG", imgFile);
+            System.out.println("Graph saved to " + imgFile.getAbsolutePath());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+
+    private void addNodesAndEdgesToGraph(
+            Graph<String, DefaultWeightedEdge> graph,
+            Map<DefaultWeightedEdge, Double> edgeWeights,
+            Map<String, Double> nodeEmissionProb,
+            TimeStep preTimeStep,
+            TimeStep timeStep,
+            int gpsIndex
+    ) {
+        for (CandidatePoint preCandi : preTimeStep.getCandidates()) {
+            Map<CandidatePoint, Double> preEmissionProb = preTimeStep.getEmissionLogProbabilities();
+            Map<CandidatePoint, Double> curEmissionProb = timeStep.getEmissionLogProbabilities();
+            String preNode = "_rid" + preCandi.getRoadSegmentId() + "_index" + preCandi.getMatchedIndex() + "_gps" + (gpsIndex - 1);
+            graph.addVertex(preNode);
+            nodeEmissionProb.put(preNode, preEmissionProb.get(preCandi));
+
+            for (CandidatePoint curCandi : timeStep.getCandidates()) {
+                String curNode = "_rid" + curCandi.getRoadSegmentId() + "_index" + curCandi.getMatchedIndex() + "_gps" + gpsIndex;
+                graph.addVertex(curNode);
+                nodeEmissionProb.put(curNode, curEmissionProb.get(curCandi));
+
+                double transitionProb = timeStep.getTransitionLogProbabilities().get(Tuple2.apply(preCandi, curCandi));
+
+                if (transitionProb != Double.NEGATIVE_INFINITY) {
+                    DefaultWeightedEdge edge = graph.addEdge(preNode, curNode);
+                    graph.setEdgeWeight(edge, transitionProb);
+                    edgeWeights.put(edge, transitionProb);
+                }
+            }
+        }
+    }
+
+    public static void main(String[] args) throws AlgorithmExecuteException {
+        Trajectory trajectory = ModelGenerator.generateTrajectory();
+        RoadNetwork roadNetwork = ModelGenerator.generateRoadNetwork();
+        StreamMapMatcher mapMatcher2 = new StreamMapMatcher(roadNetwork, new ManyToManyShortestPath(roadNetwork));
+        mapMatcher2.streamMapMatch(trajectory, 0.5);
     }
 }

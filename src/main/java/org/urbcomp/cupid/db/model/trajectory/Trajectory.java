@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright (C) 2022  ST-Lab
  *
  * This program is free software: you can redistribute it and/or modify
@@ -10,7 +10,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
@@ -59,10 +59,10 @@ public class Trajectory implements java.io.Serializable {
     }
 
     public Trajectory(
-        String tid,
-        String oid,
-        List<GPSPoint> gpsPointList,
-        Map<String, Attribute> attributes
+            String tid,
+            String oid,
+            List<GPSPoint> gpsPointList,
+            Map<String, Attribute> attributes
     ) {
         this.tid = tid;
         this.oid = oid;
@@ -190,11 +190,11 @@ public class Trajectory implements java.io.Serializable {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         if (!Objects.equals(this.oid, ((Trajectory) o).oid)
-            || !Objects.equals(this.tid, ((Trajectory) o).tid)) {
+                || !Objects.equals(this.tid, ((Trajectory) o).tid)) {
             return false;
         }
         return MapUtil.additionalAttributesEquals(attributes, ((Trajectory) o).attributes)
-            && this.gpsPointList.equals(((Trajectory) o).gpsPointList);
+                && this.gpsPointList.equals(((Trajectory) o).gpsPointList);
     }
 
     /**
@@ -240,9 +240,9 @@ public class Trajectory implements java.io.Serializable {
      */
     public Envelope getBBox() {
         return GeoFunctions.getBBox(
-            gpsPointList.stream()
-                .map(o -> new SpatialPoint(o.getLng(), o.getLat()))
-                .collect(Collectors.toList())
+                gpsPointList.stream()
+                        .map(o -> new SpatialPoint(o.getLng(), o.getLat()))
+                        .collect(Collectors.toList())
         );
     }
 
@@ -253,9 +253,9 @@ public class Trajectory implements java.io.Serializable {
      */
     public double getLengthInKm() {
         return GeoFunctions.getDistanceInM(
-            gpsPointList.stream()
-                .map(o -> new SpatialPoint(o.getLng(), o.getLat()))
-                .collect(Collectors.toList())
+                gpsPointList.stream()
+                        .map(o -> new SpatialPoint(o.getLng(), o.getLat()))
+                        .collect(Collectors.toList())
         ) / 1000;
     }
 
@@ -276,7 +276,7 @@ public class Trajectory implements java.io.Serializable {
     public LineString getLineString() {
         GeometryFactory geometryFactory = GeometryFactoryUtils.defaultGeometryFactory();
         return geometryFactory.createLineString(
-            gpsPointList.stream().map(Point::getCoordinate).toArray(Coordinate[]::new)
+                gpsPointList.stream().map(Point::getCoordinate).toArray(Coordinate[]::new)
         );
     }
 
@@ -298,8 +298,8 @@ public class Trajectory implements java.io.Serializable {
                 Class type = DataTypeUtils.getClass(typeName);
                 if (Geometry.class.isAssignableFrom(type)) {
                     f.setProperty(
-                        entry.getKey(),
-                        geometryJSON.toString((Geometry) (entry.getValue().getValue()))
+                            entry.getKey(),
+                            geometryJSON.toString((Geometry) (entry.getValue().getValue()))
                     );
                 } else {
                     f.setProperty(entry.getKey(), JSONObject.toJSONString(entry.getValue()));
@@ -309,9 +309,9 @@ public class Trajectory implements java.io.Serializable {
             fcp.add(f);
         }
         return new ObjectMapper().writeValueAsString(fcp)
-            .replace("\"{", "{")
-            .replace("}\"", "}")
-            .replace("\\", "");
+                .replace("\"{", "{")
+                .replace("}\"", "}")
+                .replace("\\", "");
     }
 
     /**
@@ -323,8 +323,8 @@ public class Trajectory implements java.io.Serializable {
      */
     public static Trajectory fromGeoJSON(String geoJsonStr) throws IOException {
         FeatureCollectionWithProperties fcp = new ObjectMapper().readValue(
-            geoJsonStr,
-            FeatureCollectionWithProperties.class
+                geoJsonStr,
+                FeatureCollectionWithProperties.class
         );
         Trajectory traj = new Trajectory(fcp.getProperty("tid"), fcp.getProperty("oid"));
         GeometryJSON geometryJSON = new GeometryJSON();
@@ -334,35 +334,35 @@ public class Trajectory implements java.io.Serializable {
             for (Map.Entry<String, Object> entry : f.getProperties().entrySet()) {
                 if (!entry.getKey().equals("time")) {
                     String correctStr = entry.getValue()
-                        .toString()
-                        .replace("=", ":\"")
-                        .replaceFirst(",", "\",")
-                        .replace("}", "\"}");
+                            .toString()
+                            .replace("=", ":\"")
+                            .replaceFirst(",", "\",")
+                            .replace("}", "\"}");
                     JSONObject jsonObj = JSONObject.parseObject(correctStr);
                     String typeName = jsonObj.getString("type");
                     Class type = DataTypeUtils.getClass(typeName);
                     attributeMap.put(
-                        entry.getKey(),
-                        new Attribute(
-                            typeName,
-                            Geometry.class.isAssignableFrom(type)
-                                ? type.cast(
-                                    geometryJSON.read(
-                                        jsonObj.toString().replace("\"[", "[").replace("]\"", "]")
+                            entry.getKey(),
+                            new Attribute(
+                                    typeName,
+                                    Geometry.class.isAssignableFrom(type)
+                                            ? type.cast(
+                                            geometryJSON.read(
+                                                    jsonObj.toString().replace("\"[", "[").replace("]\"", "]")
+                                            )
                                     )
-                                )
-                                : JSONObject.parseObject(jsonObj.getString("value"), type)
-                        )
+                                            : JSONObject.parseObject(jsonObj.getString("value"), type)
+                            )
                     );
                 }
             }
             traj.attributes = attributeMap;
             traj.addGPSPoint(
-                new GPSPoint(
-                    Timestamp.valueOf((String) f.getProperty("time")),
-                    lngLatAlt.getLongitude(),
-                    lngLatAlt.getLatitude()
-                )
+                    new GPSPoint(
+                            Timestamp.valueOf((String) f.getProperty("time")),
+                            lngLatAlt.getLongitude(),
+                            lngLatAlt.getLatitude()
+                    )
             );
         }
         return traj;

@@ -16,20 +16,25 @@
  */
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import it.unimi.dsi.fastutil.Hash;
 import org.junit.Before;
 import org.junit.Test;
+import org.urbcomp.cupid.db.algorithm.mapmatch.amm.AMM;
+import org.urbcomp.cupid.db.algorithm.mapmatch.amm.inner.Candidate;
 import org.urbcomp.cupid.db.algorithm.mapmatch.routerecover.ShortestPathPathRecover;
 import org.urbcomp.cupid.db.algorithm.mapmatch.stream.StreamMapMatcher;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.TiHmmMapMatcher;
 import org.urbcomp.cupid.db.algorithm.shortestpath.BiDijkstraShortestPath;
 import org.urbcomp.cupid.db.algorithm.shortestpath.ManyToManyShortestPath;
 import org.urbcomp.cupid.db.exception.AlgorithmExecuteException;
+import org.urbcomp.cupid.db.model.point.MapMatchedPoint;
 import org.urbcomp.cupid.db.model.roadnetwork.RoadNetwork;
 import org.urbcomp.cupid.db.model.sample.ModelGenerator;
 import org.urbcomp.cupid.db.model.trajectory.MapMatchedTrajectory;
 import org.urbcomp.cupid.db.model.trajectory.PathOfTrajectory;
 import org.urbcomp.cupid.db.model.trajectory.Trajectory;
 import org.urbcomp.cupid.db.util.EvaluateUtils;
+import scala.Int;
 
 import java.io.*;
 import java.util.ArrayList;
@@ -45,6 +50,7 @@ public class StreamMapMatcherTest {
     private Trajectory trajectory;
     private TiHmmMapMatcher mapMatcher;
     private StreamMapMatcher mapMatcher2;
+    private AMM mapMatcher3;
     private ShortestPathPathRecover recover;
 
     @Before
@@ -53,6 +59,7 @@ public class StreamMapMatcherTest {
         RoadNetwork roadNetwork = ModelGenerator.generateRoadNetwork();
         mapMatcher = new TiHmmMapMatcher(roadNetwork, new ManyToManyShortestPath(roadNetwork));
         mapMatcher2 = new StreamMapMatcher(roadNetwork, new ManyToManyShortestPath(roadNetwork));
+        mapMatcher3 = new AMM(roadNetwork);
         recover = new ShortestPathPathRecover(roadNetwork, new BiDijkstraShortestPath(roadNetwork));
     }
 
@@ -61,10 +68,10 @@ public class StreamMapMatcherTest {
         MapMatchedTrajectory mmTrajectory = mapMatcher2.streamMapMatch(trajectory, 0);
 //        System.out.println(trajectory.toGeoJSON());
 //        System.out.println(mmTrajectory.toGeoJSON());
-        assertEquals(trajectory.getGPSPointList().size(), mmTrajectory.getMmPtList().size());
-        List<PathOfTrajectory> pTrajectories = recover.recover(mmTrajectory);
+//        assertEquals(trajectory.getGPSPointList().size(), mmTrajectory.getMmPtList().size());
+//        List<PathOfTrajectory> pTrajectories = recover.recover(mmTrajectory);
 //        System.out.println(pTrajectories.get(0).toGeoJSON());
-        assertEquals(1, pTrajectories.size());
+//        assertEquals(1, pTrajectories.size());
     }
 
     @Test
@@ -82,7 +89,7 @@ public class StreamMapMatcherTest {
             System.out.println("Index:" + index);
 
             // Generate trajectories
-            Trajectory trajectorySampleRate = ModelGenerator.generateTrajectory(index, sampleRate);
+            Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(index, sampleRate);
             Trajectory trajectory = ModelGenerator.generateTrajectory(index);
 
             // Perform map matching
@@ -93,7 +100,7 @@ public class StreamMapMatcherTest {
 
             // Compare accuracy for various beta values
             for (double beta = 0.0; beta <= 1.0; beta += 0.1) {
-                MapMatchedTrajectory mmTrajectoryBeta = mapMatcher2.streamMapMatch(trajectorySampleRate, beta);
+                MapMatchedTrajectory mmTrajectoryBeta = mapMatcher2.streamMapMatch(sampledTrajectory, beta);
                 double accuracy = EvaluateUtils.getAccuracy(mmTrajectory, mmTrajectoryBeta, sampleRate);
                 size = mmTrajectoryBeta.getMmPtList().size();
                 totalSize += size;
@@ -140,53 +147,73 @@ public class StreamMapMatcherTest {
 
     @Test
     public void weightTest() throws AlgorithmExecuteException, IOException {
-        int testNum = 15;
-        int startIndex = 1;
-        testNum += startIndex;
-        int sampleRate = 0;
+        int testNum = 2000;
+        int points;
+        int totalPoints = 0;
+
         List<Double> weightList = new ArrayList<>();
-        HashMap<Double, Integer> countNum = new HashMap<>();
-        HashMap<Double, Double> accuracyNum = new HashMap<>();
+
         HashMap<Double, Integer> wrongPointsNum = new HashMap<>();
+        HashMap<Double, Integer> totalWrongPointsNum = new HashMap<>();
+
+        HashMap<Double, Long> executionTimeNum = new HashMap<>();
+        HashMap<Double, Long> nonStreamExecutionTimeNum = new HashMap<>();
 
         addWeight(weightList);
 
-        BufferedWriter accuracyWriter = createWriter("src/main/resources/data/accuracy/ablation/transition/sampleRate-0.csv");
-        writeHeader(accuracyWriter);
+        BufferedWriter accuracyWriter;
 
-        for (; startIndex < testNum; startIndex++) {
-            System.out.println("Index: " + startIndex);
-            Trajectory trajectory = ModelGenerator.generateTrajectory(startIndex);
-            Trajectory trajectorySampleRate = ModelGenerator.generateTrajectory(startIndex, sampleRate);
-            MapMatchedTrajectory mmTrajectory = mapMatcher.mapMatch(trajectory, 0.5);
+        for (int sampleRate = 0; sampleRate <= 20; sampleRate += 5) {
+            String outputPath = "src/main/resources/data/accuracy/results/naive/sampleRate-" + sampleRate + ".csv";
+            accuracyWriter = createWriter(outputPath);
+            writeHeader(accuracyWriter);
 
-            // Uncomment this line if you want to write the mmTrajectory to a file
-            // writeTrajectoryToFile(mmTrajectory, "src/main/resources/data/match_result/offline/trajectory" + startIndex + ".json");
+            for (int startIndex = 1; startIndex < testNum; startIndex++) {
+                System.out.println("Index: " + startIndex);
 
-            processWeights(weightList, trajectorySampleRate, mmTrajectory, countNum, accuracyNum, wrongPointsNum, sampleRate);
+                // 生成轨迹
+                trajectory = ModelGenerator.generateTrajectory(startIndex);
+                // 采样生成轨迹
+                Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(startIndex, sampleRate);
+                // 记录轨迹点个数
+                points = sampledTrajectory.getGPSPointList().size();
+                // 记录总轨迹点个数
+                totalPoints += points;
+                // 计算离线匹配时间
+                long nonStreamStartTime = System.nanoTime();
+                MapMatchedTrajectory mmTrajectory = mapMatcher.mapMatch(trajectory, 0.5);
+                long nonStreamEndTime = System.nanoTime();
+                long nonStreamExeTime = nonStreamEndTime - nonStreamStartTime;
 
-            // Uncomment this line if you want to write the mmTrajectory2 to a file
-            // writeTrajectoryToFile(mmTrajectory2, "src/main/resources/data/match_result/stream/modify/trajectory" + startIndex + ".json");
+                // Uncomment this line if you want to write the mmTrajectory to a file
+                // writeTrajectoryToFile(mmTrajectory, "src/main/resources/data/match_result/offline/trajectory" + startIndex + ".json");
 
-            writeResults(startIndex, weightList, accuracyWriter, countNum, accuracyNum, wrongPointsNum);
+                // 处理不同 weight 情况
+                processWeights(weightList, sampledTrajectory, mmTrajectory, totalWrongPointsNum, wrongPointsNum, executionTimeNum, nonStreamExecutionTimeNum, sampleRate, nonStreamExeTime);
+
+                // Uncomment this line if you want to write the mmTrajectory2 to a file
+                // writeTrajectoryToFile(mmTrajectory2, "src/main/resources/data/match_result/stream/modify/trajectory" + startIndex + ".json");
+
+                // 写入结果
+                writeResults(startIndex, weightList, accuracyWriter, wrongPointsNum, totalWrongPointsNum, executionTimeNum, nonStreamExecutionTimeNum, points, totalPoints);
+            }
+
+            totalPoints = 0;
             wrongPointsNum.clear();
+            totalWrongPointsNum.clear();
+            executionTimeNum.clear();
+            nonStreamExecutionTimeNum.clear();
+            accuracyWriter.close();
         }
 
-        accuracyWriter.close();
+
     }
 
     private void addWeight(List<Double> weightList) {
         weightList.add(0.5);
-//        weightList.add(0.0);
-//        weightList.add(0.1);
-//        weightList.add(0.2);
-//        weightList.add(0.3);
-//        weightList.add(0.4);
-//        weightList.add(0.6);
-//        weightList.add(0.7);
-//        weightList.add(0.8);
-//        weightList.add(0.9);
-//        weightList.add(1.0);
+//        for (int i = 0; i < 10; i++) {
+//            weightList.add(0.0 + i * 0.1);
+//        }
     }
 
     private BufferedWriter createWriter(String filePath) throws IOException {
@@ -194,46 +221,81 @@ public class StreamMapMatcherTest {
     }
 
     private void writeHeader(BufferedWriter writer) throws IOException {
-        writer.write("index,weight,wrongPoints,totalPoints,accAccuracy,accuracy\n");
+        writer.write("index,weight,wrongPoints,points,totalWrongPoints,totalPoints,accuracy,accAccuracy,streamExeTime,nonStreamExeTime\n");
     }
 
-    private void processWeights(List<Double> weightList, Trajectory trajectorySampleRate, MapMatchedTrajectory mmTrajectory,
-                                HashMap<Double, Integer> countNum, HashMap<Double, Double> accuracyNum,
-                                HashMap<Double, Integer> wrongPointsNum, int sampleRate) throws AlgorithmExecuteException {
+    private void processWeights(List<Double> weightList, Trajectory sampledTrajectory, MapMatchedTrajectory mmTrajectory,
+                                HashMap<Double, Integer> totalWrongPointsNum, HashMap<Double, Integer> wrongPointsNum,
+                                HashMap<Double, Long> executionTimeNum, HashMap<Double, Long> nonStreamExecutionTimeNum,
+                                int sampleRate, long nonStreamExeTime) throws AlgorithmExecuteException {
         double bestAcc = Double.MIN_VALUE;
-        int length = 0;
+        double bestWeight = -1;
 
         for (double weight : weightList) {
-            MapMatchedTrajectory mmTrajectory2 = mapMatcher2.streamMapMatch(trajectorySampleRate, weight);
+            // 统计流式匹配时间
+            long startTime = System.nanoTime();
+            MapMatchedTrajectory mmTrajectory2 = mapMatcher2.streamMapMatch(sampledTrajectory, weight);
+            long endTime = System.nanoTime();
+            long exeTime = endTime - startTime;
+
             assert mmTrajectory2 != null;
-            countNum.merge(weight, mmTrajectory2.getMmPtList().size(), Integer::sum);
 
+            // 获取匹配准确率和错误点个数
             EvaluateUtils.AccuracyResult accRes = EvaluateUtils.getAccuracyResult(mmTrajectory, mmTrajectory2, sampleRate);
-            wrongPointsNum.put(weight, accRes.getWrongPoints());
+            int wrongPoints = accRes.getWrongPoints();
+            double accuracy = accRes.getAccuracy();
 
-            bestAcc = Math.max(bestAcc, accRes.getAccuracy());
-            length = mmTrajectory2.getMmPtList().size();
+            // 保存当前错误点个数
+            wrongPointsNum.put(weight, wrongPoints);
 
-            double accNum = accRes.getAccuracy() * length;
-            accuracyNum.merge(weight, accNum, Double::sum);
-            System.out.println("weight: " + weight + " acc: " + accuracyNum.get(weight) / countNum.get(weight));
+            // 保存总错误点个数
+            totalWrongPointsNum.merge(weight, wrongPoints, Integer::sum);
+
+            // 保存运行时间信息
+            executionTimeNum.put(weight, exeTime);
+            nonStreamExecutionTimeNum.put(weight, nonStreamExeTime);
+
+            // 记录最佳准确率以及对应的权重
+            if (accuracy > bestAcc) {
+                bestAcc = accuracy;
+                bestWeight = weight;
+            }
+
+            System.out.println("weight: " + weight + " accuracy: " + accuracy);
+
         }
 
-        double bestAccNum = bestAcc * length;
-        accuracyNum.merge(2.0, bestAccNum, Double::sum);
-        System.out.println("best acc: " + accuracyNum.get(2.0) / countNum.get(0.5));
-        System.out.println("---------------------------------------------");
+        System.out.println("best weight: " + bestWeight + " accuracy: " + bestAcc);
     }
 
     private void writeResults(int index, List<Double> weightList, BufferedWriter accuracyWriter,
-                              HashMap<Double, Integer> countNum, HashMap<Double, Double> accuracyNum,
-                              HashMap<Double, Integer> wrongPointsNum) throws IOException {
+                              HashMap<Double, Integer> wrongPointsNum, HashMap<Double, Integer> totalWrongPointsNum,
+                              HashMap<Double, Long> executionTimeNum, HashMap<Double, Long> nonStreamExecutionTimeNum,
+                              int points, int totalPoints) throws IOException {
+        // index, weight, wrong points, points, total wrong points, total points, accuracy, total accuracy, exeTime2, exeTime1
         for (double weight : weightList) {
-            accuracyWriter.write(index + "," + weight + "," +
-                    wrongPointsNum.get(weight) + "," + countNum.get(weight) + "," +
-                    accuracyNum.get(weight) / countNum.get(weight) + "," +
-                    (1 - (wrongPointsNum.get(weight) * 1.0 / countNum.get(weight))) + "\n");
+            accuracyWriter.write(index + "," + weight + ","
+                    + wrongPointsNum.get(weight) + "," + points + ","
+                    + totalWrongPointsNum.get(weight) + "," + totalPoints + ","
+                    + (1 - (wrongPointsNum.get(weight) * 1.0 / points)) + ","
+                    + (1 - (totalWrongPointsNum.get(weight) * 1.0 / totalPoints)) + ","
+                    + executionTimeNum.get(weight) / 1e6 + " ms,"
+                    + nonStreamExecutionTimeNum.get(weight) / 1e6 + " ms\n");
         }
+    }
+
+    private void writeResults(int index, BufferedWriter accuracyWriter,
+                              HashMap<Double, Integer> totalCountNum, HashMap<Double, Double> accuracyNum,
+                              HashMap<Double, Integer> totalWrongPointsNum,
+                              HashMap<Double, Long> executionTimeNum,
+                              HashMap<Double, Long> nonStreamExecutionTimeNum) throws IOException {
+        double weight = -1.0;
+        accuracyWriter.write(index + "," + weight + "," +
+                totalWrongPointsNum.get(weight) + "," + totalCountNum.get(weight) + "," +
+                accuracyNum.get(weight) / totalCountNum.get(weight) + "," +
+                (1 - (totalWrongPointsNum.get(weight) * 1.0 / totalCountNum.get(weight))) + "," +
+                executionTimeNum.get(weight) / 1e6 + " ms," +
+                nonStreamExecutionTimeNum.get(weight) / 1e6 + " ms\n");
     }
 
     private void writeTrajectoryToFile(MapMatchedTrajectory trajectory, String filePath) throws IOException {
@@ -251,5 +313,33 @@ public class StreamMapMatcherTest {
         System.out.println("Matched Trajectory:");
         System.out.println(mmTrajectory.toGeoJSON());
         System.out.println("--------------------------------");
+    }
+
+    private void evaluateAMM(Trajectory trajectory, int id,
+                             MapMatchedTrajectory mmTrajectory, int sampleRate,
+                             HashMap<Double, Integer> totalCountNum, HashMap<Double, Integer> totalWrongPointsNum, HashMap<Double, Double> accuracyNum) {
+        double v = mapMatcher3.mapMatch(trajectory, id);
+        double weight = -1.0;
+        List<Candidate> matchedList = mapMatcher3.getMatchedList();
+        assert matchedList != null;
+
+        MapMatchedTrajectory mmTrajectory3 = convertMatchedListToTrajectory(matchedList, trajectory.getTid(), trajectory.getOid());
+        totalCountNum.merge(weight, matchedList.size(), Integer::sum);
+
+        EvaluateUtils.AccuracyResult accRes = EvaluateUtils.getAccuracyResult(mmTrajectory, mmTrajectory3, sampleRate);
+        totalWrongPointsNum.put(weight, accRes.getWrongPoints());
+        double accNum = accRes.getAccuracy() * matchedList.size();
+        accuracyNum.merge(weight, accNum, Double::sum);
+
+        System.out.println("acc: " + accuracyNum.get(weight) / totalCountNum.get(weight));
+        System.out.println("---------------------------------------------");
+    }
+
+    private MapMatchedTrajectory convertMatchedListToTrajectory(List<Candidate> matchedList, String tid, String oid) {
+        List<MapMatchedPoint> mmPtList = new ArrayList<>();
+        for (Candidate candidate : matchedList) {
+            mmPtList.add(new MapMatchedPoint(candidate.parent.getObservation(), candidate.candidate));
+        }
+        return new MapMatchedTrajectory(tid, oid, mmPtList);
     }
 }

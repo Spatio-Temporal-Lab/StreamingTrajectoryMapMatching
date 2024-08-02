@@ -24,10 +24,15 @@ import com.github.davidmoten.rtree.RTree;
 import com.github.davidmoten.rtree.geometry.Geometries;
 import com.github.davidmoten.rtree.geometry.Rectangle;
 import org.geojson.FeatureCollection;
+import org.urbcomp.cupid.db.algorithm.mapmatch.amm.inner.AMMGPSPoint;
+import org.urbcomp.cupid.db.algorithm.mapmatch.amm.inner.Candidate;
+import org.urbcomp.cupid.db.algorithm.mapmatch.amm.inner.PointsSet;
+import org.urbcomp.cupid.db.model.point.CandidatePoint;
 import org.urbcomp.cupid.db.model.point.SpatialPoint;
 import org.urbcomp.cupid.db.serializer.RoadNetworkDeserializer;
 import org.urbcomp.cupid.db.serializer.RoadNetworkSerializer;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
@@ -112,6 +117,19 @@ public class RoadNetwork implements java.io.Serializable {
             }
         }
         return roadRTree;
+    }
+
+    public List<PointsSet> generateSequence(List<AMMGPSPoint> AMMGPSPointList,
+                                            RoadNetwork roadNetwork,
+                                            double radius) {
+        List<PointsSet> trackList = new ArrayList<>();
+        for (AMMGPSPoint observation : AMMGPSPointList) {
+            List<CandidatePoint> candidatePoints = CandidatePoint.getCandidatePoint(observation, roadNetwork, radius);
+            List<Candidate> candidates = new ArrayList<>();
+            for (CandidatePoint candidatePoint : candidatePoints) { candidates.add(new Candidate(candidatePoint)); }
+            trackList.add(new PointsSet(observation, candidates));
+        }
+        return trackList;
     }
 
     public RoadSegment getRoadSegmentById(int roadSegmentId) {

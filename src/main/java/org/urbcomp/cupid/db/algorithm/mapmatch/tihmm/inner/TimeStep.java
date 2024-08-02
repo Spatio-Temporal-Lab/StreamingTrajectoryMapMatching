@@ -20,6 +20,8 @@ import org.urbcomp.cupid.db.model.point.CandidatePoint;
 import org.urbcomp.cupid.db.model.point.GPSPoint;
 import scala.Tuple2;
 
+import java.io.BufferedWriter;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
