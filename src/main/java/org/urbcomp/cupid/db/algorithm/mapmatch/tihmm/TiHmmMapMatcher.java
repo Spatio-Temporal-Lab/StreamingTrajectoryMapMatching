@@ -64,9 +64,9 @@ public class TiHmmMapMatcher {
      * @param traj 原始轨迹
      * @return map match后的轨迹
      */
-    public MapMatchedTrajectory mapMatch(Trajectory traj, double beta) throws AlgorithmExecuteException {
+    public MapMatchedTrajectory mapMatch(Trajectory traj) throws AlgorithmExecuteException {
 
-        List<SequenceState> seq = this.computeViterbiSequence(traj.getGPSPointList(), beta);
+        List<SequenceState> seq = this.computeViterbiSequence(traj.getGPSPointList());
         assert traj.getGPSPointList().size() == seq.size();
         List<MapMatchedPoint> mapMatchedPointList = new ArrayList<>(seq.size());
         for (SequenceState ss : seq) {
@@ -104,7 +104,7 @@ public class TiHmmMapMatcher {
      * @param ptList 原始轨迹ptList
      * @return 保存了每一步step的所有状态
      */
-    private List<SequenceState> computeViterbiSequence(List<GPSPoint> ptList, double beta)
+    private List<SequenceState> computeViterbiSequence(List<GPSPoint> ptList)
             throws AlgorithmExecuteException {
         List<SequenceState> seq = new ArrayList<>();
         final HmmProbabilities probabilities = new HmmProbabilities(
@@ -147,8 +147,7 @@ public class TiHmmMapMatcher {
                             timeStep.getObservation(),
                             timeStep.getCandidates(),
                             timeStep.getEmissionLogProbabilities(),
-                            timeStep.getTransitionLogProbabilities(),
-                            beta
+                            timeStep.getTransitionLogProbabilities()
                     );
                 } else {
                     //第一个点初始化概率
@@ -156,8 +155,7 @@ public class TiHmmMapMatcher {
                     viterbi.startWithInitialObservation(
                             timeStep.getObservation(),
                             timeStep.getCandidates(),
-                            timeStep.getEmissionLogProbabilities(),
-                            beta
+                            timeStep.getEmissionLogProbabilities()
                     );
                 }
                 if (viterbi.isBroken) {
@@ -166,8 +164,7 @@ public class TiHmmMapMatcher {
                     viterbi.startWithInitialObservation(
                             timeStep.getObservation(),
                             timeStep.getCandidates(),
-                            timeStep.getEmissionLogProbabilities(),
-                            beta
+                            timeStep.getEmissionLogProbabilities()
                     );
 //                    System.out.println("Ti-HMM: Viterbi algorithm is broken at index " + idx + ptList.get(idx));
 //                    System.out.println();

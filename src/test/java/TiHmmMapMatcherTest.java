@@ -29,8 +29,11 @@ import org.urbcomp.cupid.db.model.sample.ModelGenerator;
 import org.urbcomp.cupid.db.model.trajectory.MapMatchedTrajectory;
 import org.urbcomp.cupid.db.model.trajectory.PathOfTrajectory;
 import org.urbcomp.cupid.db.model.trajectory.Trajectory;
+import org.urbcomp.cupid.db.util.EvaluateUtils;
 
 import java.io.*;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 
@@ -57,7 +60,7 @@ public class TiHmmMapMatcherTest {
         //MapMatchedTrajectory mmTrajectory = mapMatcher2.streamMapMatch(trajectory);
         System.out.println(trajectory.toGeoJSON());
         long start = System.nanoTime();
-        MapMatchedTrajectory mmTrajectory = mapMatcher.mapMatch(trajectory, 0.5);
+        MapMatchedTrajectory mmTrajectory = mapMatcher.mapMatch(trajectory);
         System.out.println((System.nanoTime() - start)/1_000_000.0/mmTrajectory.getMmPtList().size());
         System.out.println(mmTrajectory.toGeoJSON());
         assertEquals(trajectory.getGPSPointList().size(), mmTrajectory.getMmPtList().size());
@@ -82,7 +85,8 @@ public class TiHmmMapMatcherTest {
             while ((trajStr = br.readLine()) != null && count < trajectories_count ) {
                 count++;
                 Trajectory trajectory = generateTrajectoryByStr(trajStr, 0);
-                MapMatchedTrajectory mmTrajectory = mapMatcher.mapMatch(trajectory,0.5);
+                MapMatchedTrajectory mmTrajectory = mapMatcher.mapMatch(trajectory);
+                assert trajectory.getGPSPointList().size() == mmTrajectory.getMmPtList().size();
                 writer.write(mmTrajectory.toGeoJSON());
                 writer.newLine();
                 success_count++;
@@ -90,5 +94,4 @@ public class TiHmmMapMatcherTest {
             }
         }
     }
-
 }
