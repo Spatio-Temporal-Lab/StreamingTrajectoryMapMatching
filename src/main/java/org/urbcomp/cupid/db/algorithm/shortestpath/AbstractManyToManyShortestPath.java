@@ -148,6 +148,9 @@ public class AbstractManyToManyShortestPath {
         } else {
             Path result = getSubPathFromStartPoint(startCandidatePoint, startRoadSegment);
             result.addPath(path);
+//            if (startCandidatePoint.getRoadSegmentId() == 61448){
+//                System.out.println("end path " + endCandidatePoint.getRoadSegmentId()+ " " + getSubPathToEndPoint(endCandidatePoint, endRoadSegment));
+//            }
             result.addPath(getSubPathToEndPoint(endCandidatePoint, endRoadSegment));
             return result;
 
@@ -177,7 +180,7 @@ public class AbstractManyToManyShortestPath {
         RoadSegment endRoadSegment
     ) {
         List<SpatialPoint> points = new ArrayList<>();
-        for (int i = 0; i < endCandidatePoint.getMatchedIndex(); i++) {
+        for (int i = 0; i <= endCandidatePoint.getMatchedIndex(); i++) {
             points.add(endRoadSegment.getPoints().get(i));
         }
         points.add(endCandidatePoint);

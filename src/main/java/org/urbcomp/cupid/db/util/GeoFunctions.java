@@ -99,6 +99,15 @@ public class GeoFunctions {
         return distance;
     }
 
+    public static List<Double> getDistanceInMs(List<SpatialPoint> points) {
+        List<Double> distances = new ArrayList<>();
+        for (int i = 1; i < points.size(); i++) {
+            distances.add(GeoFunctions.getDistanceInM(points.get(i - 1), points.get(i)));
+        }
+        return distances;
+    }
+
+
     public static Envelope getBBox(List<SpatialPoint> points) {
         double minLng = Double.MAX_VALUE;
         double minLat = Double.MAX_VALUE;
@@ -133,4 +142,35 @@ public class GeoFunctions {
             )
         );
     }
+
+    public static double getBearing(double lng1, double lat1, double lng2, double lat2) {
+        double dLon = Math.toRadians(lng2 - lng1);
+        double y = Math.sin(dLon) * Math.cos(Math.toRadians(lat2));
+        double x = Math.cos(Math.toRadians(lat1)) * Math.sin(Math.toRadians(lat2)) -
+                Math.sin(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) * Math.cos(dLon);
+        double bearing = Math.atan2(y, x);
+        bearing = Math.toDegrees(bearing);
+        bearing = (bearing + 360) % 360;
+        return bearing;
+    }
+
+    public static double[] getBearingXY(double lng1, double lat1, double lng2, double lat2) {
+        double dLon = Math.toRadians(lng2 - lng1);
+        double y = Math.sin(dLon) * Math.cos(Math.toRadians(lat2));
+        double x = Math.cos(Math.toRadians(lat1)) * Math.sin(Math.toRadians(lat2)) -
+                Math.sin(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) * Math.cos(dLon);
+        double[] xy = new double[2];
+        xy[0] = x;
+        xy[1] = y;
+        return xy;
+    }
+
+
+    public static double toRad(double x, double y){
+        double bearing = Math.atan2(y, x);
+        bearing = Math.toDegrees(bearing);
+        bearing = (bearing + 360) % 360;
+        return bearing;
+    }
+
 }

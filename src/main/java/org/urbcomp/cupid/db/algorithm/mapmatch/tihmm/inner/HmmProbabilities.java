@@ -28,6 +28,10 @@ public class HmmProbabilities {
      * transition p的指数分布参数
      */
     private final double beta;
+    /**
+     * direction p的指数分布参数
+     */
+    private final double alpha = 5;
 
     /**
      * 构造函数
@@ -83,4 +87,10 @@ public class HmmProbabilities {
     private static double logExponentialDistribution(double beta, double x) {
         return Math.log(1.0 / beta) - (x / beta);
     }
+
+    public double directionLogProbability(double diff) {
+        return logNormalDistribution(this.alpha, diff);
+    }
+
+
 }

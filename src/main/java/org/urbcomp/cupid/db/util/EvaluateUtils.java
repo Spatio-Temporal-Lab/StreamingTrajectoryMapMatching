@@ -175,6 +175,7 @@ public class EvaluateUtils {
         RoadSegment rsLabel = roadNetwork.getRoadSegmentById(labelId);
         if ((rsResult.getStartNode().getLat() == rsLabel.getEndNode().getLat() && rsResult.getStartNode().getLng() == rsLabel.getEndNode().getLng()) ||
                 (rsResult.getEndNode().getLat() == rsLabel.getStartNode().getLat() && rsResult.getEndNode().getLng() == rsLabel.getStartNode().getLng())) {
+            return errorCount;
         } else {
             errorCount++;
         }
@@ -239,8 +240,10 @@ public class EvaluateUtils {
         } else return point.getLat() == end.getLat() && point.getLng() == end.getLng();
     }
 
-    private static boolean checkLabel(int label, int result) {
+    private static boolean checkLabel(int label, int result, CandidatePoint labelPoint, CandidatePoint resultPoint) {
         if (Math.abs(label) == Math.abs(result)) {
+            return true;
+        }else if (labelPoint.getLat() == resultPoint.getLat() && labelPoint.getLng() == resultPoint.getLng()) {
             return true;
         }
         RoadSegment rsLabel = roadNetwork.getRoadSegmentById(label);
@@ -292,15 +295,16 @@ public class EvaluateUtils {
         for (int i = 0; i < minSize; i++) {
             int label = labelList.get(i);
             int result = resultList.get(i);
-            if (checkLabel(label, result)) {
+            if (checkLabel(label, result, sampleLabelList.get(i).getCandidatePoint(), results.getMmPtList().get(i).getCandidatePoint())) {
 
             } else if (i > 0 && result != 0 && label != 0 && ((isStartOrEnd(results.getMmPtList().get(i), result)) || isStartOrEnd(sampleLabelList.get(i), label))) {
                 int count = checkError2(label, result, sampleLabelList.get(i).getCandidatePoint(), results.getMmPtList().get(i).getCandidatePoint());
                 errorPointsCount += count;
+                if (count != 0) {
+                    System.out.println("index: " + i + " " + results.getMmPtList().get(i).getCandidatePoint() + " result: " + results.getMmPtList().get(i).getCandidatePoint().getCoordinate() + " label: " + sampleLabelList.get(i).getCandidatePoint().getCoordinate());
+                }
             } else {
-//                System.out.println("label3: " + label + " result3:" + result );
-//                System.out.println("labelPoint:" + sampleLabelList.get(i) + " resultPoint:" + results.getMmPtList().get(i));
-//                System.out.println();
+                System.out.println("index: " + i + " " + results.getMmPtList().get(i).getCandidatePoint() + " result: " + results.getMmPtList().get(i).getCandidatePoint().getCoordinate() + " label: " + sampleLabelList.get(i).getCandidatePoint().getCoordinate());
                 errorPointsCount++;
             }
         }

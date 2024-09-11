@@ -138,54 +138,6 @@ public class ModelGenerator {
         }
     }
 
-    public static Trajectory generateTrajectory(List<String> names, List<String> types) {
-        try (
-            InputStream in = ModelGenerator.class.getClassLoader()
-                .getResourceAsStream("data/traj1.txt");
-            BufferedReader br = new BufferedReader(
-                new InputStreamReader(Objects.requireNonNull(in))
-            )
-        ) {
-            String trajStr = br.readLine();
-            String correctStr = trajStr.replaceFirst("\\[", "[\"").replaceFirst(",", "\",");
-            List<String> result = JSON.parseArray(correctStr, String.class);
-            String oid = result.get(0);
-            List<String> pointsStrList = JSON.parseArray(result.get(1), String.class);
-            List<GPSPoint> pointsList = pointsStrList.stream()
-                .map(o -> JSON.parseArray(o, String.class))
-                .map(
-                    o -> new GPSPoint(
-                        Timestamp.valueOf(o.get(0)),
-                        Double.parseDouble(o.get(1)),
-                        Double.parseDouble(o.get(2))
-                    )
-                )
-                .collect(Collectors.toList());
-            int n = names.size();
-            GeometryJSON geometryJSON = new GeometryJSON();
-            Map<String, Attribute> attributeMap = new HashMap<>();
-            for (int i = 0; i < n; ++i) {
-                String name = names.get(i);
-                String typeName = types.get(i);
-                Class type = DataTypeUtils.getClass(typeName);
-                attributeMap.put(
-                    name,
-                    new Attribute(
-                        typeName,
-                        Geometry.class.isAssignableFrom(type)
-                            ? type.cast(geometryJSON.read(result.get(i + 2)))
-                            : JSONObject.parseObject(result.get(i + 2), type)
-                    )
-                );
-            }
-            Trajectory trajectory =  new Trajectory(oid + pointsList.get(0).getTime(), oid, pointsList);
-            trajectory.getGPSPointList().sort(Comparator.comparing(GPSPoint::getTime));
-            return trajectory;
-        } catch (IOException e) {
-            throw new RuntimeException("Generate trajectory error: " + e.getMessage());
-        }
-    }
-
     public static Trajectory generateTrajectoryByStr(String trajStr, int sampleRate) {
         String correctStr = trajStr.replaceFirst("\\[", "[\"").replaceFirst(",", "\",");
         // 解析 JSON 字符串
@@ -223,15 +175,6 @@ public class ModelGenerator {
         return trajectory;
     }
 
-    public static RoadSegment generateRoadSegment() {
-        List<SpatialPoint> points = new ArrayList<>();
-        points.add(new SpatialPoint(111.37939453125, 54.00776876193478));
-        points.add(new SpatialPoint(116.3671875, 53.05442186546102));
-        return new RoadSegment(1, 1, 2, points).setDirection(RoadSegmentDirection.DUAL)
-            .setSpeedLimit(30.0)
-            .setLevel(RoadSegmentLevel.URBAN_ROAD)
-            .setLengthInMeter(120);
-    }
 
     public static List<RoadSegment> generateRoadSegments() {
         return generateRoadSegments(-1);
@@ -281,7 +224,4 @@ public class ModelGenerator {
         return new RoadNetwork(generateRoadSegments());
     }
 
-    public static RoadNetwork generateRoadNetwork(int maxLength) {
-        return new RoadNetwork(generateRoadSegments(maxLength));
-    }
 }
