@@ -20,6 +20,9 @@ import org.jgrapht.graph.AbstractBaseGraph;
 import org.jgrapht.graph.DefaultGraphType;
 import org.jgrapht.util.SupplierUtil;
 
+import java.util.HashSet;
+import java.util.Set;
+
 public class RoadGraph extends AbstractBaseGraph<RoadNode, RoadSegment> {
     public RoadGraph(boolean directed) {
         super(
@@ -35,7 +38,7 @@ public class RoadGraph extends AbstractBaseGraph<RoadNode, RoadSegment> {
     public void addEdge(RoadSegment roadSegment) {
         addVertex(roadSegment.getStartNode());
         addVertex(roadSegment.getEndNode());
-        super.addEdge(roadSegment.getStartNode(), roadSegment.getEndNode(), roadSegment);
+        addEdge(roadSegment.getStartNode(), roadSegment.getEndNode(), roadSegment);
         setEdgeWeight(roadSegment, roadSegment.getLengthInMeter());
     }
 
@@ -49,5 +52,14 @@ public class RoadGraph extends AbstractBaseGraph<RoadNode, RoadSegment> {
         return startNode1.equals(startNode2) || startNode1.equals(endNode2) ||
                 endNode1.equals(startNode2) || endNode1.equals(endNode2);
     }
+    public Set<RoadSegment> getOneHopReachableEdges(RoadSegment edge) {
+        RoadNode endNode = edge.getEndNode();
+        Set<RoadSegment> reachableEdges = new HashSet<>(this.outgoingEdgesOf(endNode));
+        reachableEdges.remove(edge);
+
+        return reachableEdges;
+    }
+
+
 
 }

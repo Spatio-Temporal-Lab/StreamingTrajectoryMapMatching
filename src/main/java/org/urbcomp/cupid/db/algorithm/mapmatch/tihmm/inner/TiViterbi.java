@@ -62,8 +62,7 @@ public class TiViterbi {
     private void initializeStateProbabilities(
         GPSPoint observation,
         List<CandidatePoint> candidates,
-        Map<CandidatePoint, Double> initialLogProbabilities,
-        double beta
+        Map<CandidatePoint, Double> initialLogProbabilities
     ) {
         if (message != null) {
             throw new IllegalArgumentException("Initial probabilities have already been set.");
@@ -73,7 +72,7 @@ public class TiViterbi {
             if (!initialLogProbabilities.containsKey(candidate)) {
                 throw new IllegalArgumentException("No initial probability for " + candidate);
             }
-            double logProbability = initialLogProbabilities.get(candidate) * (1 - beta);
+            double logProbability = initialLogProbabilities.get(candidate);
             initialMessage.put(candidate, logProbability);
         }//复制所有候选点的观测概率
         isBroken = hmmBreak(initialMessage);
@@ -120,16 +119,15 @@ public class TiViterbi {
         List<CandidatePoint> curCandidates,
         Map<CandidatePoint, Double> message,
         Map<CandidatePoint, Double> emissionLogProbabilities,
-        Map<Tuple2<CandidatePoint, CandidatePoint>, Double> transitionLogProbabilities,
-        double beta
+        Map<Tuple2<CandidatePoint, CandidatePoint>, Double> transitionLogProbabilities
     ) {
         final ForwardStepResult result = new ForwardStepResult(curCandidates.size());
-        assert prevCandidates.size() != 0;
+        assert !prevCandidates.isEmpty();
         for (CandidatePoint curState : curCandidates) {
             double maxLogProbability = Double.NEGATIVE_INFINITY;
             CandidatePoint maxPreState = null;
             for (CandidatePoint preState : prevCandidates) {
-                final double logProbability = message.get(preState) + beta * transitionLogProbability(
+                final double logProbability = message.get(preState) + transitionLogProbability(
                     preState,
                     curState,
                     transitionLogProbabilities
@@ -140,7 +138,7 @@ public class TiViterbi {
                 }
             }
             result.getNewMessage()
-                .put(curState, (maxLogProbability + (1-beta) * emissionLogProbabilities.get(curState)));
+                .put(curState, (maxLogProbability + emissionLogProbabilities.get(curState)));
             // Note that max_prev_state == None if there is no transition with non-zero probability.
             // In this case cur_state has zero probability and will not be part of the most likely
             // sequence,
@@ -222,10 +220,9 @@ public class TiViterbi {
     public void startWithInitialObservation(
         GPSPoint observation,
         List<CandidatePoint> candidates,
-        Map<CandidatePoint, Double> emissionLogProbabilities,
-        double beta
+        Map<CandidatePoint, Double> emissionLogProbabilities
     ) {
-        initializeStateProbabilities(observation, candidates, emissionLogProbabilities, beta);
+        initializeStateProbabilities(observation, candidates, emissionLogProbabilities);
     }
 
     /**
@@ -240,8 +237,7 @@ public class TiViterbi {
         GPSPoint observation,
         List<CandidatePoint> candidates,
         Map<CandidatePoint, Double> emissionLogProbabilities,
-        Map<Tuple2<CandidatePoint, CandidatePoint>, Double> transitionLogProbabilities,
-        double beta
+        Map<Tuple2<CandidatePoint, CandidatePoint>, Double> transitionLogProbabilities
     ) {
         if (message == null) {
             throw new IllegalStateException(
@@ -257,8 +253,7 @@ public class TiViterbi {
             candidates,
             message,
             emissionLogProbabilities,
-            transitionLogProbabilities,
-            beta
+            transitionLogProbabilities
         );
         isBroken = hmmBreak(forwardStepResult.getNewMessage());
         if (isBroken) {

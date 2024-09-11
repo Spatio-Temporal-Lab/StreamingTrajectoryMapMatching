@@ -19,7 +19,7 @@ public class test2 {
         RoadNetwork roadNetwork = ModelGenerator.generateRoadNetwork();
         TiHmmMapMatcher mapMatcher = new TiHmmMapMatcher(roadNetwork, new ManyToManyShortestPath(roadNetwork));
         Trajectory trajectory = ModelGenerator.generateTrajectory(6);
-        MapMatchedTrajectory mmTrajectory = mapMatcher.mapMatch(trajectory, 0.5);
+        MapMatchedTrajectory mmTrajectory = mapMatcher.mapMatch(trajectory);
         List<GPSPoint> pointList = trajectory.getGPSPointList();
         List<GPSPoint> filterPointList = new ArrayList<>();
 
