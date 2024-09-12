@@ -44,7 +44,7 @@ public class MapMatchedPoint implements java.io.Serializable {
     }
 
     public Timestamp getTime() {
-        return this.rawPoint.getTime();
+        return this.rawPoint.getTimestamp();
     }
 
     public CandidatePoint getCandidatePoint() {

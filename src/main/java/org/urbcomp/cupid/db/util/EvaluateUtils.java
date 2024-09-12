@@ -301,10 +301,10 @@ public class EvaluateUtils {
                 int count = checkError2(label, result, sampleLabelList.get(i).getCandidatePoint(), results.getMmPtList().get(i).getCandidatePoint());
                 errorPointsCount += count;
                 if (count != 0) {
-                    System.out.println("index: " + i + " " + results.getMmPtList().get(i).getCandidatePoint() + " result: " + results.getMmPtList().get(i).getCandidatePoint().getCoordinate() + " label: " + sampleLabelList.get(i).getCandidatePoint().getCoordinate());
+                    //System.out.println("index: " + i + " " + results.getMmPtList().get(i).getCandidatePoint() + " result: " + results.getMmPtList().get(i).getCandidatePoint().getCoordinate() + " label: " + sampleLabelList.get(i).getCandidatePoint().getCoordinate());
                 }
             } else {
-                System.out.println("index: " + i + " " + results.getMmPtList().get(i).getCandidatePoint() + " result: " + results.getMmPtList().get(i).getCandidatePoint().getCoordinate() + " label: " + sampleLabelList.get(i).getCandidatePoint().getCoordinate());
+                //System.out.println("index: " + i + " " + results.getMmPtList().get(i).getCandidatePoint() + " result: " + results.getMmPtList().get(i).getCandidatePoint().getCoordinate() + " label: " + sampleLabelList.get(i).getCandidatePoint().getCoordinate());
                 errorPointsCount++;
             }
         }

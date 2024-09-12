@@ -101,8 +101,8 @@ public class StreamMapMatcherTest {
 
     @Test
     public void accTest() throws AlgorithmExecuteException, IOException, JAXBException, SAXException {
-        int testNum = 1;
-        int startIndex = 42;
+        int testNum = 100;
+        int startIndex = 1;
         testNum += startIndex;
         int sampleRate = 0;
         double countNum = 0;
@@ -113,13 +113,13 @@ public class StreamMapMatcherTest {
             trajectory = ModelGenerator.generateTrajectory(startIndex);
             Trajectory trajectorySampleRate = ModelGenerator.generateTrajectory(startIndex, sampleRate);
             //"-"+startIndex+
-            BufferedWriter writer = new BufferedWriter(new FileWriter("C:\\Users\\77595\\Desktop\\qgis\\ob"+".json"));
-            writer.write(trajectorySampleRate.toGeoJSON());
-            writer.close();
+//            BufferedWriter writer = new BufferedWriter(new FileWriter("C:\\Users\\77595\\Desktop\\qgis\\ob"+".json"));
+//            writer.write(trajectorySampleRate.toGeoJSON());
+//            writer.close();
             MapMatchedTrajectory mmTrajectory = mapMatcher.mapMatch(trajectory);
-            writer = new BufferedWriter(new FileWriter("C:\\Users\\77595\\Desktop\\qgis\\label"+".json"));
-            writer.write(mmTrajectory.toGeoJSON());
-            writer.close();
+//            writer = new BufferedWriter(new FileWriter("C:\\Users\\77595\\Desktop\\qgis\\label"+".json"));
+//            writer.write(mmTrajectory.toGeoJSON());
+//            writer.close();
             MapMatchedTrajectory mmTrajectory2 = mapMatcher2.streamMapMatch(trajectorySampleRate);
             assert mmTrajectory2 != null;
             double accuracy = EvaluateUtils.getAccuracy(mmTrajectory, mmTrajectory2, sampleRate);
@@ -129,10 +129,12 @@ public class StreamMapMatcherTest {
             accuracyNum += accNum;
             System.out.println("currAcc: " + accuracy);
             System.out.println("averageAcc: " + accuracyNum / countNum);
+            System.out.println("accuracyNum: " + accuracyNum);
+            System.out.println("countNum: " + countNum);
             System.out.println();
-            writer = new BufferedWriter(new FileWriter("C:\\Users\\77595\\Desktop\\qgis\\stream"+".json"));
-            writer.write(mmTrajectory2.toGeoJSON());
-            writer.close();
+//            writer = new BufferedWriter(new FileWriter("C:\\Users\\77595\\Desktop\\qgis\\stream"+".json"));
+//            writer.write(mmTrajectory2.toGeoJSON());
+//            writer.close();
         }
     }
 }

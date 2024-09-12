@@ -26,15 +26,15 @@ public class test2 {
         GPSPositionSpeedFilter filter = new GPSPositionSpeedFilter(100., 100.);
 
         int index = 1;
-        GPSPoint filterPoint = new GPSPoint(pointList.get(0).getTime(), pointList.get(0).getLng(), pointList.get(0).getLat());
+        GPSPoint filterPoint = new GPSPoint(pointList.get(0).getTimestamp(), pointList.get(0).getLng(), pointList.get(0).getLat());
         filterPointList.add(filterPoint);
         for (;index<pointList.size();index++){
             MapMatchedPoint mapMatchedPoint = mmTrajectory.getMmPtList().get(index);
-            filter.updatePosition(pointList.get(index).getLng(), pointList.get(index).getLat(), pointList.get(index).getTime().getTime() - pointList.get(index-1).getTime().getTime());
+            filter.updatePosition(pointList.get(index).getLng(), pointList.get(index).getLat(), pointList.get(index).getTime() - pointList.get(index-1).getTime());
 
             double[] position = filter.getPosition();
 
-            filterPoint = new GPSPoint(pointList.get(index).getTime(), position[0], position[1]);
+            filterPoint = new GPSPoint(pointList.get(index).getTimestamp(), position[0], position[1]);
             filterPointList.add(filterPoint);
         }
         Trajectory filterTrajectory = new Trajectory(trajectory.getTid(),trajectory.getOid(),filterPointList);

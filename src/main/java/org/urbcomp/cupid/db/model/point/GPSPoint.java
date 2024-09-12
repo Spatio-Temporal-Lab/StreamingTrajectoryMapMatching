@@ -50,8 +50,12 @@ public class GPSPoint extends SpatialPoint {
      * get the timestamp of the GPS point
      * @return timestamp
      */
-    public Timestamp getTime() {
+    public Timestamp getTimestamp() {
         return time;
+    }
+
+    public long getTime() {
+        return time.getTime();
     }
 
     public Map<String, Attribute> getAttributes() {

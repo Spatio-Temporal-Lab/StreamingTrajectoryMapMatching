@@ -181,7 +181,7 @@ public class StreamMapMatcher {
                 Path subPath = paths.get(startRoadSegment.getEndNode())
                         .get(endRoadSegment.getStartNode());
                 Path path = pathAlgo.getCompletePath(preCandiPt, curCandiPt, subPath);
-                double speed = path.getLengthInMeter() * 1000 / (curTimeStep.getObservation().getTime().getTime() - preTimeStep.getObservation().getTime().getTime());
+                double speed = path.getLengthInMeter() * 1000 / (curTimeStep.getObservation().getTime() - preTimeStep.getObservation().getTime());
 //                System.out.println(curTimeStep.getObservation() + " " + path.getRoadSegmentIds() + " " +path.getPoints() + " " + speed + " " + path.getLengthInMeter());
                 if (speed > 34) {
                     double disBtwCurAndPer = GeoFunctions.getDistanceInM(preCandiPt, curCandiPt);
@@ -247,7 +247,7 @@ public class StreamMapMatcher {
         }
         Map<Tuple2<CandidatePoint, CandidatePoint>, Double> transitionLogProbabilities = timeStep.getTransitionLogProbabilities();
         Map<Integer, Double> totalTransProbPreRoad = new HashMap<>();
-        int week = timeStep.getObservation().getTime().toLocalDateTime().getDayOfWeek().getValue();
+        int week = timeStep.getObservation().getTimestamp().toLocalDateTime().getDayOfWeek().getValue();
 
         Map<Integer, Double> temp = new HashMap<>();
         Map<Integer, Double> temp2 = new HashMap<>();
@@ -295,7 +295,7 @@ public class StreamMapMatcher {
             GPSPoint currObPoint = currTimeStep.getObservation();
             GPSPoint preObPoint = preTimeStep.getObservation();
             double obBearing = GeoFunctions.getBearing(preObPoint.getLng(), preObPoint.getLat(), currObPoint.getLng(), currObPoint.getLat());
-            double speed = GeoFunctions.getDistanceInM(preObPoint.getLng(), preObPoint.getLat(), currObPoint.getLng(), currObPoint.getLat()) * 1000 / (currObPoint.getTime().getTime() - preObPoint.getTime().getTime());
+            double speed = GeoFunctions.getDistanceInM(preObPoint.getLng(), preObPoint.getLat(), currObPoint.getLng(), currObPoint.getLat()) * 1000 / (currObPoint.getTime() - preObPoint.getTime());
             if (speed < 2.0 ){
 //                System.out.println(windowBearing.getChange() + " " + windowBearing.getChangeScore() + " " + "speed: "+ speed + " " + currTimeStep.getObservation());
             }else {

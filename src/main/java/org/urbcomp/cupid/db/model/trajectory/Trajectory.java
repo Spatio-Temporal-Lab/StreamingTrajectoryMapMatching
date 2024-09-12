@@ -221,7 +221,7 @@ public class Trajectory implements java.io.Serializable {
      * @return start timestamp
      */
     public Timestamp getStartTime() {
-        return gpsPointList.get(0).getTime();
+        return gpsPointList.get(0).getTimestamp();
     }
 
     /**
@@ -230,7 +230,7 @@ public class Trajectory implements java.io.Serializable {
      * @return end timestamp
      */
     public Timestamp getEndTime() {
-        return gpsPointList.get(gpsPointList.size() - 1).getTime();
+        return gpsPointList.get(gpsPointList.size() - 1).getTimestamp();
     }
 
     /**
@@ -292,7 +292,7 @@ public class Trajectory implements java.io.Serializable {
         fcp.setProperty("tid", tid);
         for (GPSPoint gp : gpsPointList) {
             Feature f = new Feature();
-            f.setProperty("time", gp.getTime().toString());
+            f.setProperty("time", gp.getTimestamp().toString());
             for (Map.Entry<String, Attribute> entry : attributes.entrySet()) {
                 String typeName = entry.getValue().getType();
                 Class type = DataTypeUtils.getClass(typeName);

@@ -196,9 +196,9 @@ public class TiHmmMapMatcher {
                 RoadSegment startRoadSegment = roadNetwork.getRoadSegmentById(roadSegmentId);
                 RoadSegment endRoadSegment = roadNetwork.getRoadSegmentById(curCandiPt.getRoadSegmentId());
                 Path subPath = paths.get(startRoadSegment.getEndNode())
-                                .get(endRoadSegment.getStartNode());
+                        .get(endRoadSegment.getStartNode());
                 Path path = pathAlgo.getCompletePath(preCandiPt, curCandiPt, subPath);
-                double speed = path.getLengthInMeter() * 1000 / (curTimeStep.getObservation().getTime().getTime() - preTimeStep.getObservation().getTime().getTime());
+                double speed = path.getLengthInMeter() * 1000 / (curTimeStep.getObservation().getTime() - preTimeStep.getObservation().getTime());
                 if (speed > 34) {
                     double disBtwCurAndPer = GeoFunctions.getDistanceInM(preCandiPt, curCandiPt);
                     if (disBtwCurAndPer < 20) {
@@ -221,7 +221,7 @@ public class TiHmmMapMatcher {
             GPSPoint currObPoint = currTimeStep.getObservation();
             GPSPoint preObPoint = preTimeStep.getObservation();
             double obBearing = GeoFunctions.getBearing(preObPoint.getLng(), preObPoint.getLat(), currObPoint.getLng(), currObPoint.getLat());
-            double speed = GeoFunctions.getDistanceInM(preObPoint.getLng(), preObPoint.getLat(), currObPoint.getLng(), currObPoint.getLat()) * 1000 / (currObPoint.getTime().getTime() - preObPoint.getTime().getTime());
+            double speed = GeoFunctions.getDistanceInM(preObPoint.getLng(), preObPoint.getLat(), currObPoint.getLng(), currObPoint.getLat()) * 1000 / (currObPoint.getTime() - preObPoint.getTime());
             if (speed < 2.0 ){
 //                System.out.println(windowBearing.getChange() + " " + windowBearing.getChangeScore() + " " + "speed: "+ speed + " " + currTimeStep.getObservation());
             }else {

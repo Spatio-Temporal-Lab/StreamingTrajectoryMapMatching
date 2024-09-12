@@ -37,7 +37,7 @@ public class generateHistoryProb {
     }
 
     public void loadProb(int loadNum) {
-        String loadLabelFile = "D:\\StreamingTrajectoryMapMatching\\src\\main\\resources\\data\\map_matched_trajectories_labels.geojson";
+        String loadLabelFile = "D:\\IdeaProjects\\StreamingTrajectoryMapMatching\\src\\main\\resources\\data\\map_matched_trajectories_labels.geojson";
         try (BufferedReader br1 = new BufferedReader(new FileReader(loadLabelFile));
         ) {
             String line;

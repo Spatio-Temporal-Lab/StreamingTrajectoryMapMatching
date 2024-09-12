@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright (C) 2022  ST-Lab
  *
  * This program is free software: you can redistribute it and/or modify
@@ -10,17 +10,21 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 package org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner;
 
+import org.urbcomp.cupid.db.algorithm.mapmatch.stream.SlidingWindow;
+import org.urbcomp.cupid.db.algorithm.mapmatch.stream.StreamMapMatcher;
 import org.urbcomp.cupid.db.model.point.CandidatePoint;
 import org.urbcomp.cupid.db.model.point.GPSPoint;
 import scala.Tuple2;
 
 import java.util.*;
+
+import static org.urbcomp.cupid.db.util.CalculateErrors.*;
 
 /**
  * Tihmm 核心算法class
@@ -31,9 +35,17 @@ public class TiViterbi {
      */
     public Map<CandidatePoint, ExtendedState> lastExtendedStates;
     /**
+     * 上一个状态下的观测点
+     */
+    public GPSPoint prevObservation;
+    /**
      * 上一个状态下原始轨迹点对应的所有candidate point
      */
     public List<CandidatePoint> prevCandidates;
+    /**
+     * 上一个状态下的匹配点
+     */
+    public CandidatePoint prevMatch;
     /**
      * 每个candidate point 对应的p
      */
@@ -42,9 +54,18 @@ public class TiViterbi {
      * 是否停止初始化状态概率函数
      */
     public Boolean isBroken = false;
+    /**
+     * 滑动窗口
+     */
+    public SlidingWindow slidingWindow = new SlidingWindow(30);
+    /**
+     * 转移概率权重
+     */
+    public double weight = 0.5;
 
-    public TiViterbi(Map<CandidatePoint, ExtendedState> lastExtendedStates, List<CandidatePoint> prevCandidates, Map<CandidatePoint, Double> message, Boolean isBroken){
+    public TiViterbi(Map<CandidatePoint, ExtendedState> lastExtendedStates, GPSPoint prevObservation, List<CandidatePoint> prevCandidates, Map<CandidatePoint, Double> message, Boolean isBroken){
         this.lastExtendedStates = lastExtendedStates;
+        this.prevObservation = prevObservation;
         this.prevCandidates = prevCandidates;
         this.message = message;
         this.isBroken = isBroken;
@@ -60,9 +81,9 @@ public class TiViterbi {
      * @param initialLogProbabilities 初始状态概率
      */
     private void initializeStateProbabilities(
-        GPSPoint observation,
-        List<CandidatePoint> candidates,
-        Map<CandidatePoint, Double> initialLogProbabilities
+            GPSPoint observation,
+            List<CandidatePoint> candidates,
+            Map<CandidatePoint, Double> initialLogProbabilities
     ) {
         if (message != null) {
             throw new IllegalArgumentException("Initial probabilities have already been set.");
@@ -81,11 +102,13 @@ public class TiViterbi {
         }
         message = initialMessage; //保存初始状态概率
         lastExtendedStates = new HashMap<>(candidates.size());
+        prevObservation = observation;
         prevCandidates = new ArrayList<>(candidates.size());
         for (CandidatePoint candidate : candidates) {
             lastExtendedStates.put(candidate, new ExtendedState(candidate, null, observation));
             prevCandidates.add(candidate);
         }
+        prevMatch = StreamMapMatcher.findMaxValuePoint(message);
     }
 
     /**
@@ -114,12 +137,12 @@ public class TiViterbi {
      * @return 向前extend后的结果
      */
     private ForwardStepResult forwardStep(
-        GPSPoint observation,
-        List<CandidatePoint> prevCandidates,
-        List<CandidatePoint> curCandidates,
-        Map<CandidatePoint, Double> message,
-        Map<CandidatePoint, Double> emissionLogProbabilities,
-        Map<Tuple2<CandidatePoint, CandidatePoint>, Double> transitionLogProbabilities
+            GPSPoint observation,
+            List<CandidatePoint> prevCandidates,
+            List<CandidatePoint> curCandidates,
+            Map<CandidatePoint, Double> message,
+            Map<CandidatePoint, Double> emissionLogProbabilities,
+            Map<Tuple2<CandidatePoint, CandidatePoint>, Double> transitionLogProbabilities
     ) {
         final ForwardStepResult result = new ForwardStepResult(curCandidates.size());
         assert !prevCandidates.isEmpty();
@@ -127,10 +150,10 @@ public class TiViterbi {
             double maxLogProbability = Double.NEGATIVE_INFINITY;
             CandidatePoint maxPreState = null;
             for (CandidatePoint preState : prevCandidates) {
-                final double logProbability = message.get(preState) + transitionLogProbability(
-                    preState,
-                    curState,
-                    transitionLogProbabilities
+                final double logProbability = message.get(preState) + weight * transitionLogProbability(
+                        preState,
+                        curState,
+                        transitionLogProbabilities
                 );
                 if (logProbability > maxLogProbability) {
                     maxLogProbability = logProbability;
@@ -138,16 +161,16 @@ public class TiViterbi {
                 }
             }
             result.getNewMessage()
-                .put(curState, (maxLogProbability + emissionLogProbabilities.get(curState)));
+                    .put(curState, (maxLogProbability + (1 - weight) * emissionLogProbabilities.get(curState)));
             // Note that max_prev_state == None if there is no transition with non-zero probability.
             // In this case cur_state has zero probability and will not be part of the most likely
             // sequence,
             // so we don't need an ExtendedState.
             if (maxPreState != null) {
                 final ExtendedState extendedState = new ExtendedState(
-                    curState,
-                    lastExtendedStates.get(maxPreState),
-                    observation
+                        curState,
+                        lastExtendedStates.get(maxPreState),
+                        observation
                 );
                 result.getNewExtendedStates().put(curState, extendedState);
             }
@@ -164,9 +187,9 @@ public class TiViterbi {
      * @return 概率p
      */
     private double transitionLogProbability(
-        CandidatePoint preState,
-        CandidatePoint curState,
-        Map<Tuple2<CandidatePoint, CandidatePoint>, Double> transitionLogProbabilities
+            CandidatePoint preState,
+            CandidatePoint curState,
+            Map<Tuple2<CandidatePoint, CandidatePoint>, Double> transitionLogProbabilities
     ) {
         Tuple2<CandidatePoint, CandidatePoint> transition = new Tuple2<>(preState, curState);
         return transitionLogProbabilities.getOrDefault(transition, Double.NEGATIVE_INFINITY);
@@ -218,9 +241,9 @@ public class TiViterbi {
      * @param emissionLogProbabilities 每一个candidate对应的 emission p
      */
     public void startWithInitialObservation(
-        GPSPoint observation,
-        List<CandidatePoint> candidates,
-        Map<CandidatePoint, Double> emissionLogProbabilities
+            GPSPoint observation,
+            List<CandidatePoint> candidates,
+            Map<CandidatePoint, Double> emissionLogProbabilities
     ) {
         initializeStateProbabilities(observation, candidates, emissionLogProbabilities);
     }
@@ -234,34 +257,96 @@ public class TiViterbi {
      * @param transitionLogProbabilities 每一个transition对应的 transition p
      */
     public void nextStep(
-        GPSPoint observation,
-        List<CandidatePoint> candidates,
-        Map<CandidatePoint, Double> emissionLogProbabilities,
-        Map<Tuple2<CandidatePoint, CandidatePoint>, Double> transitionLogProbabilities
+            GPSPoint observation,
+            List<CandidatePoint> candidates,
+            Map<CandidatePoint, Double> emissionLogProbabilities,
+            Map<Tuple2<CandidatePoint, CandidatePoint>, Double> transitionLogProbabilities
     ) {
         if (message == null) {
             throw new IllegalStateException(
-                "start with initial observation() must be called first."
+                    "start with initial observation() must be called first."
             );
         }
         if (isBroken) {
             throw new IllegalStateException("Method must not be called after an HMM break.");
         }
         ForwardStepResult forwardStepResult = forwardStep(
-            observation,
-            prevCandidates,
-            candidates,
-            message,
-            emissionLogProbabilities,
-            transitionLogProbabilities
+                observation,
+                prevCandidates,
+                candidates,
+                message,
+                emissionLogProbabilities,
+                transitionLogProbabilities
         );
         isBroken = hmmBreak(forwardStepResult.getNewMessage());
         if (isBroken) {
             return;
         }
         message = forwardStepResult.getNewMessage();
+        // calculate errors and adjust weight
+        CandidatePoint matchedPoint = StreamMapMatcher.findMaxValuePoint(message);//找到最大概率的候选点
+        double positionError = calculatePositionError(observation, matchedPoint);
+        double directionError = calculateDirectionError(observation, prevObservation, matchedPoint, prevMatch);
+        double speedError = calculateSpeedError(observation, prevObservation, matchedPoint, prevMatch);
+        updateWeights(positionError, directionError, speedError);
         lastExtendedStates = forwardStepResult.getNewExtendedStates();
+        prevObservation = observation;
         prevCandidates = new ArrayList<>(candidates);
+        prevMatch = matchedPoint;
+    }
+
+    /**
+     * 根据误差更新权重
+     * @param positionError
+     * @param directionError
+     * @param speedError
+     */
+    public void updateWeights(double positionError, double directionError, double speedError) {
+        if (slidingWindow.isFull()) {
+            // 计算均值和标准差
+            double positionMean = slidingWindow.getPositionMean();
+            double positionStdDev = slidingWindow.getPositionStandardDeviation();
+
+            double directionMean = slidingWindow.getDirectionMean();
+            double directionStdDev = slidingWindow.getDirectionStandardDeviation();
+
+//            double speedMean = slidingWindow.getSpeedMean();
+//            double speedStdDev = slidingWindow.getSpeedStandardDeviation();
+
+            // 计算误差差异
+            double positionErrorDifference = positionError - positionMean;
+            double directionErrorDifference = directionError - directionMean;
+//            double speedErrorDifference = speedError - speedMean;
+
+            // 动态调整量，仅当误差变化超过阈值（标准差）时才进行调整
+            double positionAdjustment = Math.abs(positionErrorDifference) > positionStdDev ? calculateAdjustmentFactor(positionErrorDifference, positionStdDev) : - 0.02;
+            double directionAdjustment = Math.abs(directionErrorDifference) > directionStdDev ? calculateAdjustmentFactor(directionErrorDifference, directionStdDev) : - 0.02;
+ //           double speedAdjustment = Math.abs(speedErrorDifference) > speedStdDev ? calculateAdjustmentFactor(speedErrorDifference, speedStdDev) : 0;
+            weight *= (1 + (0.2*positionAdjustment + 0.8*directionAdjustment));
+            if (weight > 0.7) {
+                weight = 0.7;
+            }
+            else if (weight < 0.3) {
+                weight = 0.3;
+            }
+//            System.out.println("positionAdjustment:" + positionAdjustment);
+//            System.out.println("directionAdjustment:" + directionAdjustment);
+//            System.out.println("weight:" + weight);
+        }
+
+        // 添加误差到滑动窗口
+        slidingWindow.addError(positionError, directionError, speedError);
+    }
+
+    /**
+     * 根据误差计算调整因子大小
+     * @param errorDifference
+     * @param stdDevError
+     * @return
+     */
+    private double calculateAdjustmentFactor(double errorDifference, double stdDevError) {
+        double scalingFactor = 0.02; // 调整幅度的缩放因子，可以调整为合适的值
+        return Math.min(Math.max(errorDifference / stdDevError * scalingFactor, -0.1), 0.1);
     }
 
     /**

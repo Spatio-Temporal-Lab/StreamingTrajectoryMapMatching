@@ -73,7 +73,7 @@ public class MapMatchedTrajectory implements Serializable {
                         p.getCandidatePoint().getY()
                     )
                 );
-                f.setProperty("time", p.getRawPoint().getTime().toString());
+                f.setProperty("time", p.getRawPoint().getTimestamp().toString());
                 f.setProperty("roadSegmentId", p.getCandidatePoint().getRoadSegmentId());
                 f.setProperty(
                     "errorDistanceInMeter",
