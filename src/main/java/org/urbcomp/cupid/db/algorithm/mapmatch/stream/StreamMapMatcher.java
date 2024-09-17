@@ -7,6 +7,8 @@ import com.mxgraph.view.mxGraph;
 import org.jgrapht.Graph;
 import org.jgrapht.graph.DefaultDirectedWeightedGraph;
 import org.jgrapht.graph.DefaultWeightedEdge;
+import org.urbcomp.cupid.db.algorithm.mapmatch.stream.inner.PathCache;
+import org.urbcomp.cupid.db.algorithm.mapmatch.stream.inner.ProbabilitySum;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.HmmProbabilities;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.SequenceState;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.TiViterbi;
@@ -59,6 +61,8 @@ public class StreamMapMatcher {
     protected final AbstractManyToManyShortestPath pathAlgo;
 
     private static final Map<String, Double> hisProb = new HashMap<>();
+
+    private PathCache pathCache = new PathCache();
 
     public StreamMapMatcher(RoadNetwork roadNetwork, AbstractManyToManyShortestPath pathAlgo) {
         this.roadNetwork = roadNetwork;
@@ -143,9 +147,16 @@ public class StreamMapMatcher {
                 // 找最短路径
                 Set<CandidatePoint> startPoints = new HashSet<>(preTimeStep.getCandidates());
                 Set<CandidatePoint> endPoints = new HashSet<>(timeStep.getCandidates());
+
+//                Map<RoadNode, Map<RoadNode, Path>> paths = pathAlgo.findShortestPath(
+//                        startPoints,
+//                        endPoints
+//                );
+
                 Map<RoadNode, Map<RoadNode, Path>> paths = pathAlgo.findShortestPath(
                         startPoints,
-                        endPoints
+                        endPoints,
+                        pathCache
                 );
 
                 // 处理观测点向后偏移
@@ -154,6 +165,7 @@ public class StreamMapMatcher {
 //                CandidatePoint preCandiPt = findMaxValuePoint(viterbi.message);
                 // 计算观测概率
 //                this.computeEmissionProbabilities(preCandiPt, timeStep, probabilities);
+
                 // 计算观测概率
                 this.computeEmissionProbabilities(timeStep, probabilities);
 
@@ -200,7 +212,10 @@ public class StreamMapMatcher {
 
     // 处理观测点向后偏移的情况
     public void processBackward(TimeStep preTimeStep, TimeStep curTimeStep, TiViterbi viterbi, Map<RoadNode, Map<RoadNode, Path>> paths) {
+        // 上一个最大概率路段 id
         int roadSegmentId = StreamMapMatcher.findMaxValuePoint(viterbi.message).getRoadSegmentId();
+
+        // 当前候选路段是否包含上一个最大概率路段 id, 并且记录该路段对应的候选点
         List<CandidatePoint> curCandidates = curTimeStep.getCandidates();
         int i = 0;
         for (; i < curCandidates.size(); i++) {
@@ -208,6 +223,7 @@ public class StreamMapMatcher {
                 break;
             }
         }
+
         if (i != curCandidates.size()) {
             for (CandidatePoint preCandiPt : preTimeStep.getCandidates()) {
                 if (preCandiPt.getRoadSegmentId() == roadSegmentId) {
@@ -216,6 +232,7 @@ public class StreamMapMatcher {
                             preCandiPt.getRoadSegmentId()
                     );
                     CandidatePoint curCandiPt = curCandidates.get(i);
+                    // 如果上一个候选点和当前候选点不同（在同一路段）
                     if (preCandiPt != curCandiPt) {
                         RoadSegment endRoadSegment = roadNetwork.getRoadSegmentById(
                                 curCandiPt.getRoadSegmentId()
@@ -224,6 +241,7 @@ public class StreamMapMatcher {
                                 .get(endRoadSegment.getStartNode());
                         Path path = pathAlgo.getCompletePath(preCandiPt, curCandiPt, subPath);
                         double speed = path.getLengthInMeter() * 1000 / (curTimeStep.getObservation().getTime().getTime() - preTimeStep.getObservation().getTime().getTime());
+                        // 如果速度大于 34 且相邻候选点的距离小于 20，则将上一个候选h点添加到当前候选点中
                         if (speed > 34) {
                             double disBtwCurAndPer = GeoFunctions.getDistanceInM(preCandiPt, curCandiPt);
                             if (disBtwCurAndPer < 20) {
@@ -338,7 +356,7 @@ public class StreamMapMatcher {
                 }
             }
 
-            needCorrect = false;
+//            needCorrect = false;
 
             if (needCorrect) {
                 correctTransitionProbabilities(preCandiPt, prevTimeStep, timeStep, probabilities, paths, linearDist, startRoadSegment);
@@ -415,8 +433,12 @@ public class StreamMapMatcher {
             }
         }
 
-        double transitionSum = calculateSum(transitionProbTobeCorrected, hisProbTobeCorrected);
-        double historySum = hisProbTobeCorrected.values().stream().mapToDouble(Double::doubleValue).sum();
+        ProbabilitySum probabilitySum = ProbabilitySum.calculateSum(transitionProbTobeCorrected, hisProbTobeCorrected);
+        double transitionSum = probabilitySum.getTransitionSum();
+        double historySum = probabilitySum.getHistorySum();
+
+//        double transitionSum = calculateSum(transitionProbTobeCorrected, hisProbTobeCorrected);
+//        double historySum = hisProbTobeCorrected.values().stream().mapToDouble(Double::doubleValue).sum();
 
         applyCorrectedProbabilities(preCandiPt, timeStep, transitionProbTobeCorrected, hisProbTobeCorrected, transitionSum, historySum);
     }
@@ -489,7 +511,8 @@ public class StreamMapMatcher {
 //                correctedProb = Math.log(transitionSum * (historyProbability / historySum) + correctedProb);
 //                correctedProb = Math.log(transitionSum * (historyProbability / historySum));
 //                correctedProb = Math.log(transitionSum * (historyProbability / historySum)) + Math.log(correctedProb);
-                correctedProb = Math.log(scale * (transitionSum * (historyProbability / historySum) + correctedProb));
+//                correctedProb = Math.log(scale * (transitionSum * (historyProbability / historySum) + correctedProb));
+                correctedProb = Math.log(correctedProb) + Math.log(1 + historyProbability);
 //                System.out.println("correct after: " + correctedProb);
             } else correctedProb = Math.log(correctedProb);
             timeStep.addTransitionLogProbability(

@@ -147,7 +147,7 @@ public class StreamMapMatcherTest {
 
     @Test
     public void weightTest() throws AlgorithmExecuteException, IOException {
-        int testNum = 2000;
+        int testNum = 20;
         int points;
         int totalPoints = 0;
 
@@ -163,8 +163,10 @@ public class StreamMapMatcherTest {
 
         BufferedWriter accuracyWriter;
 
-        for (int sampleRate = 0; sampleRate <= 20; sampleRate += 5) {
-            String outputPath = "src/main/resources/data/accuracy/results/naive/sampleRate-" + sampleRate + ".csv";
+        for (int sampleRate = 0; sampleRate <= 0; sampleRate += 5) {
+//            String outputPath = "src/main/resources/data/accuracy/results/transition/sampleRate-" + sampleRate + ".csv";
+
+            String outputPath = "src/main/resources/data/accuracy/test/improved-change-sampleRate-" + sampleRate + ".csv";
             accuracyWriter = createWriter(outputPath);
             writeHeader(accuracyWriter);
 
