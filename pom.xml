@@ -77,16 +77,44 @@
             <artifactId>rl4j-core</artifactId>
             <version>1.0.0-beta7</version>
         </dependency>
+
         <dependency>
-            <groupId>org.jgrapht</groupId>
-            <artifactId>jgrapht-core</artifactId>
-            <version>1.5.1</version>
+            <groupId>org.deeplearning4j</groupId>
+            <artifactId>deeplearning4j-utility-iterators</artifactId>
+            <version>1.0.0-M2.1</version>
         </dependency>
+
         <dependency>
-            <groupId>org.tinyjee.jgraphx</groupId>
-            <artifactId>jgraphx</artifactId>
-            <version>2.0.0.1</version>
+            <groupId>org.jpmml</groupId>
+            <artifactId>pmml-model</artifactId>
+            <version>1.4.15</version>
         </dependency>
+
+        <dependency>
+            <groupId>org.jpmml</groupId>
+            <artifactId>pmml-evaluator</artifactId>
+            <version>1.4.15</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jpmml</groupId>
+            <artifactId>pmml-evaluator-extension</artifactId>
+            <version>1.4.15</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.microsoft.ml.lightgbm</groupId>
+            <artifactId>lightgbmlib</artifactId>
+            <version>2.3.180</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.github.metarank</groupId>
+            <artifactId>lightgbm4j</artifactId>
+            <version>4.4.0-1</version>
+        </dependency>
+
+
     </dependencies>
 
     <repositories>
@@ -135,8 +163,8 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.8.0</version>
                 <configuration>
-                    <source>9</source>
-                    <target>9</target>
+                    <source>${java.version}</source>
+                    <target>${java.version}</target>
                     <encoding>UTF-8</encoding>
                 </configuration>
             </plugin>

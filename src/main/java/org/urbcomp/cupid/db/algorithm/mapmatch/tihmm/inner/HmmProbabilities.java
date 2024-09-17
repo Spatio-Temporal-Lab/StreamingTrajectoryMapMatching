@@ -1,4 +1,4 @@
-/*
+/* 
  * Copyright (C) 2022  ST-Lab
  *
  * This program is free software: you can redistribute it and/or modify
@@ -10,7 +10,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
- *
+ * 
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
@@ -28,12 +28,15 @@ public class HmmProbabilities {
      * transition p的指数分布参数
      */
     private final double beta;
+    /**
+     * direction p的指数分布参数
+     */
+    private final double alpha = 5;
 
     /**
      * 构造函数
-     *
      * @param sigma emission p的log正太分布参数
-     * @param beta  transition p的指数分布参数
+     * @param beta transition p的指数分布参数
      */
     public HmmProbabilities(double sigma, double beta) {
         this.sigma = sigma;
@@ -67,9 +70,8 @@ public class HmmProbabilities {
 
     /**
      * 数学方程，正太分布
-     *
      * @param sigma 正太分布参数
-     * @param x     距离
+     * @param x 距离
      * @return 概率 p
      */
     private static double logNormalDistribution(double sigma, double x) {
@@ -78,25 +80,17 @@ public class HmmProbabilities {
 
     /**
      * 数学方程， 指数分布
-     *
      * @param beta 指数分布参数
-     * @param x    距离
+     * @param x 距离
      * @return 概率p
      */
     private static double logExponentialDistribution(double beta, double x) {
         return Math.log(1.0 / beta) - (x / beta);
     }
 
-    public double transitionProbability(double routeLength, double linearDistance) {
-        double transitionMetric = Math.abs(linearDistance - routeLength);
-        if (transitionMetric > 500) {
-            return Double.NEGATIVE_INFINITY;
-        } else {
-            return exponentialDistribution(this.beta, transitionMetric);
-        }
+    public double directionLogProbability(double diff) {
+        return logNormalDistribution(this.alpha, diff);
     }
 
-    private double exponentialDistribution(double beta, double x) {
-        return (1.0 / beta) * Math.exp(-x / beta);
-    }
+
 }
