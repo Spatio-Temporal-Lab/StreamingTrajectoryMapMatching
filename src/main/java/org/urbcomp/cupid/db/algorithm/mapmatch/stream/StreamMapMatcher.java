@@ -23,13 +23,10 @@ import scala.Tuple2;
 import scala.Tuple3;
 
 import javax.xml.bind.JAXBException;
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.util.*;
-import java.util.stream.Collectors;
+
+import static org.urbcomp.cupid.db.util.GeoFunctions.getDistanceInM;
 
 public class StreamMapMatcher {
     /**
@@ -45,6 +42,10 @@ public class StreamMapMatcher {
             measurementErrorSigma,
             transitionProbabilityBeta
     );
+    /**
+     * 滑动窗口
+     */
+    private final SlidingWindow slidingWindow = new SlidingWindow(40, measurementErrorSigma, transitionProbabilityBeta);
     /**
      * 路网
      */
@@ -141,6 +142,32 @@ public class StreamMapMatcher {
                         timeStep.getTransitionLogProbabilities()
                 );
 
+                // 更新概率分布
+                if (!slidingWindow.isFull() && !viterbi.isBroken) {
+                    CandidatePoint preMatch = preTimeStep.getMatchedPoint();
+                    CandidatePoint matchedPoint = StreamMapMatcher.findMaxValuePoint(viterbi.message);//找到最大概率的候选点
+                    if (preMatch != null) {
+                        GPSPoint observation = timeStep.getObservation();
+                        GPSPoint preObservation = preTimeStep.getObservation();
+                        double distance = getDistanceInM(observation, matchedPoint);
+                        RoadSegment startRoadSegment = roadNetwork.getRoadSegmentById(
+                                preMatch.getRoadSegmentId()
+                        );
+                        RoadSegment endRoadSegment = roadNetwork.getRoadSegmentById(
+                                matchedPoint.getRoadSegmentId()
+                        );
+                        Path subPath = paths.get(startRoadSegment.getEndNode())
+                                .get(endRoadSegment.getStartNode());
+                        double transitionMetric = Math.abs(pathAlgo.getCompletePath(preMatch, matchedPoint, subPath).getLengthInMeter() - getDistanceInM(observation, preObservation));
+                        slidingWindow.addData(distance, transitionMetric);
+                        probabilities.setSigma(slidingWindow.getSigma());
+                        probabilities.setBeta(slidingWindow.getBeta());
+//                        System.out.println("distance:" + distance);
+//                        System.out.println("transitionMetric:" + transitionMetric);
+//                        System.out.println("sigma:" + slidingWindow.getSigma());
+//                        System.out.println("beta:" + slidingWindow.getBeta());
+                    }
+                }
             } else {
                 //第一个点初始化概率
                 this.computeEmissionProbabilities(timeStep, probabilities);//计算观测概率
@@ -150,6 +177,7 @@ public class StreamMapMatcher {
                         timeStep.getEmissionLogProbabilities()
                 );
             }
+
             if (viterbi.isBroken) {
                 seq.add(viterbi.computeMostLikelySequence().get(viterbi.computeMostLikelySequence().size() - 1));
                 viterbi = new TiViterbi();
@@ -160,6 +188,7 @@ public class StreamMapMatcher {
                 );
             } else {
                 CandidatePoint maxPoint = StreamMapMatcher.findMaxValuePoint(viterbi.message);//找到最大概率的候选点
+                timeStep.setMatchedPoint(maxPoint);
                 seq.add(new SequenceState(maxPoint, point));
             }
             preTimeStep = timeStep;
@@ -184,7 +213,7 @@ public class StreamMapMatcher {
                 double speed = path.getLengthInMeter() * 1000 / (curTimeStep.getObservation().getTime().getTime() - preTimeStep.getObservation().getTime().getTime());
 //                System.out.println(curTimeStep.getObservation() + " " + path.getRoadSegmentIds() + " " +path.getPoints() + " " + speed + " " + path.getLengthInMeter());
                 if (speed > 34) {
-                    double disBtwCurAndPer = GeoFunctions.getDistanceInM(preCandiPt, curCandiPt);
+                    double disBtwCurAndPer = getDistanceInM(preCandiPt, curCandiPt);
                     if (disBtwCurAndPer < 20) {
                         isMatch = true;
                         break;
@@ -295,7 +324,7 @@ public class StreamMapMatcher {
             GPSPoint currObPoint = currTimeStep.getObservation();
             GPSPoint preObPoint = preTimeStep.getObservation();
             double obBearing = GeoFunctions.getBearing(preObPoint.getLng(), preObPoint.getLat(), currObPoint.getLng(), currObPoint.getLat());
-            double speed = GeoFunctions.getDistanceInM(preObPoint.getLng(), preObPoint.getLat(), currObPoint.getLng(), currObPoint.getLat()) * 1000 / (currObPoint.getTime().getTime() - preObPoint.getTime().getTime());
+            double speed = getDistanceInM(preObPoint.getLng(), preObPoint.getLat(), currObPoint.getLng(), currObPoint.getLat()) * 1000 / (currObPoint.getTime().getTime() - preObPoint.getTime().getTime());
             if (speed < 2.0 ){
 //                System.out.println(windowBearing.getChange() + " " + windowBearing.getChangeScore() + " " + "speed: "+ speed + " " + currTimeStep.getObservation());
             }else {
@@ -371,7 +400,7 @@ public class StreamMapMatcher {
             Map<RoadNode, Map<RoadNode, Path>> paths
     ) throws AlgorithmExecuteException {
         //观测点的距离
-        final double linearDist = GeoFunctions.getDistanceInM(
+        final double linearDist = getDistanceInM(
                 prevTimeStep.getObservation(),
                 timeStep.getObservation()
         );

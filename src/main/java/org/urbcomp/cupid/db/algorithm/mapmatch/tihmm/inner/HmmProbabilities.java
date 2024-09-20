@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright (C) 2022  ST-Lab
  *
  * This program is free software: you can redistribute it and/or modify
@@ -10,7 +10,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
@@ -21,13 +21,13 @@ package org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner;
  */
 public class HmmProbabilities {
     /**
-     * emission p的log正太分布参数
+     * emission p的log正态分布参数 标准差
      */
-    private final double sigma;
+    private double sigma;
     /**
      * transition p的指数分布参数
      */
-    private final double beta;
+    private double beta;
     /**
      * direction p的指数分布参数
      */
@@ -35,7 +35,7 @@ public class HmmProbabilities {
 
     /**
      * 构造函数
-     * @param sigma emission p的log正太分布参数
+     * @param sigma emission p的log正态分布参数
      * @param beta transition p的指数分布参数
      */
     public HmmProbabilities(double sigma, double beta) {
@@ -69,13 +69,13 @@ public class HmmProbabilities {
     }
 
     /**
-     * 数学方程，正太分布
-     * @param sigma 正太分布参数
+     * 数学方程，正态分布
+     * @param sigma 正态分布的标准差
      * @param x 距离
      * @return 概率 p
      */
     private static double logNormalDistribution(double sigma, double x) {
-        return Math.log(1.0 / (Math.sqrt(2.0 * Math.PI) * sigma)) + (-0.5 * Math.pow(x / sigma, 2));
+        return Math.log(1.0 / (Math.sqrt(2.0 * Math.PI) * sigma)) - 0.5 * Math.pow(x / sigma, 2);
     }
 
     /**
@@ -92,5 +92,19 @@ public class HmmProbabilities {
         return logNormalDistribution(this.alpha, diff);
     }
 
+    public double getSigma() {
+        return sigma;
+    }
 
+    public void setSigma(double sigma) {
+        this.sigma = sigma;
+    }
+
+    public double getBeta() {
+        return beta;
+    }
+
+    public void setBeta(double beta) {
+        this.beta = beta;
+    }
 }

@@ -37,6 +37,10 @@ public class TimeStep {
      */
     private final List<CandidatePoint> candidates;
     /**
+     * 当前最大概率的匹配点
+     */
+    private CandidatePoint matchedPoint;
+    /**
      * 每一个candidate point对应的emission概率
      */
     private final Map<CandidatePoint, Double> emissionLogProbabilities = new HashMap<>();
@@ -100,6 +104,14 @@ public class TimeStep {
 
     public List<CandidatePoint> getCandidates() {
         return candidates;
+    }
+
+    public CandidatePoint getMatchedPoint() {
+        return matchedPoint;
+    }
+
+    public void setMatchedPoint(CandidatePoint matchedPoint) {
+        this.matchedPoint = matchedPoint;
     }
 
     public Map<CandidatePoint, Double> getEmissionLogProbabilities() {
