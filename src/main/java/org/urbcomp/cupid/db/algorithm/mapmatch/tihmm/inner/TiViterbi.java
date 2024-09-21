@@ -16,6 +16,7 @@
  */
 package org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner;
 
+import org.urbcomp.cupid.db.algorithm.mapmatch.stream.DynamicWeightOptimizer;
 import org.urbcomp.cupid.db.model.point.CandidatePoint;
 import org.urbcomp.cupid.db.model.point.GPSPoint;
 import scala.Tuple2;
@@ -38,6 +39,10 @@ public class TiViterbi {
      * 每个candidate point 对应的p
      */
     public Map<CandidatePoint, Double> message;
+    /**
+     * 权重动态优化器
+     */
+    public DynamicWeightOptimizer weightOptimizer = new DynamicWeightOptimizer();
     /**
      * 是否停止初始化状态概率函数
      */
@@ -123,22 +128,35 @@ public class TiViterbi {
     ) {
         final ForwardStepResult result = new ForwardStepResult(curCandidates.size());
         assert !prevCandidates.isEmpty();
+        // 用于累积当前时间步的梯度
+        double accumulatedEmissionLogProb = 0.0;
+        double accumulatedTransitionLogProb = 0.0;
+
         for (CandidatePoint curState : curCandidates) {
-            double maxLogProbability = Double.NEGATIVE_INFINITY;
+            double maxTransitionLogProb = Double.NEGATIVE_INFINITY;
+            double maxLogProb = Double.NEGATIVE_INFINITY;
             CandidatePoint maxPreState = null;
             for (CandidatePoint preState : prevCandidates) {
-                final double logProbability = message.get(preState) + transitionLogProbability(
-                    preState,
-                    curState,
-                    transitionLogProbabilities
+                double transitionLogProb = transitionLogProbability(
+                        preState,
+                        curState,
+                        transitionLogProbabilities
                 );
-                if (logProbability > maxLogProbability) {
-                    maxLogProbability = logProbability;
+                final double logProb = message.get(preState) + weightOptimizer.getTransitionWeight() * transitionLogProb;
+                if (logProb > maxLogProb) {
+                    maxTransitionLogProb= transitionLogProb;
+                    maxLogProb = logProb;
                     maxPreState = preState;
                 }
             }
+            double emissionLogProb = emissionLogProbabilities.get(curState);
             result.getNewMessage()
-                .put(curState, (maxLogProbability + emissionLogProbabilities.get(curState)));
+                .put(curState, (maxLogProb + weightOptimizer.getEmissionWeight() * emissionLogProb));
+            if (maxTransitionLogProb != Double.NEGATIVE_INFINITY && emissionLogProb != Double.NEGATIVE_INFINITY) {
+                accumulatedEmissionLogProb += emissionLogProb;
+                accumulatedTransitionLogProb += maxTransitionLogProb;
+            }
+
             // Note that max_prev_state == None if there is no transition with non-zero probability.
             // In this case cur_state has zero probability and will not be part of the most likely
             // sequence,
@@ -152,6 +170,14 @@ public class TiViterbi {
                 result.getNewExtendedStates().put(curState, extendedState);
             }
         }
+//        System.out.println("emission:" + accumulatedEmissionLogProb );
+//        System.out.println("transition:" + accumulatedTransitionLogProb);
+        // 在处理完所有 curStates 后更新权重
+        if (accumulatedTransitionLogProb != Double.NEGATIVE_INFINITY && accumulatedEmissionLogProb != Double.NEGATIVE_INFINITY) {
+            weightOptimizer.updateWeights(accumulatedEmissionLogProb, accumulatedTransitionLogProb);
+        }
+//        System.out.println("emission:" + weightOptimizer.getEmissionWeight());
+//        System.out.println("transition:" + weightOptimizer.getTransitionWeight());
         return result;
     }
 
