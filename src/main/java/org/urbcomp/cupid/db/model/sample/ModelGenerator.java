@@ -43,14 +43,14 @@ import java.util.stream.Collectors;
 
 public class ModelGenerator {
     public static Trajectory generateTrajectory() {
-        return generateTrajectory("data/output.txt");
+        return generateTrajectory("data/trajectories_chengdu.txt");
     }
 
     public static Trajectory generateTrajectory(String trajFile) {
         return generateTrajectory(trajFile, -1);
     }
     public static Trajectory generateTrajectory(int index) {
-        String trajFile = "data/output.txt";
+        String trajFile = "data/trajectories_chengdu.txt";
         try (
                 InputStream in = ModelGenerator.class.getClassLoader().getResourceAsStream(trajFile);
                 BufferedReader br = new BufferedReader(
@@ -84,7 +84,7 @@ public class ModelGenerator {
     }
 
     public static Trajectory generateTrajectory(int index, int sampleRate) {
-        String trajFile = "data/output.txt";
+        String trajFile = "data/trajectories_chengdu.txt";
         try (
                 InputStream in = ModelGenerator.class.getClassLoader().getResourceAsStream(trajFile);
                 BufferedReader br = new BufferedReader(
@@ -183,7 +183,7 @@ public class ModelGenerator {
     public static List<RoadSegment> generateRoadSegments(int maxLength) {
         try (
             InputStream in = ModelGenerator.class.getClassLoader()
-                .getResourceAsStream("data/outputchengdu.csv");
+                .getResourceAsStream("data/roadnetwork_chengdu_origin.csv");
             BufferedReader br = new BufferedReader(
                 new InputStreamReader(Objects.requireNonNull(in))
             )

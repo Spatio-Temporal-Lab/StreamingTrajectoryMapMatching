@@ -1,7 +1,8 @@
 import com.fasterxml.jackson.core.JsonProcessingException;
 import org.urbcomp.cupid.db.algorithm.kalman.GPSPositionSpeedFilter;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.TiHmmMapMatcher;
-import org.urbcomp.cupid.db.algorithm.shortestpath.ManyToManyShortestPath;
+import org.urbcomp.cupid.db.algorithm.shortestpath.BidirectionalManyToManyShortestPath;
+import org.urbcomp.cupid.db.algorithm.shortestpath.SimpleManyToManyShortestPath;
 import org.urbcomp.cupid.db.exception.AlgorithmExecuteException;
 import org.urbcomp.cupid.db.model.point.GPSPoint;
 import org.urbcomp.cupid.db.model.point.MapMatchedPoint;
@@ -17,7 +18,7 @@ public class test2 {
     public static void main(String[] args) throws JsonProcessingException, AlgorithmExecuteException {
 
         RoadNetwork roadNetwork = ModelGenerator.generateRoadNetwork();
-        TiHmmMapMatcher mapMatcher = new TiHmmMapMatcher(roadNetwork, new ManyToManyShortestPath(roadNetwork));
+        TiHmmMapMatcher mapMatcher = new TiHmmMapMatcher(roadNetwork, new SimpleManyToManyShortestPath(roadNetwork));
         Trajectory trajectory = ModelGenerator.generateTrajectory(6);
         MapMatchedTrajectory mmTrajectory = mapMatcher.mapMatch(trajectory);
         List<GPSPoint> pointList = trajectory.getGPSPointList();

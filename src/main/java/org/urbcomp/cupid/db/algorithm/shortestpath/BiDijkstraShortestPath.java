@@ -34,4 +34,6 @@ public class BiDijkstraShortestPath extends AbstractShortestPath {
             new BidirectionalDijkstraShortestPath<>(roadNetwork.getDirectedRoadGraph())
         );
     }
+
+
 }
