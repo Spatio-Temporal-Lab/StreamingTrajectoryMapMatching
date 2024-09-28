@@ -7,6 +7,7 @@ import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.SequenceState;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.TiViterbi;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.TimeStep;
 import org.urbcomp.cupid.db.algorithm.shortestpath.AbstractManyToManyShortestPath;
+import org.urbcomp.cupid.db.algorithm.shortestpath.BidirectionalManyToManyShortestPath;
 import org.urbcomp.cupid.db.exception.AlgorithmExecuteException;
 import org.urbcomp.cupid.db.model.point.CandidatePoint;
 import org.urbcomp.cupid.db.model.point.GPSPoint;
@@ -23,13 +24,8 @@ import scala.Tuple2;
 import scala.Tuple3;
 
 import javax.xml.bind.JAXBException;
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class StreamMapMatcher {
     /**
@@ -51,9 +47,12 @@ public class StreamMapMatcher {
     protected final RoadNetwork roadNetwork;
 
     protected final AbstractManyToManyShortestPath pathAlgo;
+
+    protected BidirectionalManyToManyShortestPath impAlgo;
+
     protected generateHistoryProb historyProb = null;
 
-    private WindowBearing windowBearing = new WindowBearing();
+    private final WindowBearing windowBearing = new WindowBearing();
 
     public StreamMapMatcher(RoadNetwork roadNetwork, AbstractManyToManyShortestPath pathAlgo) {
         this.roadNetwork = roadNetwork;
@@ -66,6 +65,18 @@ public class StreamMapMatcher {
         this.historyProb = historyProb;
     }
 
+    public StreamMapMatcher(RoadNetwork roadNetwork, AbstractManyToManyShortestPath pathAlgo, BidirectionalManyToManyShortestPath impAlgo) {
+        this.roadNetwork = roadNetwork;
+        this.impAlgo = impAlgo;
+        this.pathAlgo = pathAlgo;
+    }
+
+    public StreamMapMatcher(RoadNetwork roadNetwork, AbstractManyToManyShortestPath pathAlgo, BidirectionalManyToManyShortestPath impAlgo, generateHistoryProb historyProb) {
+        this.roadNetwork = roadNetwork;
+        this.impAlgo = impAlgo;
+        this.pathAlgo = pathAlgo;
+        this.historyProb = historyProb;
+    }
 
     public MapMatchedTrajectory streamMapMatch(Trajectory traj) throws AlgorithmExecuteException, JAXBException, IOException, SAXException {
 
@@ -113,27 +124,38 @@ public class StreamMapMatcher {
                 // 找最短路径
                 Set<CandidatePoint> startPoints = new HashSet<>(preTimeStep.getCandidates());
                 Set<CandidatePoint> endPoints = new HashSet<>(timeStep.getCandidates());
-                Map<RoadNode, Map<RoadNode, Path>> paths = pathAlgo.findShortestPath(
-                        startPoints,
-                        endPoints
-                );
+
+                Map<RoadNode, Map<RoadNode, Path>> paths;
+                // 单向 dijkstra
+                if (impAlgo == null) {
+                    paths = pathAlgo.findShortestPath(
+                            startPoints,
+                            endPoints
+                    );
+                } else {
+                    // 双向 dijkstra
+                    paths = impAlgo.findShortestPath(
+                            startPoints,
+                            endPoints
+                    );
+                }
 
                 // 处理观测点向后偏移
                 this.processBackward(preTimeStep, timeStep, viterbi, paths);
 
-                //计算观测概率
+                // 计算观测概率
                 this.computeEmissionProbabilities(timeStep, probabilities);
 
-                //计算转移概率
+                // 计算转移概率
                 this.computeTransitionProbabilities(preTimeStep, timeStep, probabilities, paths);
 
-                //计算历史概率
+                // 计算历史概率
 //                this.adjustTransitionProbabilities(timeStep, StreamMapMatcher.findMaxValuePoint(viterbi.message));
 
-                //根据方向修正
+                // 根据方向修正
 //                this.adjustWithDirection(timeStep, preTimeStep, paths, probabilities);
 
-                //计算维特比
+                // 计算维特比
                 viterbi.nextStep(
                         timeStep.getObservation(),
                         timeStep.getCandidates(),
@@ -289,16 +311,16 @@ public class StreamMapMatcher {
     }
 
     public void adjustWithDirection(TimeStep currTimeStep, TimeStep preTimeStep, Map<RoadNode, Map<RoadNode, Path>> paths, HmmProbabilities probabilities) {
-        if (!windowBearing.getChange()){
+        if (!windowBearing.getChange()) {
 //            System.out.println(windowBearing.getChange() + " " + windowBearing.getChangeScore() + " " + currTimeStep.getObservation());
-        }else {
+        } else {
             GPSPoint currObPoint = currTimeStep.getObservation();
             GPSPoint preObPoint = preTimeStep.getObservation();
             double obBearing = GeoFunctions.getBearing(preObPoint.getLng(), preObPoint.getLat(), currObPoint.getLng(), currObPoint.getLat());
             double speed = GeoFunctions.getDistanceInM(preObPoint.getLng(), preObPoint.getLat(), currObPoint.getLng(), currObPoint.getLat()) * 1000 / (currObPoint.getTime().getTime() - preObPoint.getTime().getTime());
-            if (speed < 2.0 ){
+            if (speed < 2.0) {
 //                System.out.println(windowBearing.getChange() + " " + windowBearing.getChangeScore() + " " + "speed: "+ speed + " " + currTimeStep.getObservation());
-            }else {
+            } else {
                 for (Map.Entry<Tuple2<CandidatePoint, CandidatePoint>, Double> entry : currTimeStep.getTransitionLogProbabilities().entrySet()) {
                     Tuple2<CandidatePoint, CandidatePoint> key = entry.getKey();
                     RoadSegment startRoadSegment = roadNetwork.getRoadSegmentById(

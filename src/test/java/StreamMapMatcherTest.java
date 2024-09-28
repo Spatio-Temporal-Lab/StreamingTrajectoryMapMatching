@@ -15,7 +15,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import org.junit.Before;
 import org.junit.Test;
 import org.urbcomp.cupid.db.algorithm.history.generateHistoryProb;
@@ -23,7 +22,8 @@ import org.urbcomp.cupid.db.algorithm.mapmatch.routerecover.ShortestPathPathReco
 import org.urbcomp.cupid.db.algorithm.mapmatch.stream.StreamMapMatcher;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.TiHmmMapMatcher;
 import org.urbcomp.cupid.db.algorithm.shortestpath.BiDijkstraShortestPath;
-import org.urbcomp.cupid.db.algorithm.shortestpath.ManyToManyShortestPath;
+import org.urbcomp.cupid.db.algorithm.shortestpath.BidirectionalManyToManyShortestPath;
+import org.urbcomp.cupid.db.algorithm.shortestpath.SimpleManyToManyShortestPath;
 import org.urbcomp.cupid.db.exception.AlgorithmExecuteException;
 import org.urbcomp.cupid.db.model.roadnetwork.RoadNetwork;
 import org.urbcomp.cupid.db.model.sample.ModelGenerator;
@@ -35,8 +35,6 @@ import org.xml.sax.SAXException;
 
 import javax.xml.bind.JAXBException;
 import java.io.*;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 
@@ -56,7 +54,7 @@ public class StreamMapMatcherTest {
     public void setUp() throws IOException {
         trajectory = ModelGenerator.generateTrajectory();
         roadNetwork = ModelGenerator.generateRoadNetwork();
-        mapMatcher = new TiHmmMapMatcher(roadNetwork, new ManyToManyShortestPath(roadNetwork));
+        mapMatcher = new TiHmmMapMatcher(roadNetwork, new SimpleManyToManyShortestPath(roadNetwork));
 //        mapMatcher2 = new StreamMapMatcher(roadNetwork, new ManyToManyShortestPath(roadNetwork));
         recover = new ShortestPathPathRecover(roadNetwork, new BiDijkstraShortestPath(roadNetwork));
         historyProb = new generateHistoryProb();
@@ -101,6 +99,13 @@ public class StreamMapMatcherTest {
 
     @Test
     public void accTest() throws AlgorithmExecuteException, IOException, JAXBException, SAXException {
+//        String trajectoryWritePath = "C:\\Users\\77595\\Desktop\\qgis\\ob"+".json";;
+        String trajectoryWritePath = "C:\\Users\\t1anyu\\Desktop\\Results\\MapMatching\\ob"+".json";
+//        String labelMapMatcherWritePath = "C:\\Users\\77595\\Desktop\\qgis\\label"+".json";
+        String labelMapMatcherWritePath = "C:\\Users\\t1anyu\\Desktop\\Results\\MapMatching\\label"+".json";
+//        String streamMapMatcherWritePath = "C:\\Users\\77595\\Desktop\\qgis\\stream"+".json";
+        String streamMapMatcherWritePath = "C:\\Users\\t1anyu\\Desktop\\Results\\MapMatching\\stream"+".json";
+
         int testNum = 1;
         int startIndex = 42;
         testNum += startIndex;
@@ -108,19 +113,20 @@ public class StreamMapMatcherTest {
         double countNum = 0;
         double accuracyNum = 0;
         for (; startIndex < testNum; startIndex++) {
-            mapMatcher2 = new StreamMapMatcher(roadNetwork, new ManyToManyShortestPath(roadNetwork), historyProb);
+            mapMatcher2 = new StreamMapMatcher(roadNetwork, new SimpleManyToManyShortestPath(roadNetwork), historyProb);
+//            mapMatcher2 = new StreamMapMatcher(roadNetwork, new ManyToManyShortestPath(roadNetwork), new BiDijkstraShortestPath(roadNetwork));
             System.out.println("Index: " + startIndex);
             trajectory = ModelGenerator.generateTrajectory(startIndex);
-            Trajectory trajectorySampleRate = ModelGenerator.generateTrajectory(startIndex, sampleRate);
+            Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(startIndex, sampleRate);
             //"-"+startIndex+
-            BufferedWriter writer = new BufferedWriter(new FileWriter("C:\\Users\\77595\\Desktop\\qgis\\ob"+".json"));
-            writer.write(trajectorySampleRate.toGeoJSON());
+            BufferedWriter writer = new BufferedWriter(new FileWriter(trajectoryWritePath));
+            writer.write(sampledTrajectory.toGeoJSON());
             writer.close();
             MapMatchedTrajectory mmTrajectory = mapMatcher.mapMatch(trajectory);
-            writer = new BufferedWriter(new FileWriter("C:\\Users\\77595\\Desktop\\qgis\\label"+".json"));
+            writer = new BufferedWriter(new FileWriter(labelMapMatcherWritePath));
             writer.write(mmTrajectory.toGeoJSON());
             writer.close();
-            MapMatchedTrajectory mmTrajectory2 = mapMatcher2.streamMapMatch(trajectorySampleRate);
+            MapMatchedTrajectory mmTrajectory2 = mapMatcher2.streamMapMatch(sampledTrajectory);
             assert mmTrajectory2 != null;
             double accuracy = EvaluateUtils.getAccuracy(mmTrajectory, mmTrajectory2, sampleRate);
             int length = mmTrajectory2.getMmPtList().size();
@@ -130,7 +136,7 @@ public class StreamMapMatcherTest {
             System.out.println("currAcc: " + accuracy);
             System.out.println("averageAcc: " + accuracyNum / countNum);
             System.out.println();
-            writer = new BufferedWriter(new FileWriter("C:\\Users\\77595\\Desktop\\qgis\\stream"+".json"));
+            writer = new BufferedWriter(new FileWriter(streamMapMatcherWritePath));
             writer.write(mmTrajectory2.toGeoJSON());
             writer.close();
         }
