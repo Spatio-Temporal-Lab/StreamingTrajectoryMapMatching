@@ -18,11 +18,11 @@
 import org.junit.Before;
 import org.junit.Test;
 import org.urbcomp.cupid.db.algorithm.history.generateHistoryProb;
+import org.urbcomp.cupid.db.algorithm.mapmatch.aomm.AommMapMatcher;
 import org.urbcomp.cupid.db.algorithm.mapmatch.routerecover.ShortestPathPathRecover;
 import org.urbcomp.cupid.db.algorithm.mapmatch.stream.StreamMapMatcher;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.TiHmmMapMatcher;
 import org.urbcomp.cupid.db.algorithm.shortestpath.BiDijkstraShortestPath;
-import org.urbcomp.cupid.db.algorithm.shortestpath.BidirectionalManyToManyShortestPath;
 import org.urbcomp.cupid.db.algorithm.shortestpath.SimpleManyToManyShortestPath;
 import org.urbcomp.cupid.db.exception.AlgorithmExecuteException;
 import org.urbcomp.cupid.db.model.roadnetwork.RoadNetwork;
@@ -46,6 +46,7 @@ public class StreamMapMatcherTest {
     private Trajectory trajectory;
     private TiHmmMapMatcher mapMatcher;
     private StreamMapMatcher mapMatcher2;
+    private AommMapMatcher aommMapMatcher;
     private ShortestPathPathRecover recover;
     private RoadNetwork roadNetwork;
     private generateHistoryProb historyProb;
@@ -106,39 +107,46 @@ public class StreamMapMatcherTest {
 //        String streamMapMatcherWritePath = "C:\\Users\\77595\\Desktop\\qgis\\stream"+".json";
         String streamMapMatcherWritePath = "C:\\Users\\t1anyu\\Desktop\\Results\\MapMatching\\stream"+".json";
 
-        int testNum = 1;
-        int startIndex = 42;
+        int testNum = 1000;
+        int startIndex = 1;
         testNum += startIndex;
         int sampleRate = 0;
-        double countNum = 0;
-        double accuracyNum = 0;
         for (; startIndex < testNum; startIndex++) {
-            mapMatcher2 = new StreamMapMatcher(roadNetwork, new SimpleManyToManyShortestPath(roadNetwork), historyProb);
-//            mapMatcher2 = new StreamMapMatcher(roadNetwork, new ManyToManyShortestPath(roadNetwork), new BiDijkstraShortestPath(roadNetwork));
             System.out.println("Index: " + startIndex);
             trajectory = ModelGenerator.generateTrajectory(startIndex);
+
+            // offline hmm(label)
             Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(startIndex, sampleRate);
-            //"-"+startIndex+
-            BufferedWriter writer = new BufferedWriter(new FileWriter(trajectoryWritePath));
-            writer.write(sampledTrajectory.toGeoJSON());
-            writer.close();
             MapMatchedTrajectory mmTrajectory = mapMatcher.mapMatch(trajectory);
-            writer = new BufferedWriter(new FileWriter(labelMapMatcherWritePath));
-            writer.write(mmTrajectory.toGeoJSON());
-            writer.close();
-            MapMatchedTrajectory mmTrajectory2 = mapMatcher2.streamMapMatch(sampledTrajectory);
-            assert mmTrajectory2 != null;
-            double accuracy = EvaluateUtils.getAccuracy(mmTrajectory, mmTrajectory2, sampleRate);
-            int length = mmTrajectory2.getMmPtList().size();
-            countNum += length;
-            double accNum = accuracy * length;
-            accuracyNum += accNum;
-            System.out.println("currAcc: " + accuracy);
-            System.out.println("averageAcc: " + accuracyNum / countNum);
+//            //"-"+startIndex+
+//            BufferedWriter writer = new BufferedWriter(new FileWriter(trajectoryWritePath));
+//            writer.write(sampledTrajectory.toGeoJSON());
+//            writer.close();
+//            writer = new BufferedWriter(new FileWriter(labelMapMatcherWritePath));
+//            writer.write(mmTrajectory.toGeoJSON());
+//            writer.close();
+
+            // our method
+//            mapMatcher2 = new StreamMapMatcher(roadNetwork, new SimpleManyToManyShortestPath(roadNetwork), historyProb);
+//            mapMatcher2 = new StreamMapMatcher(roadNetwork, new ManyToManyShortestPath(roadNetwork), new BiDijkstraShortestPath(roadNetwork));
+//            MapMatchedTrajectory mmTrajectory2 = mapMatcher2.streamMapMatch(sampledTrajectory);
+//            assert mmTrajectory2 != null;
+//            EvaluateUtils.getAccuracy(mmTrajectory, mmTrajectory2, sampleRate);
+
+            // aomm
+            aommMapMatcher = new AommMapMatcher(roadNetwork);
+            MapMatchedTrajectory mmTrajectory3 = aommMapMatcher.AommMapMatch(sampledTrajectory);
+            assert mmTrajectory3 != null;
+            EvaluateUtils.getAccuracy(mmTrajectory, mmTrajectory3, sampleRate);
+
+            System.out.println("currAcc: " + EvaluateUtils.getCurrAcc());
+            System.out.println("totalAcc: " + EvaluateUtils.getTotalAcc());
+            System.out.println("pointNum: " + EvaluateUtils.getTotalNum());
             System.out.println();
-            writer = new BufferedWriter(new FileWriter(streamMapMatcherWritePath));
-            writer.write(mmTrajectory2.toGeoJSON());
-            writer.close();
+
+//            writer = new BufferedWriter(new FileWriter(streamMapMatcherWritePath));
+//            writer.write(mmTrajectory2.toGeoJSON());
+//            writer.close();
         }
     }
 }
