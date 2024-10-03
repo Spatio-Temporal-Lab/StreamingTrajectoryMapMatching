@@ -83,7 +83,8 @@ public class EnhancedTest {
                 MapMatchedTrajectory mmTrajectory2 = mapMatchedResult2.getMmTrajectory();
 
                 // 计算准确率
-                double accuracy = EvaluateUtils.getAccuracy(mmTrajectory, mmTrajectory2, sampleRate);
+                EvaluateUtils.getAccuracy(mmTrajectory, mmTrajectory2, sampleRate);
+                double accuracy = EvaluateUtils.getCurrAcc();
 
                 // 统计实验信息
                 double accNum = accuracy * mmTrajectory2.getMmPtList().size();

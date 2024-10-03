@@ -29,6 +29,10 @@ import java.util.Map;
  */
 public class TimeStep {
     /**
+     * 匹配点
+     */
+    private CandidatePoint match;
+    /**
      * 原始轨迹点
      */
     private final GPSPoint observation;
@@ -112,5 +116,13 @@ public class TimeStep {
 
     public void addCandidate(CandidatePoint point) {
         candidates.add(point);
+    }
+
+    public CandidatePoint getMatch() {
+        return this.match;
+    }
+
+    public void setMatch(CandidatePoint match) {
+        this.match = match;
     }
 }
