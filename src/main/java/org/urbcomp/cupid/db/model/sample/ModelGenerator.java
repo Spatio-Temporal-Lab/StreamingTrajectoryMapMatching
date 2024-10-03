@@ -18,10 +18,6 @@ package org.urbcomp.cupid.db.model.sample;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
-import com.alibaba.fastjson.JSONObject;
-import org.geotools.geojson.geom.GeometryJSON;
-import org.locationtech.jts.geom.Geometry;
-import org.urbcomp.cupid.db.model.Attribute;
 import org.urbcomp.cupid.db.model.point.GPSPoint;
 import org.urbcomp.cupid.db.model.point.SpatialPoint;
 import org.urbcomp.cupid.db.model.roadnetwork.RoadNetwork;
@@ -30,7 +26,6 @@ import org.urbcomp.cupid.db.model.roadnetwork.RoadSegmentDirection;
 import org.urbcomp.cupid.db.model.roadnetwork.RoadSegmentLevel;
 import org.urbcomp.cupid.db.model.trajectory.Trajectory;
 import org.urbcomp.cupid.db.util.CoordTransformUtils;
-import org.urbcomp.cupid.db.util.DataTypeUtils;
 import org.urbcomp.cupid.db.util.WKTUtils;
 
 import java.io.BufferedReader;
@@ -42,17 +37,22 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public class ModelGenerator {
+
+    private static final String TRAJECTORY_PATH = "data/trajectories_wuxi.txt";
+    private static final String ROAD_NETWORK_PATH = "data/roadnetwork_wuxi_origin.csv";
+
+    private static final Boolean COORDINATE_SYSTEM_WGS84 = false;
+
     public static Trajectory generateTrajectory() {
-        return generateTrajectory("data/trajectories_chengdu.txt");
+        return generateTrajectory(TRAJECTORY_PATH);
     }
 
     public static Trajectory generateTrajectory(String trajFile) {
         return generateTrajectory(trajFile, -1);
     }
     public static Trajectory generateTrajectory(int index) {
-        String trajFile = "data/trajectories_chengdu.txt";
         try (
-                InputStream in = ModelGenerator.class.getClassLoader().getResourceAsStream(trajFile);
+                InputStream in = ModelGenerator.class.getClassLoader().getResourceAsStream(TRAJECTORY_PATH);
                 BufferedReader br = new BufferedReader(
                         new InputStreamReader(Objects.requireNonNull(in))
                 )
@@ -71,7 +71,7 @@ public class ModelGenerator {
                         Timestamp timestamp = Timestamp.valueOf(o.get(0));
                         double lng = Double.parseDouble(o.get(1));
                         double lat = Double.parseDouble(o.get(2));
-                        double[] convertedCoords = CoordTransformUtils.gcj02Towgs84(lng, lat);
+                        double[] convertedCoords = COORDINATE_SYSTEM_WGS84 ? new double[]{lng, lat} : CoordTransformUtils.gcj02Towgs84(lng, lat);
                         return new GPSPoint(timestamp, convertedCoords[0], convertedCoords[1]);
                     })
                     .collect(Collectors.toList());
@@ -84,9 +84,8 @@ public class ModelGenerator {
     }
 
     public static Trajectory generateTrajectory(int index, int sampleRate) {
-        String trajFile = "data/trajectories_chengdu.txt";
         try (
-                InputStream in = ModelGenerator.class.getClassLoader().getResourceAsStream(trajFile);
+                InputStream in = ModelGenerator.class.getClassLoader().getResourceAsStream(TRAJECTORY_PATH);
                 BufferedReader br = new BufferedReader(
                         new InputStreamReader(Objects.requireNonNull(in))
                 )
@@ -123,7 +122,7 @@ public class ModelGenerator {
                         Timestamp timestamp = Timestamp.valueOf(o.get(0));
                         double lng = Double.parseDouble(o.get(1));
                         double lat = Double.parseDouble(o.get(2));
-                        double[] convertedCoords = CoordTransformUtils.gcj02Towgs84(lng, lat);
+                        double[] convertedCoords = COORDINATE_SYSTEM_WGS84 ? new double[]{lng, lat} : CoordTransformUtils.gcj02Towgs84(lng, lat);
                         return new GPSPoint(timestamp, convertedCoords[0], convertedCoords[1]);
                     })
                     .collect(Collectors.toList());
@@ -155,7 +154,7 @@ public class ModelGenerator {
                 Timestamp timestamp = Timestamp.valueOf(point.getString(0));
                 double lng = point.getDouble(1);
                 double lat = point.getDouble(2);
-                double[] convertedCoords = CoordTransformUtils.gcj02Towgs84(lng, lat);
+                double[] convertedCoords = COORDINATE_SYSTEM_WGS84 ? new double[]{lng, lat} : CoordTransformUtils.gcj02Towgs84(lng, lat);
                 pointsList.add(new GPSPoint(timestamp, convertedCoords[0], convertedCoords[1]));
                 flag = false;
                 if (skipNum == sampleRate){
@@ -182,9 +181,9 @@ public class ModelGenerator {
 
     public static List<RoadSegment> generateRoadSegments(int maxLength) {
         try (
-            InputStream in = ModelGenerator.class.getClassLoader()
-                .getResourceAsStream("data/roadnetwork_chengdu_origin.csv");
-            BufferedReader br = new BufferedReader(
+                InputStream in = ModelGenerator.class.getClassLoader()
+                .getResourceAsStream(ROAD_NETWORK_PATH);
+                BufferedReader br = new BufferedReader(
                 new InputStreamReader(Objects.requireNonNull(in))
             )
         ) {

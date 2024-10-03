@@ -7,7 +7,9 @@ import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.SequenceState;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.TiViterbi;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.TimeStep;
 import org.urbcomp.cupid.db.algorithm.shortestpath.AbstractManyToManyShortestPath;
+import org.urbcomp.cupid.db.algorithm.shortestpath.BiDijkstraShortestPath;
 import org.urbcomp.cupid.db.algorithm.shortestpath.BidirectionalManyToManyShortestPath;
+import org.urbcomp.cupid.db.algorithm.shortestpath.ManyToManyShortestPath;
 import org.urbcomp.cupid.db.exception.AlgorithmExecuteException;
 import org.urbcomp.cupid.db.model.point.CandidatePoint;
 import org.urbcomp.cupid.db.model.point.GPSPoint;
@@ -50,8 +52,6 @@ public class StreamMapMatcher {
 
     protected BidirectionalManyToManyShortestPath impAlgo;
 
-    protected generateHistoryProb historyProb = null;
-
     private final WindowBearing windowBearing = new WindowBearing();
 
     public StreamMapMatcher(RoadNetwork roadNetwork, AbstractManyToManyShortestPath pathAlgo) {
@@ -59,23 +59,10 @@ public class StreamMapMatcher {
         this.pathAlgo = pathAlgo;
     }
 
-    public StreamMapMatcher(RoadNetwork roadNetwork, AbstractManyToManyShortestPath pathAlgo, generateHistoryProb historyProb) {
-        this.roadNetwork = roadNetwork;
-        this.pathAlgo = pathAlgo;
-        this.historyProb = historyProb;
-    }
-
     public StreamMapMatcher(RoadNetwork roadNetwork, AbstractManyToManyShortestPath pathAlgo, BidirectionalManyToManyShortestPath impAlgo) {
         this.roadNetwork = roadNetwork;
         this.impAlgo = impAlgo;
         this.pathAlgo = pathAlgo;
-    }
-
-    public StreamMapMatcher(RoadNetwork roadNetwork, AbstractManyToManyShortestPath pathAlgo, BidirectionalManyToManyShortestPath impAlgo, generateHistoryProb historyProb) {
-        this.roadNetwork = roadNetwork;
-        this.impAlgo = impAlgo;
-        this.pathAlgo = pathAlgo;
-        this.historyProb = historyProb;
     }
 
     public MapMatchedTrajectory streamMapMatch(Trajectory traj) throws AlgorithmExecuteException, JAXBException, IOException, SAXException {
@@ -141,16 +128,13 @@ public class StreamMapMatcher {
                 }
 
                 // 处理观测点向后偏移
-                this.processBackward(preTimeStep, timeStep, viterbi, paths);
+//                this.processBackward(preTimeStep, timeStep, viterbi, paths);
 
                 // 计算观测概率
                 this.computeEmissionProbabilities(timeStep, probabilities);
 
                 // 计算转移概率
                 this.computeTransitionProbabilities(preTimeStep, timeStep, probabilities, paths);
-
-                // 计算历史概率
-//                this.adjustTransitionProbabilities(timeStep, StreamMapMatcher.findMaxValuePoint(viterbi.message));
 
                 // 根据方向修正
 //                this.adjustWithDirection(timeStep, preTimeStep, paths, probabilities);
@@ -186,7 +170,6 @@ public class StreamMapMatcher {
             }
             preTimeStep = timeStep;
         }
-//        System.out.println(viterbi.message);
         return Tuple3.apply(seq, preTimeStep, viterbi);
     }
 
@@ -204,7 +187,6 @@ public class StreamMapMatcher {
                         .get(endRoadSegment.getStartNode());
                 Path path = pathAlgo.getCompletePath(preCandiPt, curCandiPt, subPath);
                 double speed = path.getLengthInMeter() * 1000 / (curTimeStep.getObservation().getTime().getTime() - preTimeStep.getObservation().getTime().getTime());
-//                System.out.println(curTimeStep.getObservation() + " " + path.getRoadSegmentIds() + " " +path.getPoints() + " " + speed + " " + path.getLengthInMeter());
                 if (speed > 34) {
                     double disBtwCurAndPer = GeoFunctions.getDistanceInM(preCandiPt, curCandiPt);
                     if (disBtwCurAndPer < 20) {
@@ -216,97 +198,6 @@ public class StreamMapMatcher {
         }
         if (isMatch) {
             curTimeStep.addCandidate(preCandiPt);
-        }
-//        if (StreamMapMatcher.findMaxValuePoint(viterbi.message) == null){
-//            return;
-//        }
-//        int roadSegmentId = StreamMapMatcher.findMaxValuePoint(viterbi.message).getRoadSegmentId();
-//        List<CandidatePoint> curCandidates = curTimeStep.getCandidates();
-//        int i = 0;
-//        for (; i < curCandidates.size(); i++) {
-//            if (curCandidates.get(i).getRoadSegmentId() == roadSegmentId) {
-//                break;
-//            }
-//        }
-//        if (i != curCandidates.size()) {
-//            for (CandidatePoint preCandiPt : preTimeStep.getCandidates()) {
-//                if (preCandiPt.getRoadSegmentId() == roadSegmentId) {
-//
-//                    RoadSegment startRoadSegment = roadNetwork.getRoadSegmentById(
-//                            preCandiPt.getRoadSegmentId()
-//                    );
-//                    CandidatePoint curCandiPt = curCandidates.get(i);
-//                    if (preCandiPt != curCandiPt) {
-//                        RoadSegment endRoadSegment = roadNetwork.getRoadSegmentById(
-//                                curCandiPt.getRoadSegmentId()
-//                        );
-//                        Path subPath = paths.get(startRoadSegment.getEndNode())
-//                                .get(endRoadSegment.getStartNode());
-//                        Path path = pathAlgo.getCompletePath(preCandiPt, curCandiPt, subPath);
-//                        double time = (curTimeStep.getObservation().getTime().getTime() - preTimeStep.getObservation().getTime().getTime()) * 1.0 / 1000;
-//                        double speed = path.getLengthInMeter() / time;
-//                        if (speed > 34) {
-//                            double disBtwCurAndPer = GeoFunctions.getDistanceInM(preCandiPt, curCandiPt);
-//                            if (disBtwCurAndPer < 34 * time) {
-//                                curTimeStep.addCandidate(preCandiPt);
-//                            }
-//                        }
-//                    }
-//                }
-//            }
-//        }
-    }
-
-    public void adjustTransitionProbabilities(TimeStep timeStep, CandidatePoint preSelectPoint) {
-        CandidatePoint currEqualPre = null;
-        for (CandidatePoint candidatePoint : timeStep.getCandidates()) {
-            if (candidatePoint.getRoadSegmentId() == preSelectPoint.getRoadSegmentId()) {
-                currEqualPre = candidatePoint;
-            }
-        }
-        if (currEqualPre != null && !roadNetwork.getRoadSegmentById(preSelectPoint.getRoadSegmentId()).getEndNode().equals(currEqualPre)) {
-            return;
-        }
-        Map<Tuple2<CandidatePoint, CandidatePoint>, Double> transitionLogProbabilities = timeStep.getTransitionLogProbabilities();
-        Map<Integer, Double> totalTransProbPreRoad = new HashMap<>();
-        int week = timeStep.getObservation().getTime().toLocalDateTime().getDayOfWeek().getValue();
-
-        Map<Integer, Double> temp = new HashMap<>();
-        Map<Integer, Double> temp2 = new HashMap<>();
-
-        for (Map.Entry<Tuple2<CandidatePoint, CandidatePoint>, Double> entry : transitionLogProbabilities.entrySet()) {
-            int startId = entry.getKey()._1.getRoadSegmentId();
-            int endId = entry.getKey()._2.getRoadSegmentId();
-            if (roadNetwork.getRoadSegmentById(startId).getEndNode().equals(roadNetwork.getRoadSegmentById(endId).getStartNode()) && startId == preSelectPoint.getRoadSegmentId()) {
-                totalTransProbPreRoad.put(startId, totalTransProbPreRoad.getOrDefault(startId, 0.0) + Math.exp(entry.getValue()) * historyProb.getHisProb(startId, endId, week));
-                temp.put(endId, Math.exp(entry.getValue()));
-                temp2.put(endId, historyProb.getHisProb(startId, endId, week));
-            }
-        }
-        System.out.println(totalTransProbPreRoad);
-        System.out.println(temp);
-        System.out.println(temp2);
-        System.out.println("#################");
-        double totalFixProb = 0.0;
-        double totalPreProb = 0.0;
-        for (Map.Entry<Tuple2<CandidatePoint, CandidatePoint>, Double> entry : transitionLogProbabilities.entrySet()) {
-            int startId = entry.getKey()._1.getRoadSegmentId();
-            int endId = entry.getKey()._2.getRoadSegmentId();
-            if (roadNetwork.getRoadSegmentById(startId).getEndNode().equals(roadNetwork.getRoadSegmentById(endId).getStartNode()) && startId == preSelectPoint.getRoadSegmentId()) {
-                double nowProb = Math.exp(transitionLogProbabilities.get(entry.getKey()));
-                double fixProb = nowProb * historyProb.getHisProb(startId, endId, week) / totalTransProbPreRoad.get(startId);
-                totalFixProb += fixProb;
-                totalPreProb += nowProb;
-            }
-        }
-        for (Map.Entry<Tuple2<CandidatePoint, CandidatePoint>, Double> entry : transitionLogProbabilities.entrySet()) {
-            int startId = entry.getKey()._1.getRoadSegmentId();
-            int endId = entry.getKey()._2.getRoadSegmentId();
-            if (roadNetwork.getRoadSegmentById(startId).getEndNode().equals(roadNetwork.getRoadSegmentById(endId).getStartNode()) && startId == preSelectPoint.getRoadSegmentId()) {
-                double nowProb = Math.exp(transitionLogProbabilities.get(entry.getKey()));
-                double fixProb = nowProb * historyProb.getHisProb(startId, endId, week) / totalTransProbPreRoad.get(startId);
-                transitionLogProbabilities.put(entry.getKey(), Math.log(nowProb * 0.5 + fixProb * (totalPreProb / totalFixProb) * 0.5));
-            }
         }
     }
 
@@ -405,16 +296,6 @@ public class StreamMapMatcher {
             );
             for (CandidatePoint curCandiPt : timeStep.getCandidates()) {
 
-//                // 两个候选点相同，将概率置为极大
-//                if (preCandiPt == curCandiPt) {
-//                    timeStep.addTransitionLogProbability(
-//                            preCandiPt,
-//                            curCandiPt,
-//                            probabilities.transitionLogProbability(0.0, 0.0)
-//                    );
-//                    continue;
-//                }
-
                 RoadSegment endRoadSegment = roadNetwork.getRoadSegmentById(
                         curCandiPt.getRoadSegmentId()
                 );
@@ -422,12 +303,6 @@ public class StreamMapMatcher {
                         .get(endRoadSegment.getStartNode());
                 Path path = pathAlgo.getCompletePath(preCandiPt, curCandiPt, subPath);
                 double transitionLogProbability = probabilities.transitionLogProbability(path.getLengthInMeter(), linearDist);
-
-//                if (startRoadSegment.getRoadSegmentId() == 79145){
-//                    System.out.println("ob:" + linearDist);
-//                    System.out.println("sub: " + curCandiPt.getRoadSegmentId() + " " + subPath);
-//                    System.out.println("all: " + curCandiPt.getRoadSegmentId() + " " + path);
-//                }
 
                 if (path.getLengthInMeter() != Double.MAX_VALUE) {
                     timeStep.addTransitionLogProbability(

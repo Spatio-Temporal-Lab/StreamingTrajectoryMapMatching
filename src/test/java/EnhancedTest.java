@@ -27,7 +27,6 @@ public class EnhancedTest {
     private StreamMapMatcher mapMatcher2;
     //    private ShortestPathPathRecover recover;
     private RoadNetwork roadNetwork;
-    private generateHistoryProb historyProb;
 
     @Before
     public void setUp() {
@@ -35,7 +34,6 @@ public class EnhancedTest {
         roadNetwork = ModelGenerator.generateRoadNetwork();
         mapMatcher = new TiHmmMapMatcher(roadNetwork, new SimpleManyToManyShortestPath(roadNetwork));
 //        recover = new ShortestPathPathRecover(roadNetwork, new BiDijkstraShortestPath(roadNetwork));
-        historyProb = new generateHistoryProb();
     }
 
     @Test
@@ -65,7 +63,7 @@ public class EnhancedTest {
                 // 单向 dijkstra
 //            mapMatcher2 = new StreamMapMatcher(roadNetwork, new SimpleManyToManyShortestPath(roadNetwork), historyProb);
                 // 双向 dijkstra
-                mapMatcher2 = new StreamMapMatcher(roadNetwork, new SimpleManyToManyShortestPath(roadNetwork), new BidirectionalManyToManyShortestPath(roadNetwork), historyProb);
+                mapMatcher2 = new StreamMapMatcher(roadNetwork, new SimpleManyToManyShortestPath(roadNetwork), new BidirectionalManyToManyShortestPath(roadNetwork));
 
                 // 创建轨迹
                 trajectory = ModelGenerator.generateTrajectory(index);

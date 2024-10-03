@@ -142,7 +142,6 @@ public class TiHmmMapMatcher {
 
                     //计算观测概率
                     this.computeEmissionProbabilities(timeStep, probabilities);
-
                     //计算转移概率
                     this.computeTransitionProbabilities(preTimeStep, timeStep, probabilities, paths);
                     //计算方向概率
