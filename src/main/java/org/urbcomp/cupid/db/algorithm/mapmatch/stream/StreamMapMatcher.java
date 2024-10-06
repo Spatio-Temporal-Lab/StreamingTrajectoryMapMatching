@@ -2,6 +2,7 @@ package org.urbcomp.cupid.db.algorithm.mapmatch.stream;
 
 import org.urbcomp.cupid.db.algorithm.bearing.WindowBearing;
 import org.urbcomp.cupid.db.algorithm.history.generateHistoryProb;
+import org.urbcomp.cupid.db.algorithm.mapmatch.stream.inner.PathCache;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.HmmProbabilities;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.SequenceState;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.TiViterbi;
@@ -54,6 +55,8 @@ public class StreamMapMatcher {
     protected generateHistoryProb historyProb = null;
 
     private WindowBearing windowBearing = new WindowBearing();
+
+    private PathCache pathCache = new PathCache();
 
     public StreamMapMatcher(RoadNetwork roadNetwork, AbstractManyToManyShortestPath pathAlgo) {
         this.roadNetwork = roadNetwork;
@@ -113,10 +116,13 @@ public class StreamMapMatcher {
                 // 找最短路径
                 Set<CandidatePoint> startPoints = new HashSet<>(preTimeStep.getCandidates());
                 Set<CandidatePoint> endPoints = new HashSet<>(timeStep.getCandidates());
-                Map<RoadNode, Map<RoadNode, Path>> paths = pathAlgo.findShortestPath(
-                        startPoints,
-                        endPoints
-                );
+
+                // 加速路径计算
+                Map<RoadNode, Map<RoadNode, Path>> paths = pathAlgo.findShortestPath(startPoints, endPoints, pathCache);
+//                Map<RoadNode, Map<RoadNode, Path>> paths = pathAlgo.findShortestPath(
+//                        startPoints,
+//                        endPoints
+//                );
 
                 // 处理观测点向后偏移
                 this.processBackward(preTimeStep, timeStep, viterbi, paths);
@@ -237,11 +243,13 @@ public class StreamMapMatcher {
 
     public void adjustTransitionProbabilities(TimeStep timeStep, CandidatePoint preSelectPoint) {
         CandidatePoint currEqualPre = null;
+        // 查找当前等于先前选择的候选点
         for (CandidatePoint candidatePoint : timeStep.getCandidates()) {
             if (candidatePoint.getRoadSegmentId() == preSelectPoint.getRoadSegmentId()) {
                 currEqualPre = candidatePoint;
             }
         }
+        // 如果找到了匹配的候选点，且其不是先前候选点的结束节点
         if (currEqualPre != null && !roadNetwork.getRoadSegmentById(preSelectPoint.getRoadSegmentId()).getEndNode().equals(currEqualPre)) {
             return;
         }
@@ -252,9 +260,11 @@ public class StreamMapMatcher {
         Map<Integer, Double> temp = new HashMap<>();
         Map<Integer, Double> temp2 = new HashMap<>();
 
+        // 添加概率
         for (Map.Entry<Tuple2<CandidatePoint, CandidatePoint>, Double> entry : transitionLogProbabilities.entrySet()) {
             int startId = entry.getKey()._1.getRoadSegmentId();
             int endId = entry.getKey()._2.getRoadSegmentId();
+            // 如果起始道路段的结束节点等于结束道路段的起始节点且起始 ID 等于 preSelectPoint 的 ID
             if (roadNetwork.getRoadSegmentById(startId).getEndNode().equals(roadNetwork.getRoadSegmentById(endId).getStartNode()) && startId == preSelectPoint.getRoadSegmentId()) {
                 totalTransProbPreRoad.put(startId, totalTransProbPreRoad.getOrDefault(startId, 0.0) + Math.exp(entry.getValue()) * historyProb.getHisProb(startId, endId, week));
                 temp.put(endId, Math.exp(entry.getValue()));
@@ -267,6 +277,8 @@ public class StreamMapMatcher {
         System.out.println("#################");
         double totalFixProb = 0.0;
         double totalPreProb = 0.0;
+
+        // 统计基础概率
         for (Map.Entry<Tuple2<CandidatePoint, CandidatePoint>, Double> entry : transitionLogProbabilities.entrySet()) {
             int startId = entry.getKey()._1.getRoadSegmentId();
             int endId = entry.getKey()._2.getRoadSegmentId();
@@ -277,6 +289,8 @@ public class StreamMapMatcher {
                 totalPreProb += nowProb;
             }
         }
+
+        // 在基础概率的基础上计算概率
         for (Map.Entry<Tuple2<CandidatePoint, CandidatePoint>, Double> entry : transitionLogProbabilities.entrySet()) {
             int startId = entry.getKey()._1.getRoadSegmentId();
             int endId = entry.getKey()._2.getRoadSegmentId();
@@ -289,16 +303,16 @@ public class StreamMapMatcher {
     }
 
     public void adjustWithDirection(TimeStep currTimeStep, TimeStep preTimeStep, Map<RoadNode, Map<RoadNode, Path>> paths, HmmProbabilities probabilities) {
-        if (!windowBearing.getChange()){
+        if (!windowBearing.getChange()) {
 //            System.out.println(windowBearing.getChange() + " " + windowBearing.getChangeScore() + " " + currTimeStep.getObservation());
-        }else {
+        } else {
             GPSPoint currObPoint = currTimeStep.getObservation();
             GPSPoint preObPoint = preTimeStep.getObservation();
             double obBearing = GeoFunctions.getBearing(preObPoint.getLng(), preObPoint.getLat(), currObPoint.getLng(), currObPoint.getLat());
             double speed = GeoFunctions.getDistanceInM(preObPoint.getLng(), preObPoint.getLat(), currObPoint.getLng(), currObPoint.getLat()) * 1000 / (currObPoint.getTime().getTime() - preObPoint.getTime().getTime());
-            if (speed < 2.0 ){
+            if (speed < 2.0) {
 //                System.out.println(windowBearing.getChange() + " " + windowBearing.getChangeScore() + " " + "speed: "+ speed + " " + currTimeStep.getObservation());
-            }else {
+            } else { // 速度大于 2.0
                 for (Map.Entry<Tuple2<CandidatePoint, CandidatePoint>, Double> entry : currTimeStep.getTransitionLogProbabilities().entrySet()) {
                     Tuple2<CandidatePoint, CandidatePoint> key = entry.getKey();
                     RoadSegment startRoadSegment = roadNetwork.getRoadSegmentById(
@@ -315,6 +329,7 @@ public class StreamMapMatcher {
                     if (angleDifference > 180) {
                         angleDifference = 360 - angleDifference;
                     }
+                    // 引入方向的转移概率
                     currTimeStep.getTransitionLogProbabilities().put(key, currTimeStep.getTransitionLogProbabilities().get(key) + probabilities.directionLogProbability(angleDifference));
                 }
 //                System.out.println("true direction: " + windowBearing.getChangeScore() + " " + currTimeStep.getObservation());

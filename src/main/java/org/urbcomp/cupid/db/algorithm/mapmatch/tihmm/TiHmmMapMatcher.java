@@ -54,7 +54,7 @@ public class TiHmmMapMatcher {
     protected final RoadNetwork roadNetwork;
 
     protected final AbstractManyToManyShortestPath pathAlgo;
-    private WindowBearing windowBearing = new WindowBearing();
+    private final WindowBearing windowBearing = new WindowBearing();
 
     public TiHmmMapMatcher(RoadNetwork roadNetwork, AbstractManyToManyShortestPath pathAlgo) {
         this.roadNetwork = roadNetwork;
@@ -145,6 +145,7 @@ public class TiHmmMapMatcher {
 
                     //计算转移概率
                     this.computeTransitionProbabilities(preTimeStep, timeStep, probabilities, paths);
+
                     //计算方向概率
                     this.adjustWithDirection(timeStep, preTimeStep, paths, probabilities);
 
@@ -191,12 +192,12 @@ public class TiHmmMapMatcher {
         int roadSegmentId = preCandiPt.getRoadSegmentId();
         List<CandidatePoint> curCandidates = curTimeStep.getCandidates();
         boolean isMatch = false;
-        for (CandidatePoint curCandiPt: curCandidates){
-            if (curCandiPt.getRoadSegmentId() == roadSegmentId && curCandiPt.getOffsetInMeter() < preCandiPt.getOffsetInMeter()){
+        for (CandidatePoint curCandiPt : curCandidates) {
+            if (curCandiPt.getRoadSegmentId() == roadSegmentId && curCandiPt.getOffsetInMeter() < preCandiPt.getOffsetInMeter()) {
                 RoadSegment startRoadSegment = roadNetwork.getRoadSegmentById(roadSegmentId);
                 RoadSegment endRoadSegment = roadNetwork.getRoadSegmentById(curCandiPt.getRoadSegmentId());
                 Path subPath = paths.get(startRoadSegment.getEndNode())
-                                .get(endRoadSegment.getStartNode());
+                        .get(endRoadSegment.getStartNode());
                 Path path = pathAlgo.getCompletePath(preCandiPt, curCandiPt, subPath);
                 double speed = path.getLengthInMeter() * 1000 / (curTimeStep.getObservation().getTime().getTime() - preTimeStep.getObservation().getTime().getTime());
                 if (speed > 34) {
@@ -208,23 +209,23 @@ public class TiHmmMapMatcher {
                 }
             }
         }
-        if (isMatch){
+        if (isMatch) {
             curTimeStep.addCandidate(preCandiPt);
         }
     }
 
 
     public void adjustWithDirection(TimeStep currTimeStep, TimeStep preTimeStep, Map<RoadNode, Map<RoadNode, Path>> paths, HmmProbabilities probabilities) {
-        if (!windowBearing.getChange()){
+        if (!windowBearing.getChange()) {
 //            System.out.println(windowBearing.getChange() + " " + windowBearing.getChangeScore() + " " + currTimeStep.getObservation());
-        }else {
+        } else {
             GPSPoint currObPoint = currTimeStep.getObservation();
             GPSPoint preObPoint = preTimeStep.getObservation();
             double obBearing = GeoFunctions.getBearing(preObPoint.getLng(), preObPoint.getLat(), currObPoint.getLng(), currObPoint.getLat());
             double speed = GeoFunctions.getDistanceInM(preObPoint.getLng(), preObPoint.getLat(), currObPoint.getLng(), currObPoint.getLat()) * 1000 / (currObPoint.getTime().getTime() - preObPoint.getTime().getTime());
-            if (speed < 2.0 ){
+            if (speed < 2.0) {
 //                System.out.println(windowBearing.getChange() + " " + windowBearing.getChangeScore() + " " + "speed: "+ speed + " " + currTimeStep.getObservation());
-            }else {
+            } else {
                 for (Map.Entry<Tuple2<CandidatePoint, CandidatePoint>, Double> entry : currTimeStep.getTransitionLogProbabilities().entrySet()) {
                     Tuple2<CandidatePoint, CandidatePoint> key = entry.getKey();
                     RoadSegment startRoadSegment = roadNetwork.getRoadSegmentById(
@@ -249,8 +250,6 @@ public class TiHmmMapMatcher {
     }
 
 
-
-
     /**
      * 根据time step和概率分布函数计算emission P
      *
@@ -270,7 +269,7 @@ public class TiHmmMapMatcher {
      * @param prevTimeStep  之前的timestep
      * @param timeStep      当前的timestep
      * @param probabilities 建立好的概率分布函数
-     * @param paths 候选点间最短路径
+     * @param paths         候选点间最短路径
      */
     protected void computeTransitionProbabilities(
             TimeStep prevTimeStep,
