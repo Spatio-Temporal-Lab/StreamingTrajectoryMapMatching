@@ -18,6 +18,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class EvaluateUtils {
+    static int errorNum = 0;
+    static int totalCorrectNum = 0;
+    static int totalNum = 0;
+    static double currAcc = 0.0;
+    static double totalAcc = 0.0;
 
     static RoadNetwork roadNetwork = ModelGenerator.generateRoadNetwork();
 
@@ -243,35 +248,67 @@ public class EvaluateUtils {
     private static boolean checkLabel(int label, int result, CandidatePoint labelPoint, CandidatePoint resultPoint) {
         if (Math.abs(label) == Math.abs(result)) {
             return true;
-        }else if (labelPoint.getLat() == resultPoint.getLat() && labelPoint.getLng() == resultPoint.getLng()) {
+        } else if (labelPoint.getLat() == resultPoint.getLat() && labelPoint.getLng() == resultPoint.getLng()) {
             return true;
         }
         RoadSegment rsLabel = roadNetwork.getRoadSegmentById(label);
         RoadSegment rsResult = roadNetwork.getRoadSegmentById(result);
-        return rsLabel.getStartNode().getLng() == rsResult.getEndNode().getLng() && rsLabel.getStartNode().getLat() == rsResult.getEndNode().getLat() && rsLabel.getLengthInMeter() == rsResult.getLengthInMeter();
+        return rsLabel.getStartNode().getLng() == rsResult.getEndNode().getLng() &&
+                rsLabel.getStartNode().getLat() == rsResult.getEndNode().getLat() &&
+                rsLabel.getLengthInMeter() == rsResult.getLengthInMeter();
     }
 
-    public static double getAccuracy(MapMatchedTrajectory labels, MapMatchedTrajectory results, double sampleRate) {
-        double totalPoints = labels.getMmPtList().size();
-        double samplePoints = results.getMmPtList().size();
-        if (totalPoints == 0) {
-            return 0.0;
+    public static void getAccuracy(MapMatchedTrajectory labels, MapMatchedTrajectory results, double sampleRate) {
+        int totalPoints = labels.getMmPtList().size();
+        int resultPoints = results.getMmPtList().size();
+
+        // 确保 labels 和 results 的轨迹点数量一致
+        if (totalPoints != resultPoints) {
+            throw new IllegalArgumentException("Labels and results must have the same number of points.");
         }
+
+        if (totalPoints == 0) {
+            currAcc = 0.0;
+            return;
+        }
+
         List<Integer> labelList = new ArrayList<>();
         List<MapMatchedPoint> sampleLabelList = new ArrayList<>();
         List<Integer> resultList = new ArrayList<>();
 
         int skipNum = 0;
         boolean flag = true;
+
         for (int i = 0; i < totalPoints; i++) {
+            CandidatePoint resultPoint = results.getMmPtList().get(i).getCandidatePoint();
+
+            // 检查当前结果点是否需要跳过
+            if (resultPoint != null && resultPoint.isSkip()) {
+                continue;
+            }
+
             if (flag) {
-                if (labels.getMmPtList().get(i).getCandidatePoint() == null) {
+                // 添加标签点到 labelList
+                CandidatePoint labelCp = labels.getMmPtList().get(i).getCandidatePoint();
+                if (labelCp == null) {
                     labelList.add(0);
                 } else {
-                    int id1 = labels.getMmPtList().get(i).getCandidatePoint().getRoadSegmentId();
-                    labelList.add(id1);
+                    int labelId = labelCp.getRoadSegmentId();
+                    labelList.add(labelId);
                 }
+
+                // 添加对应的标签 MapMatchedPoint 到 sampleLabelList
                 sampleLabelList.add(labels.getMmPtList().get(i));
+
+                // 添加结果点到 resultList
+                if (resultPoint == null) {
+                    resultList.add(0);
+                } else {
+                    int resultId = resultPoint.getRoadSegmentId();
+                    resultList.add(resultId);
+                }
+
+                // 根据 sampleRate 决定是否继续采样
                 flag = skipNum == sampleRate;
             } else {
                 skipNum++;
@@ -281,36 +318,71 @@ public class EvaluateUtils {
                 }
             }
         }
-        for (int i = 0; i < samplePoints; i++) {
-            if (results.getMmPtList().get(i).getCandidatePoint() == null) {
-                resultList.add(0);
-            } else {
-                int id2 = results.getMmPtList().get(i).getCandidatePoint().getRoadSegmentId();
-                resultList.add(id2);
-            }
-        }
 
         int errorPointsCount = 0;
+        int totalComparedPoints = labelList.size(); // 实际参与比较的点数
+
+        // 确定比较的最小长度
         int minSize = Math.min(resultList.size(), labelList.size());
+
         for (int i = 0; i < minSize; i++) {
             int label = labelList.get(i);
             int result = resultList.get(i);
-            if (checkLabel(label, result, sampleLabelList.get(i).getCandidatePoint(), results.getMmPtList().get(i).getCandidatePoint())) {
+            CandidatePoint labelCp = sampleLabelList.get(i).getCandidatePoint();
+            CandidatePoint resultCp = results.getMmPtList().get(i).getCandidatePoint();
 
-            } else if (i > 0 && result != 0 && label != 0 && ((isStartOrEnd(results.getMmPtList().get(i), result)) || isStartOrEnd(sampleLabelList.get(i), label))) {
-                int count = checkError2(label, result, sampleLabelList.get(i).getCandidatePoint(), results.getMmPtList().get(i).getCandidatePoint());
+            // 检查标签点和结果点是否匹配
+            if (checkLabel(label, result, labelCp, resultCp)) {
+                // 匹配正确，不计入错误点数
+            } else if (i > 0 && result != 0 && label != 0 &&
+                    (isStartOrEnd(results.getMmPtList().get(i), result) || isStartOrEnd(sampleLabelList.get(i), label))) {
+                // 处理特殊错误情况
+                int count = checkError2(label, result, labelCp, resultCp);
                 errorPointsCount += count;
                 if (count != 0) {
-                    System.out.println("index: " + i + " " + results.getMmPtList().get(i).getCandidatePoint() + " result: " + results.getMmPtList().get(i).getCandidatePoint().getCoordinate() + " label: " + sampleLabelList.get(i).getCandidatePoint().getCoordinate());
+                    // 可以启用调试输出
+                    // System.out.println("index: " + i + " " + resultCp + " result: " + resultCp.getCoordinate() + " label: " + labelCp.getCoordinate());
                 }
             } else {
-                System.out.println("index: " + i + " " + results.getMmPtList().get(i).getCandidatePoint() + " result: " + results.getMmPtList().get(i).getCandidatePoint().getCoordinate() + " label: " + sampleLabelList.get(i).getCandidatePoint().getCoordinate());
+                // 普通错误，增加错误点数
                 errorPointsCount++;
+                // 可以启用调试输出
+                // System.out.println("index: " + i + " " + resultCp + " result: " + resultCp.getCoordinate() + " label: " + labelCp.getCoordinate());
             }
         }
+
         System.out.println("wrong Points : " + errorPointsCount);
-        return 1 - errorPointsCount * 1.0 / minSize;
+
+        // 处理所有点都被跳过的情况，避免除以零
+        if (totalComparedPoints == 0) {
+            currAcc = 0.0;
+            return;
+        }
+
+        errorNum = errorPointsCount;
+        totalCorrectNum += totalComparedPoints - errorPointsCount;
+        totalNum += totalComparedPoints;
+        currAcc = 1 - (errorPointsCount * 1.0 / totalComparedPoints);
+        totalAcc = totalCorrectNum * 1.0 / totalNum;
     }
 
+    public static double getCurrAcc() {
+        return currAcc;
+    }
 
+    public static double getTotalAcc() {
+        return totalAcc;
+    }
+
+    public static int getErrorNum() {
+        return errorNum;
+    }
+
+    public static int getTotalCorrectNum() {
+        return totalCorrectNum;
+    }
+
+    public static int getTotalNum() {
+        return totalNum;
+    }
 }

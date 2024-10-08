@@ -50,6 +50,19 @@ public class CandidatePoint extends SpatialPoint {
      */
     private final double errorDistanceInMeter;
 
+    /**
+     * if skip map matching and ignore the result
+     */
+    private boolean skip = false;
+
+    public boolean isSkip() {
+        return skip;
+    }
+
+    public void setSkip(boolean skip) {
+        this.skip = skip;
+    }
+
     public int getRoadSegmentId() {
         return roadSegmentId;
     }
@@ -64,6 +77,14 @@ public class CandidatePoint extends SpatialPoint {
 
     public double getErrorDistanceInMeter() {
         return errorDistanceInMeter;
+    }
+
+    public CandidatePoint() {
+        super(0,0);
+        this.roadSegmentId = 0;
+        this.matchedIndex = 0;
+        this.errorDistanceInMeter = 0;
+        this.offsetInMeter = 0;
     }
 
     public CandidatePoint(

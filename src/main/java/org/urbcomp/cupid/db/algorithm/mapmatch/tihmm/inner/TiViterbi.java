@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright (C) 2022  ST-Lab
  *
  * This program is free software: you can redistribute it and/or modify
@@ -10,12 +10,13 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 package org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner;
 
+import org.urbcomp.cupid.db.algorithm.mapmatch.stream.DynamicWeightOptimizer;
 import org.urbcomp.cupid.db.model.point.CandidatePoint;
 import org.urbcomp.cupid.db.model.point.GPSPoint;
 import scala.Tuple2;
@@ -39,17 +40,23 @@ public class TiViterbi {
      */
     public Map<CandidatePoint, Double> message;
     /**
+     * 权重动态优化器
+     */
+    public DynamicWeightOptimizer weightOptimizer = new DynamicWeightOptimizer();
+    /**
      * 是否停止初始化状态概率函数
      */
     public Boolean isBroken = false;
 
-    public TiViterbi(Map<CandidatePoint, ExtendedState> lastExtendedStates, List<CandidatePoint> prevCandidates, Map<CandidatePoint, Double> message, Boolean isBroken){
+    public TiViterbi(Map<CandidatePoint, ExtendedState> lastExtendedStates, List<CandidatePoint> prevCandidates, Map<CandidatePoint, Double> message, Boolean isBroken) {
         this.lastExtendedStates = lastExtendedStates;
         this.prevCandidates = prevCandidates;
         this.message = message;
         this.isBroken = isBroken;
     }
-    public TiViterbi(){}
+
+    public TiViterbi() {
+    }
 
 
     /**
@@ -60,28 +67,30 @@ public class TiViterbi {
      * @param initialLogProbabilities 初始状态概率
      */
     private void initializeStateProbabilities(
-        GPSPoint observation,
-        List<CandidatePoint> candidates,
-        Map<CandidatePoint, Double> initialLogProbabilities
+            GPSPoint observation,
+            List<CandidatePoint> candidates,
+            Map<CandidatePoint, Double> initialLogProbabilities
     ) {
-        if (message != null) {
-            throw new IllegalArgumentException("Initial probabilities have already been set.");
-        }
+        if (message != null) throw new IllegalArgumentException("Initial probabilities have already been set.");
+
         Map<CandidatePoint, Double> initialMessage = new HashMap<>(initialLogProbabilities.size());
+
+        // 复制所有候选点的观测概率
         for (CandidatePoint candidate : candidates) {
-            if (!initialLogProbabilities.containsKey(candidate)) {
+            if (!initialLogProbabilities.containsKey(candidate))
                 throw new IllegalArgumentException("No initial probability for " + candidate);
-            }
             double logProbability = initialLogProbabilities.get(candidate);
             initialMessage.put(candidate, logProbability);
-        }//复制所有候选点的观测概率
-        isBroken = hmmBreak(initialMessage);
-        if (isBroken) {
-            return;
         }
-        message = initialMessage; //保存初始状态概率
+
+        isBroken = hmmBreak(initialMessage);
+//        System.out.println("initialize fail? " + isBroken);
+        if (isBroken) return;
+
+        message = initialMessage; // 保存初始状态概率
         lastExtendedStates = new HashMap<>(candidates.size());
         prevCandidates = new ArrayList<>(candidates.size());
+
         for (CandidatePoint candidate : candidates) {
             lastExtendedStates.put(candidate, new ExtendedState(candidate, null, observation));
             prevCandidates.add(candidate);
@@ -89,16 +98,13 @@ public class TiViterbi {
     }
 
     /**
-     * 如果初始化的概率有接近武无穷小的，停止初始化
+     * 如果初始化的概率有接近无穷小的，停止初始化
      *
      * @param message 状态概率
      */
-    private Boolean hmmBreak(Map<CandidatePoint, Double> message) {
-        for (Double logProbability : message.values()) {
-            if (!logProbability.equals(Double.NEGATIVE_INFINITY)) {
-                return false;
-            }
-        }
+    protected Boolean hmmBreak(Map<CandidatePoint, Double> message) {
+        for (Double logProbability : message.values())
+            if (!logProbability.equals(Double.NEGATIVE_INFINITY)) return false;
         return true;
     }
 
@@ -114,44 +120,67 @@ public class TiViterbi {
      * @return 向前extend后的结果
      */
     private ForwardStepResult forwardStep(
-        GPSPoint observation,
-        List<CandidatePoint> prevCandidates,
-        List<CandidatePoint> curCandidates,
-        Map<CandidatePoint, Double> message,
-        Map<CandidatePoint, Double> emissionLogProbabilities,
-        Map<Tuple2<CandidatePoint, CandidatePoint>, Double> transitionLogProbabilities
+            GPSPoint observation,
+            List<CandidatePoint> prevCandidates,
+            List<CandidatePoint> curCandidates,
+            Map<CandidatePoint, Double> message,
+            Map<CandidatePoint, Double> emissionLogProbabilities,
+            Map<Tuple2<CandidatePoint, CandidatePoint>, Double> transitionLogProbabilities
     ) {
         final ForwardStepResult result = new ForwardStepResult(curCandidates.size());
         assert !prevCandidates.isEmpty();
+
+        // 用于累积当前时间步的梯度
+        double accumulatedEmissionLogProb = 0.0;
+        double accumulatedTransitionLogProb = 0.0;
+
         for (CandidatePoint curState : curCandidates) {
-            double maxLogProbability = Double.NEGATIVE_INFINITY;
+            double maxTransitionLogProb = Double.NEGATIVE_INFINITY;
+            double maxLogProb = Double.NEGATIVE_INFINITY;
             CandidatePoint maxPreState = null;
             for (CandidatePoint preState : prevCandidates) {
-                final double logProbability = message.get(preState) + transitionLogProbability(
-                    preState,
-                    curState,
-                    transitionLogProbabilities
+                double transitionLogProb = transitionLogProbability(
+                        preState,
+                        curState,
+                        transitionLogProbabilities
                 );
-                if (logProbability > maxLogProbability) {
-                    maxLogProbability = logProbability;
+                final double logProb = message.get(preState) + weightOptimizer.getTransitionWeight() * transitionLogProb;
+                if (logProb > maxLogProb) {
+                    maxTransitionLogProb = transitionLogProb;
+                    maxLogProb = logProb;
                     maxPreState = preState;
                 }
             }
+            double emissionLogProb = emissionLogProbabilities.get(curState);
             result.getNewMessage()
-                .put(curState, (maxLogProbability + emissionLogProbabilities.get(curState)));
+                    .put(curState, (maxLogProb + weightOptimizer.getEmissionWeight() * emissionLogProb));
+            if (maxTransitionLogProb != Double.NEGATIVE_INFINITY && emissionLogProb != Double.NEGATIVE_INFINITY) {
+                accumulatedEmissionLogProb += emissionLogProb;
+                accumulatedTransitionLogProb += maxTransitionLogProb;
+            }
+
             // Note that max_prev_state == None if there is no transition with non-zero probability.
             // In this case cur_state has zero probability and will not be part of the most likely
             // sequence,
             // so we don't need an ExtendedState.
+
             if (maxPreState != null) {
                 final ExtendedState extendedState = new ExtendedState(
-                    curState,
-                    lastExtendedStates.get(maxPreState),
-                    observation
+                        curState,
+                        lastExtendedStates.get(maxPreState),
+                        observation
                 );
                 result.getNewExtendedStates().put(curState, extendedState);
             }
         }
+//        System.out.println("emission:" + accumulatedEmissionLogProb );
+//        System.out.println("transition:" + accumulatedTransitionLogProb);
+        // 在处理完所有 curStates 后更新权重
+        if (accumulatedTransitionLogProb != Double.NEGATIVE_INFINITY && accumulatedEmissionLogProb != Double.NEGATIVE_INFINITY) {
+            weightOptimizer.updateWeights(accumulatedEmissionLogProb, accumulatedTransitionLogProb);
+        }
+//        System.out.println("emission:" + weightOptimizer.getEmissionWeight());
+//        System.out.println("transition:" + weightOptimizer.getTransitionWeight());
         return result;
     }
 
@@ -163,10 +192,10 @@ public class TiViterbi {
      * @param transitionLogProbabilities 转移概率的map
      * @return 概率p
      */
-    private double transitionLogProbability(
-        CandidatePoint preState,
-        CandidatePoint curState,
-        Map<Tuple2<CandidatePoint, CandidatePoint>, Double> transitionLogProbabilities
+    protected double transitionLogProbability(
+            CandidatePoint preState,
+            CandidatePoint curState,
+            Map<Tuple2<CandidatePoint, CandidatePoint>, Double> transitionLogProbabilities
     ) {
         Tuple2<CandidatePoint, CandidatePoint> transition = new Tuple2<>(preState, curState);
         return transitionLogProbabilities.getOrDefault(transition, Double.NEGATIVE_INFINITY);
@@ -178,7 +207,7 @@ public class TiViterbi {
      * @return candidate point
      */
     private CandidatePoint mostLikelyState() {
-        assert message.size() != 0;
+        assert !message.isEmpty();
         CandidatePoint result = null;
         Double maxLogProbability = Double.NEGATIVE_INFINITY;
         for (Map.Entry<CandidatePoint, Double> entry : message.entrySet()) {
@@ -197,7 +226,7 @@ public class TiViterbi {
      * @return list，包含每一步转移对应的状态
      */
     private List<SequenceState> retrieveMostLikelySequence() {
-        assert message.size() != 0;
+        assert !message.isEmpty();
         CandidatePoint lastState = mostLikelyState();
         List<SequenceState> result = new ArrayList<>();
         ExtendedState es = lastExtendedStates.get(lastState);
@@ -218,9 +247,9 @@ public class TiViterbi {
      * @param emissionLogProbabilities 每一个candidate对应的 emission p
      */
     public void startWithInitialObservation(
-        GPSPoint observation,
-        List<CandidatePoint> candidates,
-        Map<CandidatePoint, Double> emissionLogProbabilities
+            GPSPoint observation,
+            List<CandidatePoint> candidates,
+            Map<CandidatePoint, Double> emissionLogProbabilities
     ) {
         initializeStateProbabilities(observation, candidates, emissionLogProbabilities);
     }
@@ -234,26 +263,26 @@ public class TiViterbi {
      * @param transitionLogProbabilities 每一个transition对应的 transition p
      */
     public void nextStep(
-        GPSPoint observation,
-        List<CandidatePoint> candidates,
-        Map<CandidatePoint, Double> emissionLogProbabilities,
-        Map<Tuple2<CandidatePoint, CandidatePoint>, Double> transitionLogProbabilities
+            GPSPoint observation,
+            List<CandidatePoint> candidates,
+            Map<CandidatePoint, Double> emissionLogProbabilities,
+            Map<Tuple2<CandidatePoint, CandidatePoint>, Double> transitionLogProbabilities
     ) {
         if (message == null) {
             throw new IllegalStateException(
-                "start with initial observation() must be called first."
+                    "start with initial observation() must be called first."
             );
         }
         if (isBroken) {
             throw new IllegalStateException("Method must not be called after an HMM break.");
         }
         ForwardStepResult forwardStepResult = forwardStep(
-            observation,
-            prevCandidates,
-            candidates,
-            message,
-            emissionLogProbabilities,
-            transitionLogProbabilities
+                observation,
+                prevCandidates,
+                candidates,
+                message,
+                emissionLogProbabilities,
+                transitionLogProbabilities
         );
         isBroken = hmmBreak(forwardStepResult.getNewMessage());
         if (isBroken) {
