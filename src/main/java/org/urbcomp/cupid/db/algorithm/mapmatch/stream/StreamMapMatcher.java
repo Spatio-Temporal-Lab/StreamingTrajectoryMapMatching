@@ -336,12 +336,12 @@ public class StreamMapMatcher {
                     // 之前算法没有发生过中断，第一次收敛的序列从[index==0]开始复制（初始化的元素需要添加）
                     // 之前算法如果发生过中断，第一次收敛的序列从[index==1]开始复制（初始化的元素不需要添加）
                     // 发生中断且非第一次收敛，从上一个时间的[preSeq.size()]开始复制，直到[currSeq.size()]
-                    int isBeforeBroken = viterbi.insertPosition == 0 ? 0 : 1;
-                    convergeStartIndex = convergeStartIndex == 0 ? isBeforeBroken : convergeStartIndex;
+                    int isBrokenBefore = viterbi.isBrokenBefore() ? 1 : 0;
+                    convergeStartIndex = viterbi.isConvergedBefore() ? convergeStartIndex : isBrokenBefore;
 
                     for (int i = convergeStartIndex; i < size; i++) {
                         // 算法中断前后的插入位置计算方式不同
-                        int insertPosition = viterbi.insertPosition == 0 ? i : i + viterbi.insertPosition - 1;
+                        int insertPosition = viterbi.isBrokenBefore() ? i + viterbi.insertPosition - 1 : i;
                         seq.set(insertPosition, sequenceStates.get(i));
                     }
 

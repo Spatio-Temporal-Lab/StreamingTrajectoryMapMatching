@@ -12,39 +12,66 @@ import java.util.*;
 
 import static org.urbcomp.cupid.db.algorithm.mapmatch.stream.StreamMapMatcher.findMaxValuePoint;
 
+/**
+ * Represents the Online Viterbi algorithm for processing
+ * sequences of GPS observations to infer the most likely
+ * states over time.
+ */
 public class OnlineViterbi extends TiViterbi {
-    // 维特比状态集合
+    // Collection of Viterbi states
     private final LinkedList<OnlineExtendedState> stateList;
-    // 局部解
+    // Local solutions for the current sequence
     private final List<SequenceState> sequenceStates;
-    // 是否收敛
+    // Convergence status
     public boolean isConverge;
-    public int deltaT;
-    // 收敛点
-    private OnlineExtendedState root;
-    // 上一个收敛点
-    private OnlineExtendedState prevRoot;
-    // 算法中断后，全局序列的起始插入位置
+    // Time diff between root and previous root
+    public int timeDelta;
+    // Current convergence point
+    private OnlineExtendedState currentRoot;
+    // Previous convergence point
+    private OnlineExtendedState previousRoot;
+    // Starting insert position for global sequence after algorithm interruption
     public int insertPosition;
 
+    /**
+     * Constructs an OnlineViterbi instance with an initial insert position of zero.
+     */
     public OnlineViterbi() {
         stateList = new LinkedList<>();
-        root = null;
-        prevRoot = null;
+        currentRoot = null;
+        previousRoot = null;
         sequenceStates = new ArrayList<>();
-        deltaT = 0;
+        timeDelta = 0;
         insertPosition = 0;
     }
 
+    /**
+     * Constructs an OnlineViterbi instance with a specified insert position.
+     * For recording insert position of global sequence when algorithm breaks.
+     *
+     * @param insertPosition The starting insert position for the global sequence.
+     */
     public OnlineViterbi(int insertPosition) {
         stateList = new LinkedList<>();
-        root = null;
-        prevRoot = null;
+        currentRoot = null;
+        previousRoot = null;
         sequenceStates = new ArrayList<>();
-        deltaT = 0;
+        timeDelta = 0;
         this.insertPosition = insertPosition;
     }
 
+    /**
+     * Processes the next step in the Viterbi algorithm using the given observation
+     * and candidate points, updating the internal state accordingly.
+     *
+     * @param observation                The current GPS observation.
+     * @param candidates                 List of candidate points for the current step.
+     * @param emissionLogProbabilities   Map of emission log probabilities for candidate points.
+     * @param transitionLogProbabilities  Map of transition log probabilities between candidate points.
+     * @param time                       The current time step.
+     * @throws IllegalStateException if the method is called without initializing
+     *                                with an observation or after an HMM break.
+     */
     public void nextStep(
             GPSPoint observation,
             List<CandidatePoint> candidates,
@@ -55,7 +82,7 @@ public class OnlineViterbi extends TiViterbi {
         if (message == null) throw new IllegalStateException("start with initial observation() must be called first.");
         if (isBroken) throw new IllegalStateException("Method must not be called after an HMM break.");
 
-        // 调用前向计算
+        // Call forward computation
         ForwardStepResult forwardStepResult = forwardStep(
                 observation,
                 prevCandidates,
@@ -72,22 +99,23 @@ public class OnlineViterbi extends TiViterbi {
             return;
         }
 
-        // 更新信息
+        // Update message
         message = forwardStepResult.getNewMessage();
         lastExtendedStates = forwardStepResult.getNewExtendedStates();
         prevCandidates = new ArrayList<>(candidates);
     }
 
     /**
-     * 开始viterbi计算，向前extend
+     * Starts Viterbi calculation and extends forward based on the given observation.
      *
-     * @param observation                原始轨迹点
-     * @param prevCandidates             之前的candidates
-     * @param curCandidates              当前的candidates
-     * @param message                    状态概率
-     * @param emissionLogProbabilities   emission p
-     * @param transitionLogProbabilities transition p
-     * @return 向前extend后的结果
+     * @param observation                The original trajectory point.
+     * @param prevCandidates             List of previous candidate points.
+     * @param curCandidates              List of current candidate points.
+     * @param message                    Map of state probabilities.
+     * @param emissionLogProbabilities   Map of emission probabilities for each candidate.
+     * @param transitionLogProbabilities  Map of transition probabilities between candidates.
+     * @param time                       The current time step.
+     * @return Results after forward extension, including updated state probabilities and states.
      */
     protected ForwardStepResult forwardStep(
             GPSPoint observation,
@@ -100,20 +128,19 @@ public class OnlineViterbi extends TiViterbi {
     ) {
         assert !prevCandidates.isEmpty();
 
-        // 当前时间下候选点个数
+        // Number of current candidates
         int currCandiSize = curCandidates.size();
-        // 前向计算的结果
+        // Result of forward computation
         final ForwardStepResult result = new ForwardStepResult(currCandiSize);
 
-        // 用于累积当前时间步的梯度
+        // Accumulators for current time step probabilities
         double accumulatedEmissionLogProb = 0.0;
         double accumulatedTransitionLogProb = 0.0;
 
-        // 当前时间有效的状态个数
+        // Valid state count at current time step
         int validStateCount = 0;
-        // 状态序列中的最后一个状态
+        // Last state in the sequence
         OnlineExtendedState lastState = null;
-        // 从当前最后一个状态往前迭代的迭代器
         ListIterator<OnlineExtendedState> iterator;
 
         if (!stateList.isEmpty()) lastState = stateList.getLast();
@@ -145,16 +172,14 @@ public class OnlineViterbi extends TiViterbi {
                 accumulatedTransitionLogProb += maxTransitionLogProb;
             }
 
-            // 如果上一个时间步的最大概率状态存在
+            // If there is a maximum probability state from the previous time step
             if (maxPreState != null) {
                 OnlineExtendedState onlineExtendedState = null;
 
-                /*
-                 * time = 0: 初始化
-                 * time = 1: 初始化后的第一个时间步
-                 * time > 1: 第二个及之后时间步
-                 * */
-
+                // Determine the state based on time
+                // =0: initialization
+                // =1: first time step after initialize
+                // >1: time steps after first step
                 if (time == 1)
                     onlineExtendedState = new OnlineExtendedState(
                             curState, lastExtendedStates.get(maxPreState), observation,
@@ -166,27 +191,27 @@ public class OnlineViterbi extends TiViterbi {
 
                     assert parentState != null;
 
-                    // 找到上一个时间步的父节点
+                    // Find the parent node from the previous time step
                     while (parentState.getTime() != time - 1 || parentState.getState() != maxPreState)
                         parentState = iterator.previous();
 
-                    // 子节点个数加1
+                    // Increment the child count
                     parentState.setNumOfChild(parentState.getNumOfChild() + 1);
                     onlineExtendedState = new OnlineExtendedState(
                             curState, lastExtendedStates.get(maxPreState), observation,
                             time, 0, currCandiSize, parentState);
                 }
 
-                // 添加 ExtendedState
+                // Add the extended state to the results
                 result.getNewExtendedStates().put(curState, onlineExtendedState);
-                // 添加节点
+                // Add the new state to the state list
                 stateList.add(onlineExtendedState);
-                // 记录有效节点个数
+                // Increment valid state count
                 validStateCount++;
             }
         }
 
-        // 处理完所有 curStates 后更新权重
+        // Update weights after processing all current states
         if (accumulatedTransitionLogProb != Double.NEGATIVE_INFINITY &&
                 accumulatedEmissionLogProb != Double.NEGATIVE_INFINITY) {
             weightOptimizer.updateWeights(accumulatedEmissionLogProb, accumulatedTransitionLogProb);
@@ -194,24 +219,24 @@ public class OnlineViterbi extends TiViterbi {
 //            System.out.println("emission:" + weightOptimizer.getEmissionWeight());
 //            System.out.println("transition:" + weightOptimizer.getTransitionWeight());
 
-        // 当存在节点并且当前时间步有效节点个数大于0时
+        // If there are valid states and the state list is not empty
         if (!stateList.isEmpty() && validStateCount > 0) {
             lastState = stateList.getLast();
             iterator = stateList.listIterator(stateList.indexOf(lastState) + 1);
 
-            // 更新[新添加节点]中记录的[当前时间步有效节点数信息]
+            // Update valid state count for the current time step
 //            System.out.println("valid count: " + validStateCount);
             for (int i = 0; i < validStateCount; i++) {
                 OnlineExtendedState current = iterator.previous();
                 current.setNumOfState(validStateCount);
             }
 
-            // 压缩无用节点
+            // Compress unnecessary states
             compress(time);
-            // 删除无用节点
+            // Free up dummy states
             freeDummyState(time);
-            // 寻找收敛点并记录局部解
-            if (findNewRoot()) {
+            // Check for convergence point and record local solutions
+            if (searchForNewRoot()) {
                 isConverge = true;
                 traceback();
             }
@@ -220,6 +245,13 @@ public class OnlineViterbi extends TiViterbi {
         return result;
     }
 
+    /**
+     * Compresses the state tree to remove unnecessary nodes
+     * that do not contribute to the current path, thereby
+     * optimizing the state representation.
+     *
+     * @param currTime The current time to consider for pruning.
+     */
     private void compress(int currTime) {
         OnlineExtendedState lastState = stateList.getLast();
         ListIterator<OnlineExtendedState> iterator = stateList.listIterator(stateList.indexOf(lastState) + 1);
@@ -231,10 +263,10 @@ public class OnlineViterbi extends TiViterbi {
             OnlineExtendedState parent = current.getParent();
 
             if (numOfChild == 0 && time != currTime) {
-                // 删除子节点
+                // Remove child nodes if there are no children and it's not the current time
                 if (parent != null) parent.setNumOfChild(parent.getNumOfChild() - 1);
             } else {
-                // 收缩父节点
+                // Shrink the parent node if it has only one child
                 while (parent != null && parent.getNumOfChild() == 1) {
                     current.setParent(current.getParent().getParent());
                     parent = current.getParent();
@@ -243,9 +275,15 @@ public class OnlineViterbi extends TiViterbi {
         }
     }
 
+    /**
+     * Frees up dummy states that are no longer needed in the
+     * state tree, specifically those that do not have any
+     * children and are not at the current time.
+     *
+     * @param currTime The current time to consider for removal.
+     */
     private void freeDummyState(int currTime) {
         OnlineExtendedState lastState = stateList.getLast();
-        // 便于删除，索引加一
         ListIterator<OnlineExtendedState> iterator = stateList.listIterator(stateList.indexOf(lastState) + 1);
         OnlineExtendedState current;
 
@@ -253,19 +291,26 @@ public class OnlineViterbi extends TiViterbi {
             current = iterator.previous();
             int time = current.getTime();
             int numOfChild = current.getNumOfChild();
+            // Remove states with no children and that are not at the current time
             if (numOfChild <= 0 && time != currTime) iterator.remove();
         }
     }
 
-    private boolean findNewRoot() {
-        // 寻找收敛点
-        if (root == null) {
+    /**
+     * Searches for a new root (convergence point) in the state tree.
+     * If a convergence point is found, it updates the current root.
+     *
+     * @return true if a new root was found, false otherwise.
+     */
+    private boolean searchForNewRoot() {
+        // Search for a convergence point
+        if (currentRoot == null) {
             OnlineExtendedState lastState = stateList.getLast();
             ListIterator<OnlineExtendedState> iterator = stateList.listIterator(stateList.indexOf(lastState) + 1);
             OnlineExtendedState ancestor = null;
             int currCandiSize = lastState.getNumOfState();
 
-            // 回溯到同一个祖先节点
+            // Backtrack to the same ancestor node
             for (int i = 0; i < currCandiSize; i++) {
                 OnlineExtendedState current = iterator.previous();
                 while (current != null) {
@@ -281,12 +326,12 @@ public class OnlineViterbi extends TiViterbi {
             }
         }
 
-        // 存在收敛点
+        // There is a convergence point
         OnlineExtendedState current = stateList.getLast();
         OnlineExtendedState ancestor = null;
 
-        // 当前收敛点和上一个收敛点的时间差
-        deltaT = current.getTime();
+        // Time difference between the current and previous convergence points
+        timeDelta = current.getTime();
 
         while (current != null) {
             if (current.getNumOfChild() >= 2) ancestor = current;
@@ -294,17 +339,17 @@ public class OnlineViterbi extends TiViterbi {
         }
 
         if (ancestor != null) {
-            if (root == null) {
-                root = ancestor;
-                deltaT = deltaT - ancestor.getTime();
-                return deltaT != 0;
+            if (currentRoot == null) {
+                currentRoot = ancestor;
+                timeDelta = timeDelta - ancestor.getTime();
+                return timeDelta != 0;
             } else {
-                if (ancestor != root) {
-                    deltaT = deltaT - ancestor.getTime();
-                    if (deltaT == 0) return false;
+                if (ancestor != currentRoot) {
+                    timeDelta = timeDelta - ancestor.getTime();
+                    if (timeDelta == 0) return false;
                     else {
-                        prevRoot = root;
-                        root = ancestor;
+                        previousRoot = currentRoot;
+                        currentRoot = ancestor;
                         return true;
                     }
                 }
@@ -314,25 +359,36 @@ public class OnlineViterbi extends TiViterbi {
         return false;
     }
 
+    /**
+     * Performs traceback to find the local path from the
+     * current root state to the previous root state.
+     */
     private void traceback() {
         System.out.println("Local path found!");
         List<SequenceState> interLocalPath = new ArrayList<>();
-        interLocalPath.add(new SequenceState(root.getState(), root.getObservation()));
+        interLocalPath.add(new SequenceState(currentRoot.getState(), currentRoot.getObservation()));
 
-        int depth = prevRoot == null ? root.getTime() : root.getTime() - prevRoot.getTime() - 1;
-        ExtendedState current = root.getBackPointer();
+        int depth = previousRoot == null ? currentRoot.getTime() : currentRoot.getTime() - previousRoot.getTime() - 1;
+        ExtendedState current = currentRoot.getBackPointer();
 
         for (int i = 0; i < depth; i++) {
             interLocalPath.add(new SequenceState(current.getState(), current.getObservation()));
             current = current.getBackPointer();
         }
 
-        assert current == null || current.getState() == prevRoot.getState();
+        assert current == null || current.getState() == previousRoot.getState();
 
         Collections.reverse(interLocalPath);
         sequenceStates.addAll(interLocalPath);
     }
 
+    /**
+     * Performs traceback for the last part of the path,
+     * finding the sequence states from the last extended state
+     * to the current root.
+     *
+     * @param observation The GPS point observation to include in the path.
+     */
     public void tracebackLastPart(GPSPoint observation) {
         System.out.println("traceback last part");
         List<SequenceState> interLocalPath = new ArrayList<>();
@@ -342,7 +398,7 @@ public class OnlineViterbi extends TiViterbi {
 
         ExtendedState current = lastExtendedStates.get(maxValuePoint);
 
-        while (current != root) {
+        while (current != currentRoot) {
             interLocalPath.add(new SequenceState(current.getState(), current.getObservation()));
             current = current.getBackPointer();
         }
@@ -352,15 +408,39 @@ public class OnlineViterbi extends TiViterbi {
 
     }
 
+    /**
+     * Returns the list of online extended states.
+     *
+     * @return A LinkedList of OnlineExtendedState objects.
+     */
     public LinkedList<OnlineExtendedState> getStateList() {
         return stateList;
     }
 
+    /**
+     * Returns the list of sequence states.
+     *
+     * @return A List of SequenceState objects.
+     */
     public List<SequenceState> getSequenceStates() {
         return sequenceStates;
     }
 
+    /**
+     * Checks if a convergence has occurred before.
+     *
+     * @return true if a previous root exists, false otherwise.
+     */
     public boolean isConvergedBefore() {
-        return prevRoot != null;
+        return !sequenceStates.isEmpty();
+    }
+
+    /**
+     * Checks if the algorithm has broken before.
+     *
+     * @return true if a previous root exists, false otherwise.
+     */
+    public boolean isBrokenBefore() {
+        return insertPosition != 0;
     }
 }

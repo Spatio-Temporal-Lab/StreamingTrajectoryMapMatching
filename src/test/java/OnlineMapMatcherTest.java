@@ -20,13 +20,22 @@ import java.util.List;
 
 import static org.junit.Assert.assertEquals;
 
+/**
+ * Test class for the OnlineMapMatcher functionality, including tests for
+ * trajectory matching, accuracy evaluation, and algorithm correctness.
+ */
 public class OnlineMapMatcherTest {
+
     private Trajectory trajectory;
     private StreamMapMatcher streamMapMatcher;
     private TiHmmMapMatcher baseMapMatcher;
     private ShortestPathPathRecover recover;
     private RoadNetwork roadNetwork;
 
+    /**
+     * Sets up the test environment by generating a sample trajectory and road network.
+     * Initializes the base and stream map matchers.
+     */
     @Before
     public void setUp() {
         trajectory = ModelGenerator.generateTrajectory();
@@ -37,24 +46,33 @@ public class OnlineMapMatcherTest {
     }
 
     /**
-     * 测试在线维特比算法能否正常运行
+     * Tests whether the online Viterbi algorithm can run successfully
+     * for a single trajectory.
+     *
+     * @throws AlgorithmExecuteException if the algorithm encounters an execution error
+     * @throws IOException if there are I/O issues during the test
      */
     @Test
     public void matchSingleTrajectory() throws AlgorithmExecuteException, IOException {
         trajectory = ModelGenerator.generateTrajectory(6);
         MapMatchedTrajectory mmTrajectory = streamMapMatcher.onlineStreamMapMatch(trajectory);
+
         System.out.println(trajectory.toGeoJSON());
         System.out.println(mmTrajectory.toGeoJSON());
+
         assertEquals(trajectory.getGPSPointList().size(), mmTrajectory.getMmPtList().size());
         List<PathOfTrajectory> pTrajectories = recover.recover(mmTrajectory);
+
         System.out.println(pTrajectories.get(0).toGeoJSON());
         assertEquals(1, pTrajectories.size());
     }
 
-
     /**
-     * Note: 测试该函数需要注释掉[computeViterbiSequence]中有关收敛状态的[else if]语句
-     * 测试在线维特比算法的正确性
+     * Tests the correctness of the online Viterbi algorithm for multiple trajectories.
+     * Note: This test requires that the related convergence status check in
+     * [computeViterbiSequence] be commented out.
+     *
+     * @throws AlgorithmExecuteException if the algorithm encounters an execution error
      */
     @Test
     public void matchMultiTrajectory() throws AlgorithmExecuteException {
@@ -75,7 +93,10 @@ public class OnlineMapMatcherTest {
     }
 
     /**
-     * 测试在线维特比算法能否提高准确率
+     * Tests whether the online Viterbi algorithm improves accuracy in
+     * trajectory matching.
+     *
+     * @throws AlgorithmExecuteException if the algorithm encounters an execution error
      */
     @Test
     public void onlineMatchAccuracy() throws AlgorithmExecuteException {
