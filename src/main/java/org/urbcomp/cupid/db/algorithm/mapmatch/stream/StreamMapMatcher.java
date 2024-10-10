@@ -139,7 +139,10 @@ public class StreamMapMatcher {
         for (GPSPoint gpsPoint : trajectory.getGPSPointList()) {
             Tuple3<List<SequenceState>, TimeStep, OnlineViterbi> result;
 
+            // if state list is empty
             if (viterbi.getStateList().isEmpty()) {
+                // currentTime = 0 indicates uninitialized
+                // currentTime = 1 indicates initialized
                 currentTime = (viterbi.message == null) ? 0 : 1;
             }
 
@@ -240,7 +243,6 @@ public class StreamMapMatcher {
      * @param viterbi     The Viterbi object used for calculations.
      * @param time        The current time index.
      * @return A tuple containing the updated sequence, previous time step, and Viterbi object.
-     * @throws AlgorithmExecuteException If an error occurs during algorithm execution.
      */
     private Tuple3<List<SequenceState>, TimeStep, OnlineViterbi> computeViterbiSequence(
             GPSPoint point,
@@ -248,8 +250,8 @@ public class StreamMapMatcher {
             TimeStep preTimeStep,
             OnlineViterbi viterbi,
             int time
-    ) throws AlgorithmExecuteException {
-
+    ) {
+        System.out.println("current time: " + time);
         windowBearing.addPoint(point);
         TimeStep currentTimeStep = this.createTimeStep(point); // Create time step with point and candidate set.
 
@@ -257,8 +259,18 @@ public class StreamMapMatcher {
 
         if (currentTimeStep == null) {
             System.out.println("curr time step is null!");
+
+            System.out.println("======================================================");
+            System.out.println("Sequence length before traceback last part: " + seq.size());
+            updateSequenceAfterTraceback(viterbi, point, seq);
+
+            // Add the last element from the local sequence.
             seq.add(new SequenceState(null, point));
-            viterbi = new OnlineViterbi();
+            System.out.println("Sequence length after traceback last part: " + seq.size());
+            System.out.println("======================================================");
+
+            // Record the start position for global sequence insertion.
+            viterbi = new OnlineViterbi(seq.size());
             preTimeStep = null;
         } else {
             if (preTimeStep != null) {
@@ -298,23 +310,19 @@ public class StreamMapMatcher {
                 System.out.println("Viterbi is broken.");
                 System.out.println("======================================================");
                 System.out.println("Sequence length before traceback last part: " + seq.size());
-                viterbi.tracebackLastPart(point);
+
+                updateSequenceAfterTraceback(viterbi, point, seq);
+
                 List<SequenceState> localSequenceStates = viterbi.getSequenceStates();
                 System.out.println("Local sequence length: " + localSequenceStates.size());
-                int startIndex = seq.size() - localSequenceStates.size() + 1;
 
-                // Update elements in the sequence.
-                for (int i = startIndex; i < seq.size(); i++) {
-                    seq.set(i, localSequenceStates.get(i - startIndex));
-                }
-
-                // Add the last element from the local sequence.
-                seq.add(localSequenceStates.get(seq.size() - startIndex - 1));
+                // Add the second last element from the local sequence.
+                seq.add(localSequenceStates.get(localSequenceStates.size() - 2));
                 System.out.println("Sequence length after traceback last part: " + seq.size());
                 System.out.println("======================================================");
 
                 // Record the start position for global sequence insertion.
-                viterbi = new OnlineViterbi(seq.size());
+                viterbi = new OnlineViterbi(seq.size(), true);
                 viterbi.startWithInitialObservation(
                         currentTimeStep.getObservation(),
                         currentTimeStep.getCandidates(),
@@ -335,13 +343,15 @@ public class StreamMapMatcher {
 
                     // 之前算法没有发生过中断，第一次收敛的序列从[index==0]开始复制（初始化的元素需要添加）
                     // 之前算法如果发生过中断，第一次收敛的序列从[index==1]开始复制（初始化的元素不需要添加）
-                    // 发生中断且非第一次收敛，从上一个时间的[preSeq.size()]开始复制，直到[currSeq.size()]
-                    int isBrokenBefore = viterbi.isBrokenBefore() ? 1 : 0;
+                    // 非第一次收敛，从上一个时间的[preSeq.size()]开始复制，直到[currSeq.size()]
+                    int isBrokenBefore = viterbi.isBrokenBefore ? 1 : 0;
                     convergeStartIndex = viterbi.isConvergedBefore() ? convergeStartIndex : isBrokenBefore;
 
                     for (int i = convergeStartIndex; i < size; i++) {
-                        // 算法中断前后的插入位置计算方式不同
-                        int insertPosition = viterbi.isBrokenBefore() ? i + viterbi.insertPosition - 1 : i;
+                        // 算法中断前，从索引0开始复制，无需减1
+                        // 算法中断后，从索引1开始复制，需要减1
+                        int insertPosition = viterbi.isBrokenBefore ? i + viterbi.insertPosition - 1 : i + viterbi.insertPosition;
+                        if (i == convergeStartIndex) System.out.println("insert position: " + insertPosition);
                         seq.set(insertPosition, sequenceStates.get(i));
                     }
 
@@ -533,5 +543,24 @@ public class StreamMapMatcher {
         }
 
         return timeStep;
+    }
+
+    /**
+     * Updates the given sequence with the local sequence states after performing a traceback.
+     *
+     * @param viterbi The Viterbi instance used for traceback.
+     * @param point   The point to be traced back.
+     * @param seq     The sequence to be updated.
+     */
+    private void updateSequenceAfterTraceback(OnlineViterbi viterbi, GPSPoint point, List<SequenceState> seq) {
+        viterbi.tracebackLastPart(point);
+        List<SequenceState> localSequenceStates = viterbi.getSequenceStates();
+        System.out.println("Local sequence length: " + localSequenceStates.size());
+        int startIndex = seq.size() - localSequenceStates.size() + 1;
+
+        // Update elements in the sequence.
+        for (int i = startIndex; i < seq.size(); i++) {
+            seq.set(i, localSequenceStates.get(i - startIndex));
+        }
     }
 }

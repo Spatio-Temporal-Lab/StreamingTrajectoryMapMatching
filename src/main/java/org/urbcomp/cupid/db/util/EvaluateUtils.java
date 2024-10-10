@@ -262,7 +262,6 @@ public class EvaluateUtils {
         int totalPoints = labels.getMmPtList().size();
         int resultPoints = results.getMmPtList().size();
 
-        // 确保 labels 和 results 的轨迹点数量一致
         if (totalPoints != resultPoints) {
             throw new IllegalArgumentException("Labels and results must have the same number of points.");
         }
@@ -326,6 +325,7 @@ public class EvaluateUtils {
         int minSize = Math.min(resultList.size(), labelList.size());
 
         for (int i = 0; i < minSize; i++) {
+//            System.out.println("i: " + i);
             int label = labelList.get(i);
             int result = resultList.get(i);
             CandidatePoint labelCp = sampleLabelList.get(i).getCandidatePoint();

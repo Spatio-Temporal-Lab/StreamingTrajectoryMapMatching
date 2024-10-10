@@ -22,14 +22,19 @@ public class OnlineViterbi extends TiViterbi {
     private final LinkedList<OnlineExtendedState> stateList;
     // Local solutions for the current sequence
     private final List<SequenceState> sequenceStates;
+
     // Convergence status
     public boolean isConverge;
-    // Time diff between root and previous root
-    public int timeDelta;
+    // Whether the algorithm was broken before
+    public boolean isBrokenBefore;
+
     // Current convergence point
     private OnlineExtendedState currentRoot;
     // Previous convergence point
     private OnlineExtendedState previousRoot;
+
+    // Time diff between root and previous root
+    public int timeDelta;
     // Starting insert position for global sequence after algorithm interruption
     public int insertPosition;
 
@@ -38,9 +43,11 @@ public class OnlineViterbi extends TiViterbi {
      */
     public OnlineViterbi() {
         stateList = new LinkedList<>();
+        sequenceStates = new ArrayList<>();
+        isConverge = false;
+        isBrokenBefore = false;
         currentRoot = null;
         previousRoot = null;
-        sequenceStates = new ArrayList<>();
         timeDelta = 0;
         insertPosition = 0;
     }
@@ -53,12 +60,33 @@ public class OnlineViterbi extends TiViterbi {
      */
     public OnlineViterbi(int insertPosition) {
         stateList = new LinkedList<>();
+        sequenceStates = new ArrayList<>();
+        isConverge = false;
+        isBrokenBefore = false;
         currentRoot = null;
         previousRoot = null;
-        sequenceStates = new ArrayList<>();
         timeDelta = 0;
         this.insertPosition = insertPosition;
     }
+
+    /**
+     * Constructs an OnlineViterbi instance with a specified insert position and broken state indicator.
+     * This constructor is used for recording the insert position of the global sequence when the algorithm breaks.
+     *
+     * @param insertPosition The starting insert position for the global sequence.
+     * @param isBrokenBefore A boolean indicating whether the algorithm was broken before this instance was created.
+     */
+    public OnlineViterbi(int insertPosition, boolean isBrokenBefore) {
+        stateList = new LinkedList<>();
+        sequenceStates = new ArrayList<>();
+        isConverge = false;
+        this.isBrokenBefore = isBrokenBefore;
+        currentRoot = null;
+        previousRoot = null;
+        timeDelta = 0;
+        this.insertPosition = insertPosition;
+    }
+
 
     /**
      * Processes the next step in the Viterbi algorithm using the given observation
@@ -394,9 +422,12 @@ public class OnlineViterbi extends TiViterbi {
         List<SequenceState> interLocalPath = new ArrayList<>();
 
         CandidatePoint maxValuePoint = findMaxValuePoint(message);
+
         interLocalPath.add(new SequenceState(maxValuePoint, observation));
 
+        if (lastExtendedStates == null) return;
         ExtendedState current = lastExtendedStates.get(maxValuePoint);
+
 
         while (current != currentRoot) {
             interLocalPath.add(new SequenceState(current.getState(), current.getObservation()));
@@ -405,7 +436,6 @@ public class OnlineViterbi extends TiViterbi {
 
         Collections.reverse(interLocalPath);
         sequenceStates.addAll(interLocalPath);
-
     }
 
     /**
@@ -432,15 +462,6 @@ public class OnlineViterbi extends TiViterbi {
      * @return true if a previous root exists, false otherwise.
      */
     public boolean isConvergedBefore() {
-        return !sequenceStates.isEmpty();
-    }
-
-    /**
-     * Checks if the algorithm has broken before.
-     *
-     * @return true if a previous root exists, false otherwise.
-     */
-    public boolean isBrokenBefore() {
-        return insertPosition != 0;
+        return previousRoot != null;
     }
 }

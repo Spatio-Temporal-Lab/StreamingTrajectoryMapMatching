@@ -15,7 +15,9 @@ import org.urbcomp.cupid.db.model.trajectory.PathOfTrajectory;
 import org.urbcomp.cupid.db.model.trajectory.Trajectory;
 import org.urbcomp.cupid.db.util.EvaluateUtils;
 
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
@@ -100,7 +102,7 @@ public class OnlineMapMatcherTest {
      */
     @Test
     public void onlineMatchAccuracy() throws AlgorithmExecuteException {
-        int testNum = 25;
+        int testNum = 100;
         int sampleRate = 0;
         for (int i = 1; i <= testNum; i++) {
             System.out.println("===========================");
@@ -126,6 +128,116 @@ public class OnlineMapMatcherTest {
             System.out.println("===========================");
 
             System.out.println();
+        }
+    }
+
+    /**
+     * Tests the accuracy of trajectory matching using non-online streamMatch.
+     * Records matching results for each trajectory and generates two CSV files.
+     */
+    @Test
+    public void testNoOnlineStreamMatch() throws AlgorithmExecuteException {
+        int testNum = 100;
+        int sampleRate = 0;
+
+        // Create CSV file for online results
+        try (PrintWriter streamWriter = new PrintWriter(new FileWriter("streamResult.csv"))) {
+
+            // Write headers for the CSV file
+            streamWriter.println("TrajectoryIndex,currPointNum,totalPointNum,currAcc,totalAcc");
+
+            for (int i = 1; i <= testNum; i++) {
+                System.out.println("===========================");
+                System.out.println("index: " + i);
+                System.out.println("===========================");
+
+                trajectory = ModelGenerator.generateTrajectory(i);
+                Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(i, sampleRate);
+
+                assert sampledTrajectory != null;
+
+                // Match using baseMatch
+                MapMatchedTrajectory baseMapMatchedTrajectory = baseMapMatcher.mapMatch(trajectory);
+                // Match using onlineStreamMatch
+                MapMatchedTrajectory streamMapMatchedTrajectory = streamMapMatcher.streamMapMatch(sampledTrajectory);
+
+                // Record number of matched points
+                int streamCurrPointNum = streamMapMatchedTrajectory.getMmPtList().size();
+                System.out.println("size: " + streamCurrPointNum);
+
+                // Evaluate accuracy for onlineStreamMatch
+                EvaluateUtils.getAccuracy(baseMapMatchedTrajectory, streamMapMatchedTrajectory, sampleRate);
+                double streamCurrAcc = EvaluateUtils.getCurrAcc();
+                double streamTotalAcc = EvaluateUtils.getTotalAcc();
+                int streamTotalPointNum = EvaluateUtils.getTotalNum();
+
+                // Write results to CSV
+                streamWriter.printf("%d,%d,%d,%.4f,%.4f%n", i, streamCurrPointNum, streamTotalPointNum, streamCurrAcc, streamTotalAcc);
+
+                System.out.println("===========================");
+                System.out.println("Stream results: ");
+                System.out.println("currAcc: " + streamCurrAcc);
+                System.out.println("totalAcc: " + streamTotalAcc);
+                System.out.println("pointNum: " + streamTotalPointNum);
+                System.out.println("===========================");
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Tests the accuracy of trajectory matching using onlineStreamMatch.
+     * Records matching results for each trajectory and generates a CSV file.
+     */
+    @Test
+    public void testOnlineStreamMatch() throws AlgorithmExecuteException {
+        int testNum = 100;
+        int sampleRate = 0;
+
+        // Create CSV file for online results
+        try (PrintWriter onlineWriter = new PrintWriter(new FileWriter("onlineStreamResult.csv"))) {
+
+            // Write headers for the CSV file
+            onlineWriter.println("TrajectoryIndex,currPointNum,totalPointNum,currAcc,totalAcc");
+
+            for (int i = 1; i <= testNum; i++) {
+                System.out.println("===========================");
+                System.out.println("index: " + i);
+                System.out.println("===========================");
+
+                trajectory = ModelGenerator.generateTrajectory(i);
+                Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(i, sampleRate);
+
+                assert sampledTrajectory != null;
+
+                // Match using baseMatch
+                MapMatchedTrajectory baseMapMatchedTrajectory = baseMapMatcher.mapMatch(trajectory);
+                // Match using onlineStreamMatch
+                MapMatchedTrajectory onlineMapMatchedTrajectory = streamMapMatcher.onlineStreamMapMatch(sampledTrajectory);
+
+                // Record number of matched points
+                int onlineCurrPointNum = onlineMapMatchedTrajectory.getMmPtList().size();
+                System.out.println("size: " + onlineCurrPointNum);
+
+                // Evaluate accuracy for onlineStreamMatch
+                EvaluateUtils.getAccuracy(baseMapMatchedTrajectory, onlineMapMatchedTrajectory, sampleRate);
+                double onlineCurrAcc = EvaluateUtils.getCurrAcc();
+                double onlineTotalAcc = EvaluateUtils.getTotalAcc();
+                int onlineTotalPointNum = EvaluateUtils.getTotalNum();
+
+                // Write results to CSV
+                onlineWriter.printf("%d,%d,%d,%.4f,%.4f%n", i, onlineCurrPointNum, onlineTotalPointNum, onlineCurrAcc, onlineTotalAcc);
+
+                System.out.println("===========================");
+                System.out.println("Online results: ");
+                System.out.println("currAcc: " + onlineCurrAcc);
+                System.out.println("totalAcc: " + onlineTotalAcc);
+                System.out.println("pointNum: " + onlineTotalPointNum);
+                System.out.println("===========================");
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 }
