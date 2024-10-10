@@ -118,8 +118,6 @@ public class OnlineViterbi extends TiViterbi {
 
         if (!stateList.isEmpty()) lastState = stateList.getLast();
 
-        System.out.println("time: " + time);
-
         for (CandidatePoint curState : curCandidates) {
             double maxTransitionLogProb = Double.NEGATIVE_INFINITY;
             double maxLogProb = Double.NEGATIVE_INFINITY;
@@ -267,6 +265,7 @@ public class OnlineViterbi extends TiViterbi {
             OnlineExtendedState ancestor = null;
             int currCandiSize = lastState.getNumOfState();
 
+            // 回溯到同一个祖先节点
             for (int i = 0; i < currCandiSize; i++) {
                 OnlineExtendedState current = iterator.previous();
                 while (current != null) {
