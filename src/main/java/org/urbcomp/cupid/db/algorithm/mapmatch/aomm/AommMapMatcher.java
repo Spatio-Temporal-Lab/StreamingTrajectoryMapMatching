@@ -1,6 +1,5 @@
 package org.urbcomp.cupid.db.algorithm.mapmatch.aomm;
 
-import org.urbcomp.cupid.db.algorithm.bearing.WindowBearing;
 import org.urbcomp.cupid.db.algorithm.mapmatch.stream.StreamMapMatcher;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.SequenceState;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.TiViterbi;
@@ -30,8 +29,6 @@ public class AommMapMatcher {
 
     protected final AStarShortestPath aStarShortestPath;
 
-    private final WindowBearing windowBearing = new WindowBearing();
-
     public AommMapMatcher(RoadNetwork roadNetwork) {
         this.roadNetwork = roadNetwork;
         this.aStarShortestPath = new AStarShortestPath(roadNetwork);
@@ -43,7 +40,7 @@ public class AommMapMatcher {
 
     private int recallNum;
 
-    public MapMatchedTrajectory AommMapMatch(Trajectory traj) throws AlgorithmExecuteException {
+    public MapMatchedTrajectory aommMapMatch(Trajectory traj) throws AlgorithmExecuteException {
 
         // 使用 LinkedList 来保存过去四个 TimeStep
         LinkedList<TimeStep> preTimeSteps = new LinkedList<>();
@@ -88,7 +85,6 @@ public class AommMapMatcher {
      */
     private Tuple3<List<SequenceState>, TimeStep, TiViterbi> computeViterbiSequence(GPSPoint point, List<SequenceState> seq, LinkedList<TimeStep> preTimeStepList, TiViterbi viterbi)
             throws AlgorithmExecuteException {
-        windowBearing.addPoint(point);
         TimeStep timeStep = this.createTimeStep(point);//轨迹点+候选点集
         TimeStep preTimeStep = null;
         if (!preTimeStepList.isEmpty()) {
