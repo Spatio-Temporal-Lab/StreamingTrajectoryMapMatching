@@ -165,6 +165,16 @@ public class GeoFunctions {
         return xy;
     }
 
+    public static double getBearingDifference(SpatialPoint point1, SpatialPoint point2, SpatialPoint point3, SpatialPoint point4) {
+        double bearing1 = getBearing(point1.getLng(), point1.getLat(), point2.getLng(), point2.getLat());
+        double bearing2 = getBearing(point3.getLng(), point3.getLat(), point4.getLng(), point4.getLat());
+        double difference = Math.abs(bearing1 - bearing2);
+        // 确保方位角差在 [0, 180] 度之间
+        if (difference > 180) {
+            difference = 360 - difference;
+        }
+        return difference;
+    }
 
     public static double toRad(double x, double y){
         double bearing = Math.atan2(y, x);
