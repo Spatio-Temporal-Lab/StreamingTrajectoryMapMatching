@@ -309,7 +309,7 @@ public class StreamMapMatcher {
 
             if (viterbi.isBroken) {
                 // Handle the case where the Viterbi algorithm encounters an issue.
-//                System.out.println("Viterbi is broken.");
+                System.out.println("Viterbi is broken.");
 //                System.out.println("======================================================");
 //                System.out.println("Sequence length before traceback last part: " + seq.size());
 //
@@ -365,7 +365,9 @@ public class StreamMapMatcher {
                     viterbi.isConverge = false;
                     System.out.println("Sequence length after merging converge part: " + seq.size());
                 }
-
+                if (seq.size() == 206) {
+                    System.out.println(206);
+                }
                 // Find the candidate point with the maximum probability and add to the sequence.
                 CandidatePoint maxPoint = StreamMapMatcher.findMaxValuePoint(viterbi.message);
                 seq.add(new SequenceState(maxPoint, point));
