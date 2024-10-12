@@ -19,6 +19,7 @@ package org.urbcomp.cupid.db.model.point;
 import com.github.davidmoten.rtree.Entry;
 import com.github.davidmoten.rtree.geometry.Geometries;
 import com.github.davidmoten.rtree.geometry.Rectangle;
+import org.geojson.Point;
 import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.geom.Geometry;
 import org.urbcomp.cupid.db.model.roadnetwork.RoadNetwork;
@@ -98,6 +99,14 @@ public class CandidatePoint extends SpatialPoint {
         this.matchedIndex = matchedIndex;
         this.errorDistanceInMeter = errorDistanceInMeter;
         this.offsetInMeter = calOffsetInMeter(roadSegment, matchedIndex);
+    }
+
+    public CandidatePoint(double lng, double lat, int roadSegmentId, int matchedIndex, double errorDistance, double offsetInMeter) {
+        super(lng, lat);
+        this.roadSegmentId = roadSegmentId;
+        this.matchedIndex = matchedIndex;
+        this.errorDistanceInMeter = errorDistance;
+        this.offsetInMeter = offsetInMeter;
     }
 
     private double calOffsetInMeter(RoadSegment roadSegment, int matchedIndex) {

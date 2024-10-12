@@ -1,6 +1,8 @@
 import org.junit.Test;
 import org.urbcomp.cupid.db.util.EvaluateUtils;
 
+import javax.swing.*;
+
 public class AccuracyTest {
     @Test
     public void testAccuracy() {

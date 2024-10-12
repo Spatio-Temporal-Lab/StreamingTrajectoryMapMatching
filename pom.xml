@@ -32,7 +32,6 @@
             <artifactId>gt-geojson</artifactId>
             <version>23.3</version>
         </dependency>
-        <!-- https://mvnrepository.com/artifact/org.jgrapht/jgrapht-core -->
         <dependency>
             <groupId>org.jgrapht</groupId>
             <artifactId>jgrapht-core</artifactId>
