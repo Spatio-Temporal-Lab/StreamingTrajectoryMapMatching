@@ -396,7 +396,8 @@ public class OnlineViterbi extends TiViterbi {
         List<SequenceState> interLocalPath = new ArrayList<>();
         interLocalPath.add(new SequenceState(currentRoot.getState(), currentRoot.getObservation()));
 
-        int depth = previousRoot == null ? currentRoot.getTime() : currentRoot.getTime() - previousRoot.getTime() - 1;
+        int depth = isConvergedBefore() ? currentRoot.getTime() - previousRoot.getTime() - 1 : currentRoot.getTime();
+        System.out.println("current root time: " + currentRoot.getTime());
         ExtendedState current = currentRoot.getBackPointer();
 
         for (int i = 0; i < depth; i++) {
@@ -405,7 +406,7 @@ public class OnlineViterbi extends TiViterbi {
         }
 
         assert current == null || current.getState() == previousRoot.getState();
-
+        System.out.println("local added sequence length: " + interLocalPath.size());
         Collections.reverse(interLocalPath);
         sequenceStates.addAll(interLocalPath);
     }

@@ -47,6 +47,8 @@ public class StreamMapMatcher {
     private final WindowBearing windowBearing = new WindowBearing();
     protected BidirectionalManyToManyShortestPath bidirectionalPathAlgorithm;
 
+    public List<SequenceState> convergedSequence = new ArrayList<>();
+
     public StreamMapMatcher(RoadNetwork roadNetwork, AbstractManyToManyShortestPath pathAlgorithm) {
         this.roadNetwork = roadNetwork;
         this.pathAlgorithm = pathAlgorithm;
@@ -260,14 +262,14 @@ public class StreamMapMatcher {
         if (currentTimeStep == null) {
             System.out.println("curr time step is null!");
 
-            System.out.println("======================================================");
-            System.out.println("Sequence length before traceback last part: " + seq.size());
-            updateSequenceAfterTraceback(viterbi, point, seq);
-
-            // Add the last element from the local sequence.
+//            System.out.println("======================================================");
+//            System.out.println("Sequence length before traceback last part: " + seq.size());
+//            updateSequenceAfterTraceback(viterbi, point, seq);
+//
+//            // Add the last element from the local sequence.
             seq.add(new SequenceState(null, point));
-            System.out.println("Sequence length after traceback last part: " + seq.size());
-            System.out.println("======================================================");
+//            System.out.println("Sequence length after traceback last part: " + seq.size());
+//            System.out.println("======================================================");
 
             // Record the start position for global sequence insertion.
             viterbi = new OnlineViterbi(seq.size());
@@ -307,20 +309,21 @@ public class StreamMapMatcher {
 
             if (viterbi.isBroken) {
                 // Handle the case where the Viterbi algorithm encounters an issue.
-                System.out.println("Viterbi is broken.");
-                System.out.println("======================================================");
-                System.out.println("Sequence length before traceback last part: " + seq.size());
+//                System.out.println("Viterbi is broken.");
+//                System.out.println("======================================================");
+//                System.out.println("Sequence length before traceback last part: " + seq.size());
+//
+//                updateSequenceAfterTraceback(viterbi, point, seq);
+//
+//                List<SequenceState> localSequenceStates = viterbi.getSequenceStates();
+//                System.out.println("Local sequence length: " + localSequenceStates.size());
+//
+//                // Add the second last element from the local sequence.
+//                seq.add(localSequenceStates.get(localSequenceStates.size() - 2));
+//                System.out.println("Sequence length after traceback last part: " + seq.size());
+//                System.out.println("======================================================");
 
-                updateSequenceAfterTraceback(viterbi, point, seq);
-
-                List<SequenceState> localSequenceStates = viterbi.getSequenceStates();
-                System.out.println("Local sequence length: " + localSequenceStates.size());
-
-                // Add the second last element from the local sequence.
-                seq.add(localSequenceStates.get(localSequenceStates.size() - 2));
-                System.out.println("Sequence length after traceback last part: " + seq.size());
-                System.out.println("======================================================");
-
+                seq.add(viterbi.computeMostLikelySequence().get(viterbi.computeMostLikelySequence().size() - 1));
                 // Record the start position for global sequence insertion.
                 viterbi = new OnlineViterbi(seq.size(), true);
                 viterbi.startWithInitialObservation(
@@ -336,6 +339,9 @@ public class StreamMapMatcher {
                     System.out.println("Sequence length before merging converge part: " + seq.size());
 
                     List<SequenceState> sequenceStates = viterbi.getSequenceStates();
+                    // Record converged sequence.
+                    convergedSequence.addAll(sequenceStates.subList(convergeStartIndex, sequenceStates.size()));
+
                     int size = sequenceStates.size();
                     System.out.println("Local sequence length: " + size);
                     System.out.println("Insert position: " + viterbi.insertPosition);
@@ -357,9 +363,7 @@ public class StreamMapMatcher {
 
                     // Reset convergence state until the next convergence occurs.
                     viterbi.isConverge = false;
-
                     System.out.println("Sequence length after merging converge part: " + seq.size());
-                    System.out.println("################################");
                 }
 
                 // Find the candidate point with the maximum probability and add to the sequence.
@@ -367,7 +371,9 @@ public class StreamMapMatcher {
                 seq.add(new SequenceState(maxPoint, point));
             }
 
-            System.out.println("Sequence length: " + seq.size());
+            System.out.println("After add current time point, sequence length: " + seq.size());
+            System.out.println("################################");
+
             preTimeStep = currentTimeStep;
         }
         return Tuple3.apply(seq, preTimeStep, viterbi);

@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright (C) 2022  ST-Lab
  *
  * This program is free software: you can redistribute it and/or modify
@@ -10,7 +10,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
@@ -39,7 +39,7 @@ public class MapMatchedTrajectory implements Serializable {
     /**
      * 构造函数
      *
-     * @param oid 对象id
+     * @param oid      对象id
      * @param mmPtList 匹配点list
      */
     public MapMatchedTrajectory(String tid, String oid, List<MapMatchedPoint> mmPtList) {
@@ -66,24 +66,55 @@ public class MapMatchedTrajectory implements Serializable {
         fcp.setProperty("tid", tid);
         for (MapMatchedPoint p : mmPtList) {
             if (p.getCandidatePoint() != null) {
-                Feature f = new Feature();
-                f.setGeometry(
-                    new org.geojson.Point(
-                        p.getCandidatePoint().getX(),
-                        p.getCandidatePoint().getY()
-                    )
-                );
-                f.setProperty("time", p.getRawPoint().getTime().toString());
-                f.setProperty("roadSegmentId", p.getCandidatePoint().getRoadSegmentId());
-                f.setProperty(
-                    "errorDistanceInMeter",
-                    p.getCandidatePoint().getErrorDistanceInMeter()
-                );
-                f.setProperty("matchedIndex", p.getCandidatePoint().getMatchedIndex());
-                f.setProperty("offsetInMeter", p.getCandidatePoint().getOffsetInMeter());
+                fcp.add(extractFeatureFromMatchedPoint(p));
+            }
+        }
+        return new ObjectMapper().writeValueAsString(fcp);
+    }
+
+    /**
+     * Converts the map-matched points to a GeoJSON format.
+     * Optionally includes the raw point's latitude and longitude.
+     *
+     * @param includeRawCoords Boolean value to decide whether to include rawPoint's latitude and longitude.
+     * @return A GeoJSON string representing the map-matched points.
+     * @throws JsonProcessingException In case of JSON processing errors.
+     */
+    public String toGeoJSON(boolean includeRawCoords) throws JsonProcessingException {
+        FeatureCollectionWithProperties fcp = new FeatureCollectionWithProperties();
+        fcp.setProperty("oid", oid);
+        fcp.setProperty("tid", tid);
+        for (MapMatchedPoint p : mmPtList) {
+            if (p.getCandidatePoint() != null) {
+                Feature f = extractFeatureFromMatchedPoint(p);
+                // If includeRawCoords is true, add rawPoint's latitude and longitude to properties.
+                if (includeRawCoords) {
+                    f.setProperty("rawLat", p.getRawPoint().getLat());
+                    f.setProperty("rawLon", p.getRawPoint().getLng());
+                }
+
                 fcp.add(f);
             }
         }
         return new ObjectMapper().writeValueAsString(fcp);
+    }
+
+    private Feature extractFeatureFromMatchedPoint(MapMatchedPoint p) {
+        Feature f = new Feature();
+        f.setGeometry(
+                new org.geojson.Point(
+                        p.getCandidatePoint().getX(),
+                        p.getCandidatePoint().getY()
+                )
+        );
+        f.setProperty("time", p.getRawPoint().getTime().toString());
+        f.setProperty("roadSegmentId", p.getCandidatePoint().getRoadSegmentId());
+        f.setProperty(
+                "errorDistanceInMeter",
+                p.getCandidatePoint().getErrorDistanceInMeter()
+        );
+        f.setProperty("matchedIndex", p.getCandidatePoint().getMatchedIndex());
+        f.setProperty("offsetInMeter", p.getCandidatePoint().getOffsetInMeter());
+        return f;
     }
 }
