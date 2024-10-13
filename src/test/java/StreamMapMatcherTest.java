@@ -17,7 +17,6 @@
 
 import org.junit.Before;
 import org.junit.Test;
-import org.urbcomp.cupid.db.algorithm.history.generateHistoryProb;
 import org.urbcomp.cupid.db.algorithm.mapmatch.aomm.AommMapMatcher;
 import org.urbcomp.cupid.db.algorithm.mapmatch.routerecover.ShortestPathPathRecover;
 import org.urbcomp.cupid.db.algorithm.mapmatch.stream.StreamMapMatcher;
