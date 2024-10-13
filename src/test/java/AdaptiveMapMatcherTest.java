@@ -1,7 +1,7 @@
 import com.fasterxml.jackson.core.JsonProcessingException;
 import org.junit.Before;
 import org.junit.Test;
-import org.urbcomp.cupid.db.algorithm.mapmatch.amm.AMM;
+import org.urbcomp.cupid.db.algorithm.mapmatch.amm.AmmMapMatcher;
 import org.urbcomp.cupid.db.algorithm.mapmatch.amm.inner.Candidate;
 import org.urbcomp.cupid.db.algorithm.mapmatch.routerecover.ShortestPathPathRecover;
 import org.urbcomp.cupid.db.algorithm.shortestpath.BiDijkstraShortestPath;
@@ -19,13 +19,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class AdaptiveMapMatcherTest {
-    private AMM mapMatcher;
+    private AmmMapMatcher mapMatcher;
     private ShortestPathPathRecover recover;
 
     @Before
     public void setUp() {
         RoadNetwork roadNetwork = ModelGenerator.generateRoadNetwork();
-        mapMatcher = new AMM(roadNetwork);
+        mapMatcher = new AmmMapMatcher(roadNetwork);
         recover = new ShortestPathPathRecover(roadNetwork, new BiDijkstraShortestPath(roadNetwork));
     }
 

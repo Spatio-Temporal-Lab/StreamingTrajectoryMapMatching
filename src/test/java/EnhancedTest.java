@@ -1,6 +1,5 @@
 import org.junit.Before;
 import org.junit.Test;
-import org.urbcomp.cupid.db.algorithm.history.generateHistoryProb;
 import org.urbcomp.cupid.db.algorithm.mapmatch.stream.StreamMapMatcher;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.TiHmmMapMatcher;
 import org.urbcomp.cupid.db.algorithm.shortestpath.BidirectionalManyToManyShortestPath;

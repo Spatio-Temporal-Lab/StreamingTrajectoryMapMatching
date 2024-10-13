@@ -14,7 +14,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public class AMM {
+public class AmmMapMatcher {
 
     private List<Candidate> matched_list;
     /**
@@ -50,11 +50,11 @@ public class AMM {
      */
     private static double deltaV;
 
-    public AMM(RoadNetwork roadNetwork) {
-        AMM.roadNetwork = roadNetwork;
+    public AmmMapMatcher(RoadNetwork roadNetwork) {
+        AmmMapMatcher.roadNetwork = roadNetwork;
         radius = 50.0;
-        positionSigma = 20.0;
-        scoreThreshold = 0.1;
+        positionSigma = 10;
+        scoreThreshold = 0.6;
         punishFactor1 = 1.0;
         punishFactor2 = 2.0;
         deltaV = 5.0;
@@ -74,20 +74,26 @@ public class AMM {
         PointsSet previous = null;
         int consecutiveDeletions = 0;
 
-        System.out.println("calculate score");
         for (PointsSet current : trackList) {
             current.v0 = calculateMinimumVelocity(velocity, previous, current);
             if (current.setScore(previous)) {
                 current.score = SolverUtils.maximizeScore(current.getCandidates(), punishFactor1, punishFactor2);
+//                System.out.println("score: " + current.score);
                 if (current.score > scoreThreshold) {
                     previous = current;
-                    if (consecutiveDeletions > 2) current.backward();
+                    if (consecutiveDeletions > 2) {
+                        current.backward();
+                    }
                     consecutiveDeletions = 0;
-                } else consecutiveDeletions++;
-            } else consecutiveDeletions++;
+                } else {
+                    consecutiveDeletions++;
+                }
+            } else {
+                consecutiveDeletions++;
+            }
         }
 
-        System.out.println("generate path");
+//        System.out.println("generate path");
         int location = trackList.size() - 1;
         List<Path> matchedPath = null;
         while (location > 0 && matchedPath == null) {
@@ -130,7 +136,7 @@ public class AMM {
     }
 
     private void updateParams(int id) {
-        System.out.println("update params");
+//        System.out.println("update params");
         double newPosSigma = 0;
         for (Candidate candidate : matched_list) {
             newPosSigma += Math.pow(MapUtil.calculateDistance(candidate.candidate, candidate.parent.getObservation()), 2.0);
@@ -140,7 +146,7 @@ public class AMM {
     }
 
     public double calculateMinimumVelocity(List<Double> velocity, PointsSet prev, PointsSet curr) {
-        if (velocity.stream().allMatch(element -> element == 5)) return 5.0;
+        if (prev == null) return 5.0;
         velocity.remove(0);
         double currVelocity = MapUtil.calculateGPSPointVelocity(prev.getObservation(), curr.getObservation());
         velocity.add(currVelocity);

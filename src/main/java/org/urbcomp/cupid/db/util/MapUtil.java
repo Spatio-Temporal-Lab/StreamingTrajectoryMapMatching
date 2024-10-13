@@ -24,7 +24,7 @@ import java.util.Map;
 
 public class MapUtil {
 
-    static final int R = 6371;
+    static final double R = 6371000.0;
     public static boolean additionalAttributesEquals(
         Map<String, Attribute> attributeMap1,
         Map<String, Attribute> attributeMap2

@@ -88,12 +88,13 @@ public class TiHmmMapMatcher {
      * @param pt 原始轨迹点
      * @return timestep
      */
-    private TimeStep createTimeStep(GPSPoint pt) {
+    private TimeStep createTimeStep(GPSPoint pt, int index) {
         TimeStep timeStep = null;
         List<CandidatePoint> candidates = CandidatePoint.getCandidatePoint(
                 pt,
                 roadNetwork,
-                measurementErrorSigma
+                measurementErrorSigma,
+                index
         );
         if (!candidates.isEmpty()) {
             timeStep = new TimeStep(pt, candidates);
@@ -120,7 +121,7 @@ public class TiHmmMapMatcher {
         int nbPoints = ptList.size();// 点的数量
         while (idx < nbPoints) {
             windowBearing.addPoint(ptList.get(idx));
-            TimeStep timeStep = this.createTimeStep(ptList.get(idx));//轨迹点+候选点集
+            TimeStep timeStep = this.createTimeStep(ptList.get(idx), idx);//轨迹点+候选点集
             if (timeStep == null) {//没有候选点
                 seq.addAll(viterbi.computeMostLikelySequence()); //计算之前最有可能的序列
                 seq.add(new SequenceState(null, ptList.get(idx))); //添加新状态

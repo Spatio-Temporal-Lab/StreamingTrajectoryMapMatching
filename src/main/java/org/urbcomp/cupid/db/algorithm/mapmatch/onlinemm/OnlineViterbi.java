@@ -123,7 +123,7 @@ public class OnlineViterbi extends TiViterbi {
 
         isBroken = hmmBreak(forwardStepResult.getNewMessage());
         if (isBroken) {
-            System.out.println("viterbi stops when executing [FORWARD STEP]");
+//            System.out.println("viterbi stops when executing [FORWARD STEP]");
             return;
         }
 
@@ -392,12 +392,12 @@ public class OnlineViterbi extends TiViterbi {
      * current root state to the previous root state.
      */
     private void traceback() {
-        System.out.println("Local path found!");
+//        System.out.println("Local path found!");
         List<SequenceState> interLocalPath = new ArrayList<>();
         interLocalPath.add(new SequenceState(currentRoot.getState(), currentRoot.getObservation()));
 
         int depth = isConvergedBefore() ? currentRoot.getTime() - previousRoot.getTime() - 1 : currentRoot.getTime();
-        System.out.println("current root time: " + currentRoot.getTime());
+//        System.out.println("current root time: " + currentRoot.getTime());
         ExtendedState current = currentRoot.getBackPointer();
 
         for (int i = 0; i < depth; i++) {
@@ -406,7 +406,7 @@ public class OnlineViterbi extends TiViterbi {
         }
 
         assert current == null || current.getState() == previousRoot.getState();
-        System.out.println("local added sequence length: " + interLocalPath.size());
+//        System.out.println("local added sequence length: " + interLocalPath.size());
         Collections.reverse(interLocalPath);
         sequenceStates.addAll(interLocalPath);
     }
@@ -419,7 +419,7 @@ public class OnlineViterbi extends TiViterbi {
      * @param observation The GPS point observation to include in the path.
      */
     public void tracebackLastPart(GPSPoint observation) {
-        System.out.println("traceback last part");
+//        System.out.println("traceback last part");
         List<SequenceState> interLocalPath = new ArrayList<>();
 
         CandidatePoint maxValuePoint = findMaxValuePoint(message);

@@ -1,6 +1,6 @@
 package org.urbcomp.cupid.db.algorithm.mapmatch.amm.inner;
 
-import org.urbcomp.cupid.db.algorithm.mapmatch.amm.AMM;
+import org.urbcomp.cupid.db.algorithm.mapmatch.amm.AmmMapMatcher;
 import org.urbcomp.cupid.db.algorithm.shortestpath.SimpleManyToManyShortestPath;
 import org.urbcomp.cupid.db.model.point.CandidatePoint;
 import org.urbcomp.cupid.db.model.roadnetwork.Path;
@@ -18,6 +18,7 @@ public class Candidate {
     public Path best_path = null;
     public double velocity_score;
     public double position_score;
+    public int index;
 
     public Candidate(CandidatePoint point) {
         candidate = point;
@@ -36,7 +37,7 @@ public class Candidate {
         } else {
             // 获取前一个GPS点的候选点集合
             List<Candidate> previous_list = parent.con_previous.getCandidates();
-            SimpleManyToManyShortestPath algo = new SimpleManyToManyShortestPath(AMM.getRoadNetwork());
+            SimpleManyToManyShortestPath algo = new SimpleManyToManyShortestPath(AmmMapMatcher.getRoadNetwork());
             velocity_score = 0;
             for (Candidate start : previous_list) {
                 // 寻找前一个候选点到当前候选点沿路网的最短路径

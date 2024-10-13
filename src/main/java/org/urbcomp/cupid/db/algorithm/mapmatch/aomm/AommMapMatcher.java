@@ -51,7 +51,7 @@ public class AommMapMatcher {
             GPSPoint p = traj.getGPSPointList().get(i);
             Tuple3<List<SequenceState>, TimeStep, TiViterbi> tuple2;
             recallNum = 0;
-            tuple2 = this.computeViterbiSequence(p, seq, preTimeSteps, viterbi);
+            tuple2 = this.computeViterbiSequence(p, seq, preTimeSteps, viterbi, i);
             seq = tuple2._1();
             TimeStep currentTimeStep = tuple2._2();
             viterbi = tuple2._3();
@@ -83,9 +83,9 @@ public class AommMapMatcher {
      * @param point 原始轨迹ptList
      * @return 保存了每一步step的所有状态
      */
-    private Tuple3<List<SequenceState>, TimeStep, TiViterbi> computeViterbiSequence(GPSPoint point, List<SequenceState> seq, LinkedList<TimeStep> preTimeStepList, TiViterbi viterbi)
+    private Tuple3<List<SequenceState>, TimeStep, TiViterbi> computeViterbiSequence(GPSPoint point, List<SequenceState> seq, LinkedList<TimeStep> preTimeStepList, TiViterbi viterbi, int index)
             throws AlgorithmExecuteException {
-        TimeStep timeStep = this.createTimeStep(point);//轨迹点+候选点集
+        TimeStep timeStep = this.createTimeStep(point, index);//轨迹点+候选点集
         TimeStep preTimeStep = null;
         if (!preTimeStepList.isEmpty()) {
             preTimeStep = preTimeStepList.getLast();
@@ -94,7 +94,6 @@ public class AommMapMatcher {
         // strategy 1
         if (timeStep == null) {
             CandidatePoint skipPoint = new CandidatePoint();
-            skipPoint.setSkip(true);
             seq.add(new SequenceState(skipPoint, point)); //添加新状态
         }
         // strategy 1
@@ -109,7 +108,6 @@ public class AommMapMatcher {
                 // strategy 2
                 if (linearDist < 3 && recallNum == 0) {
                     CandidatePoint skipPoint = new CandidatePoint();
-                    skipPoint.setSkip(true);
                     seq.add(new SequenceState(skipPoint, point)); //添加新状态
                     return Tuple3.apply(seq, preTimeStep, viterbi);
                 }
@@ -144,7 +142,7 @@ public class AommMapMatcher {
                             preTimeStepList.removeLast();
                             if (!preTimeStepList.isEmpty() && !viterbi.isBroken) {
                                 recallNum++;
-                                return computeViterbiSequence(point, seq, preTimeStepList, viterbi);
+                                return computeViterbiSequence(point, seq, preTimeStepList, viterbi, index);
                             }
                             else if (!originViterbi.isBroken){
                                 seq.add(originState);
@@ -193,7 +191,6 @@ public class AommMapMatcher {
         }
         for (int i = 0; i < recallNum; i++) {
             CandidatePoint skipPoint = new CandidatePoint();
-            skipPoint.setSkip(true);
             seq.add(seq.size() - j, new SequenceState(skipPoint, point)); //添加新状态
         }
         // strategy 3
@@ -221,12 +218,13 @@ public class AommMapMatcher {
     }
 
     // 创建时间步，初始化候选点
-    private TimeStep createTimeStep(GPSPoint pt) {
+    private TimeStep createTimeStep(GPSPoint pt, int index) {
         TimeStep timeStep = null;
         List<CandidatePoint> candidates = CandidatePoint.getCandidatePoint(
                 pt,
                 roadNetwork,
-                50.0
+                50.0,
+                index
         );
         if (!candidates.isEmpty()) {
             timeStep = new TimeStep(pt, candidates);
