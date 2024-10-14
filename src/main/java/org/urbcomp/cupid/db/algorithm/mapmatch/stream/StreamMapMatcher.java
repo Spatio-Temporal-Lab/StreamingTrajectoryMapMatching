@@ -102,7 +102,7 @@ public class StreamMapMatcher {
 
         for (GPSPoint gpsPoint : trajectory.getGPSPointList()) {
             Tuple3<List<SequenceState>, TimeStep, TiViterbi> result =
-                    this.computeViterbiSequence(gpsPoint, sequence, previousTimeStep, viterbi);
+                    this.computeOnlineViterbiSequence(gpsPoint, sequence, previousTimeStep, viterbi);
 
             sequence = result._1();
             previousTimeStep = result._2();
@@ -136,6 +136,7 @@ public class StreamMapMatcher {
         OnlineViterbi viterbi = new OnlineViterbi();
 
         int currentTime = 0;
+        int limit = 10;
         int trajectorySize = trajectory.getGPSPointList().size();
 
         for (GPSPoint gpsPoint : trajectory.getGPSPointList()) {
@@ -148,7 +149,7 @@ public class StreamMapMatcher {
                 currentTime = (viterbi.message == null) ? 0 : 1;
             }
 
-            result = this.computeViterbiSequence(gpsPoint, sequence, previousTimeStep, viterbi, currentTime);
+            result = this.computeOnlineViterbiSequence(gpsPoint, sequence, previousTimeStep, viterbi, currentTime, limit);
 
             sequence = result._1();
             previousTimeStep = result._2();
@@ -246,12 +247,13 @@ public class StreamMapMatcher {
      * @param time        The current time index.
      * @return A tuple containing the updated sequence, previous time step, and Viterbi object.
      */
-    private Tuple3<List<SequenceState>, TimeStep, OnlineViterbi> computeViterbiSequence(
+    private Tuple3<List<SequenceState>, TimeStep, OnlineViterbi> computeOnlineViterbiSequence(
             GPSPoint point,
             List<SequenceState> seq,
             TimeStep preTimeStep,
             OnlineViterbi viterbi,
-            int time
+            int time,
+            int limit
     ) {
         System.out.println("current time: " + time);
         windowBearing.addPoint(point);
@@ -294,7 +296,8 @@ public class StreamMapMatcher {
                         currentTimeStep.getCandidates(),
                         currentTimeStep.getEmissionLogProbabilities(),
                         currentTimeStep.getTransitionLogProbabilities(),
-                        time
+                        time,
+                        limit
                 );
 
             } else {
@@ -309,7 +312,7 @@ public class StreamMapMatcher {
 
             if (viterbi.isBroken) {
                 // Handle the case where the Viterbi algorithm encounters an issue.
-//                System.out.println("Viterbi is broken.");
+                System.out.println("Viterbi is broken.");
 //                System.out.println("======================================================");
 //                System.out.println("Sequence length before traceback last part: " + seq.size());
 //
@@ -365,7 +368,9 @@ public class StreamMapMatcher {
                     viterbi.isConverge = false;
                     System.out.println("Sequence length after merging converge part: " + seq.size());
                 }
-
+                if (seq.size() == 206) {
+                    System.out.println(206);
+                }
                 // Find the candidate point with the maximum probability and add to the sequence.
                 CandidatePoint maxPoint = StreamMapMatcher.findMaxValuePoint(viterbi.message);
                 seq.add(new SequenceState(maxPoint, point));

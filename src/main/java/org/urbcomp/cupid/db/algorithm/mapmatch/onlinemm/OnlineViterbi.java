@@ -105,7 +105,8 @@ public class OnlineViterbi extends TiViterbi {
             List<CandidatePoint> candidates,
             Map<CandidatePoint, Double> emissionLogProbabilities,
             Map<Tuple2<CandidatePoint, CandidatePoint>, Double> transitionLogProbabilities,
-            int time
+            int time,
+            int limit
     ) {
         if (message == null) throw new IllegalStateException("start with initial observation() must be called first.");
         if (isBroken) throw new IllegalStateException("Method must not be called after an HMM break.");
@@ -118,7 +119,8 @@ public class OnlineViterbi extends TiViterbi {
                 message,
                 emissionLogProbabilities,
                 transitionLogProbabilities,
-                time
+                time,
+                limit
         );
 
         isBroken = hmmBreak(forwardStepResult.getNewMessage());
@@ -152,7 +154,8 @@ public class OnlineViterbi extends TiViterbi {
             Map<CandidatePoint, Double> message,
             Map<CandidatePoint, Double> emissionLogProbabilities,
             Map<Tuple2<CandidatePoint, CandidatePoint>, Double> transitionLogProbabilities,
-            int time
+            int time,
+            int limit
     ) {
         assert !prevCandidates.isEmpty();
 
@@ -266,7 +269,7 @@ public class OnlineViterbi extends TiViterbi {
             // Check for convergence point and record local solutions
             if (searchForNewRoot()) {
                 isConverge = true;
-                traceback();
+                traceback(limit);
             }
         }
 
@@ -391,12 +394,14 @@ public class OnlineViterbi extends TiViterbi {
      * Performs traceback to find the local path from the
      * current root state to the previous root state.
      */
-    private void traceback() {
+    private void traceback(int limit) {
         System.out.println("Local path found!");
         List<SequenceState> interLocalPath = new ArrayList<>();
         interLocalPath.add(new SequenceState(currentRoot.getState(), currentRoot.getObservation()));
 
         int depth = isConvergedBefore() ? currentRoot.getTime() - previousRoot.getTime() - 1 : currentRoot.getTime();
+        depth = Math.min(depth, limit);
+
         System.out.println("current root time: " + currentRoot.getTime());
         ExtendedState current = currentRoot.getBackPointer();
 
