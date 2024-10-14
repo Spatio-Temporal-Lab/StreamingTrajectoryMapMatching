@@ -152,10 +152,10 @@ public class experiment {
                 totalDelay += delay;
                 EvaluateUtils.getAccuracy(labelResult, result);
 
-                System.out.println("Index: " + index);
-                System.out.println("currAcc: " + EvaluateUtils.getCurrAcc());
-                System.out.println("totalAcc: " + EvaluateUtils.getTotalAcc());
-                System.out.println();
+//                System.out.println("Index: " + index);
+//                System.out.println("currAcc: " + EvaluateUtils.getCurrAcc());
+//                System.out.println("totalAcc: " + EvaluateUtils.getTotalAcc());
+//                System.out.println();
             }
             // 准确率
             System.out.println("Accuracy: "+ EvaluateUtils.getTotalAcc());
