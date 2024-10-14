@@ -41,7 +41,7 @@ public class experiment {
         roadNetwork = ModelGenerator.generateRoadNetwork();
         labelMapMatcher = new TiHmmMapMatcher(roadNetwork, new SimpleManyToManyShortestPath(roadNetwork));
         ourMapMatcher = new StreamMapMatcher(roadNetwork, new SimpleManyToManyShortestPath(roadNetwork), new BidirectionalManyToManyShortestPath(roadNetwork));
-        baseMapMatcher = new StreamMapMatcher(roadNetwork, new SimpleManyToManyShortestPath(roadNetwork), new BidirectionalManyToManyShortestPath(roadNetwork));
+        baseMapMatcher = new StreamMapMatcher(roadNetwork, new SimpleManyToManyShortestPath(roadNetwork));
         ammMapMatcher = new AmmMapMatcher(roadNetwork);
         aommMapMatcher = new AommMapMatcher(roadNetwork);
         dwrmmMapMatcher = new DwrmmMapMatcher(roadNetwork);
@@ -53,9 +53,9 @@ public class experiment {
         long totalDelay = 0; // 总延迟，单位为纳秒
         double averageDelay;
         int startIndex = 1;
-        int testNum = 100;
-        boolean OURS = false;
-        boolean BASE = false;
+        int testNum = 2000;
+        boolean OURS = true;
+        boolean BASE = true;
         boolean AMM = true;
         boolean AOMM = true;
         boolean DWRMM = true;
