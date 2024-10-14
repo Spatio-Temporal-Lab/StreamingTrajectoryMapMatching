@@ -23,6 +23,8 @@ import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.SequenceState;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.TiViterbi;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.TimeStep;
 import org.urbcomp.cupid.db.algorithm.shortestpath.AbstractManyToManyShortestPath;
+import org.urbcomp.cupid.db.algorithm.weightAdjuster.DynamicWeightAdjuster;
+import org.urbcomp.cupid.db.algorithm.weightAdjuster.FixedWeightAdjuster;
 import org.urbcomp.cupid.db.exception.AlgorithmExecuteException;
 import org.urbcomp.cupid.db.model.point.CandidatePoint;
 import org.urbcomp.cupid.db.model.point.GPSPoint;
@@ -116,6 +118,7 @@ public class TiHmmMapMatcher {
                 transitionProbabilityBeta
         );
         TiViterbi viterbi = new TiViterbi();
+        DynamicWeightAdjuster dynamicWeightAdjuster = new DynamicWeightAdjuster();
         TimeStep preTimeStep = null;
         int idx = 0;
         int nbPoints = ptList.size();// 点的数量
@@ -154,7 +157,8 @@ public class TiHmmMapMatcher {
                             timeStep.getObservation(),
                             timeStep.getCandidates(),
                             timeStep.getEmissionLogProbabilities(),
-                            timeStep.getTransitionLogProbabilities()
+                            timeStep.getTransitionLogProbabilities(),
+                            dynamicWeightAdjuster
                     );
                 } else {
                     //第一个点初始化概率

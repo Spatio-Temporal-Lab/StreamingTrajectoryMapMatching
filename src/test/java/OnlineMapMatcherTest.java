@@ -7,6 +7,7 @@ import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.SequenceState;
 import org.urbcomp.cupid.db.algorithm.shortestpath.BiDijkstraShortestPath;
 import org.urbcomp.cupid.db.algorithm.shortestpath.BidirectionalManyToManyShortestPath;
 import org.urbcomp.cupid.db.algorithm.shortestpath.SimpleManyToManyShortestPath;
+import org.urbcomp.cupid.db.algorithm.weightAdjuster.DynamicWeightAdjuster;
 import org.urbcomp.cupid.db.exception.AlgorithmExecuteException;
 import org.urbcomp.cupid.db.model.point.CandidatePoint;
 import org.urbcomp.cupid.db.model.point.GPSPoint;
@@ -59,7 +60,7 @@ public class OnlineMapMatcherTest {
     @Test
     public void matchSingleTrajectory() throws AlgorithmExecuteException, IOException {
         trajectory = ModelGenerator.generateTrajectory(6);
-        MapMatchedTrajectory mmTrajectory = streamMapMatcher.onlineStreamMapMatch(trajectory);
+        MapMatchedTrajectory mmTrajectory = streamMapMatcher.onlineStreamMapMatch(trajectory, new DynamicWeightAdjuster());
 
         System.out.println(trajectory.toGeoJSON());
         System.out.println(mmTrajectory.toGeoJSON());
@@ -86,8 +87,8 @@ public class OnlineMapMatcherTest {
             System.out.println("------------------------------");
             trajectory = ModelGenerator.generateTrajectory(i);
 
-            MapMatchedTrajectory mmTrajectory = streamMapMatcher.streamMapMatch(trajectory);
-            MapMatchedTrajectory onlineMMTrajectory = streamMapMatcher.onlineStreamMapMatch(trajectory);
+            MapMatchedTrajectory mmTrajectory = streamMapMatcher.streamMapMatch(trajectory, new DynamicWeightAdjuster());
+            MapMatchedTrajectory onlineMMTrajectory = streamMapMatcher.onlineStreamMapMatch(trajectory, new DynamicWeightAdjuster());
 
             List<MapMatchedPoint> mmPtList = mmTrajectory.getMmPtList();
             List<MapMatchedPoint> onlineMMPtList = onlineMMTrajectory.getMmPtList();
@@ -105,22 +106,21 @@ public class OnlineMapMatcherTest {
     @Test
     public void onlineMatchAccuracy() throws AlgorithmExecuteException, IOException {
         int testNum = 100;
-        int sampleRate = 0;
         for (int i = 1; i <= testNum; i++) {
             System.out.println("===========================");
             System.out.println("index: " + i);
             System.out.println("===========================");
             trajectory = ModelGenerator.generateTrajectory(i);
-            Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(i, sampleRate);
+            Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(i);
 
             assert sampledTrajectory != null;
 
             MapMatchedTrajectory baseMapMatchedTrajectory = baseMapMatcher.mapMatch(trajectory);
-            MapMatchedTrajectory streamOnlineMapMatchedTrajectory = streamMapMatcher.onlineStreamMapMatch(sampledTrajectory);
+            MapMatchedTrajectory streamOnlineMapMatchedTrajectory = streamMapMatcher.onlineStreamMapMatch(sampledTrajectory, new DynamicWeightAdjuster());
 
             assert baseMapMatchedTrajectory.getMmPtList().size() == streamOnlineMapMatchedTrajectory.getMmPtList().size();
 
-            EvaluateUtils.getAccuracy(baseMapMatchedTrajectory, streamOnlineMapMatchedTrajectory, sampleRate);
+            EvaluateUtils.getAccuracy(baseMapMatchedTrajectory, streamOnlineMapMatchedTrajectory);
 
             System.out.println("===========================");
             System.out.println("results: ");
@@ -146,7 +146,6 @@ public class OnlineMapMatcherTest {
     @Test
     public void testNoOnlineStreamMatch() throws AlgorithmExecuteException {
         int testNum = 100;
-        int sampleRate = 0;
 
         // Create CSV file for online results
         try (PrintWriter streamWriter = new PrintWriter(new FileWriter("streamResult.csv"))) {
@@ -160,21 +159,21 @@ public class OnlineMapMatcherTest {
                 System.out.println("===========================");
 
                 trajectory = ModelGenerator.generateTrajectory(i);
-                Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(i, sampleRate);
+                Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(i);
 
                 assert sampledTrajectory != null;
 
                 // Match using baseMatch
                 MapMatchedTrajectory baseMapMatchedTrajectory = baseMapMatcher.mapMatch(trajectory);
                 // Match using onlineStreamMatch
-                MapMatchedTrajectory streamMapMatchedTrajectory = streamMapMatcher.streamMapMatch(sampledTrajectory);
+                MapMatchedTrajectory streamMapMatchedTrajectory = streamMapMatcher.streamMapMatch(sampledTrajectory, new DynamicWeightAdjuster());
 
                 // Record number of matched points
                 int streamCurrPointNum = streamMapMatchedTrajectory.getMmPtList().size();
                 System.out.println("size: " + streamCurrPointNum);
 
                 // Evaluate accuracy for onlineStreamMatch
-                EvaluateUtils.getAccuracy(baseMapMatchedTrajectory, streamMapMatchedTrajectory, sampleRate);
+                EvaluateUtils.getAccuracy(baseMapMatchedTrajectory, streamMapMatchedTrajectory);
                 double streamCurrAcc = EvaluateUtils.getCurrAcc();
                 double streamTotalAcc = EvaluateUtils.getTotalAcc();
                 int streamTotalPointNum = EvaluateUtils.getTotalNum();
@@ -201,7 +200,6 @@ public class OnlineMapMatcherTest {
     @Test
     public void testOnlineStreamMatch() throws AlgorithmExecuteException {
         int testNum = 100;
-        int sampleRate = 0;
 
         // Create CSV file for online results
         try (PrintWriter onlineWriter = new PrintWriter(new FileWriter("onlineStreamResult.csv"))) {
@@ -215,21 +213,21 @@ public class OnlineMapMatcherTest {
                 System.out.println("===========================");
 
                 trajectory = ModelGenerator.generateTrajectory(i);
-                Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(i, sampleRate);
+                Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(i);
 
                 assert sampledTrajectory != null;
 
                 // Match using baseMatch
                 MapMatchedTrajectory baseMapMatchedTrajectory = baseMapMatcher.mapMatch(trajectory);
                 // Match using onlineStreamMatch
-                MapMatchedTrajectory onlineMapMatchedTrajectory = streamMapMatcher.onlineStreamMapMatch(sampledTrajectory);
+                MapMatchedTrajectory onlineMapMatchedTrajectory = streamMapMatcher.onlineStreamMapMatch(sampledTrajectory, new DynamicWeightAdjuster());
 
                 // Record number of matched points
                 int onlineCurrPointNum = onlineMapMatchedTrajectory.getMmPtList().size();
                 System.out.println("size: " + onlineCurrPointNum);
 
                 // Evaluate accuracy for onlineStreamMatch
-                EvaluateUtils.getAccuracy(baseMapMatchedTrajectory, onlineMapMatchedTrajectory, sampleRate);
+                EvaluateUtils.getAccuracy(baseMapMatchedTrajectory, onlineMapMatchedTrajectory);
                 double onlineCurrAcc = EvaluateUtils.getCurrAcc();
                 double onlineTotalAcc = EvaluateUtils.getTotalAcc();
                 int onlineTotalPointNum = EvaluateUtils.getTotalNum();
@@ -252,7 +250,6 @@ public class OnlineMapMatcherTest {
     @Test
     public void testConvergedSequenceAccuracy() throws Exception {
         int testNum = 1; // Number of trajectories to test
-        int sampleRate = 0; // Sample rate for trajectory generation
         double epsilon = 1e-6; // Allowable error for latitude/longitude comparison
 
         for (int i = 1; i <= testNum; i++) {
@@ -262,12 +259,12 @@ public class OnlineMapMatcherTest {
 
             // Generate the trajectory and perform online map matching
             trajectory = ModelGenerator.generateTrajectory(i);
-            Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(i, sampleRate);
+            Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(i);
 
             assert sampledTrajectory != null;
 
             // Perform online map matching
-            streamMapMatcher.onlineStreamMapMatch(sampledTrajectory);
+            streamMapMatcher.onlineStreamMapMatch(sampledTrajectory, new DynamicWeightAdjuster());
 
             // Get converged sequence from the streamMapMatcher
             List<SequenceState> convergedSequence = streamMapMatcher.convergedSequence;

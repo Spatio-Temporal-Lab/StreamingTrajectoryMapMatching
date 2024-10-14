@@ -84,7 +84,7 @@ public class ModelGenerator {
         }
     }
 
-    public static Trajectory generateTrajectory(int index, int sampleRate) {
+    public static Trajectory generateTrajectory(int index, int originalSampleRate, int resultSameplRate) {
         try (
                 InputStream in = ModelGenerator.class.getClassLoader().getResourceAsStream(TRAJECTORY_PATH);
                 BufferedReader br = new BufferedReader(
@@ -96,7 +96,7 @@ public class ModelGenerator {
                 trajStr = br.readLine();
             }
             if (trajStr != null) {
-                return generateTrajectoryByStr(trajStr, sampleRate);
+                return generateTrajectoryByStr(trajStr, (resultSameplRate / originalSampleRate) - 1);
             } else return null;
         } catch (IOException e) {
             throw new RuntimeException("Generate trajectory error: " + e.getMessage());
@@ -140,7 +140,7 @@ public class ModelGenerator {
         }
     }
 
-    public static Trajectory generateTrajectoryByStr(String trajStr, int sampleRate) {
+    public static Trajectory generateTrajectoryByStr(String trajStr, int skipNum) {
         String correctStr = trajStr.replaceFirst("\\[", "[\"").replaceFirst(",", "\",");
         // 解析 JSON 字符串
         JSONArray jsonArray = JSON.parseArray(correctStr);
@@ -149,7 +149,7 @@ public class ModelGenerator {
 
         // 创建 GPSPoint 对象列表
         List<GPSPoint> pointsList = new ArrayList<>();
-        int skipNum = 0;
+        int skip = 0;
         boolean flag = true;
         for (Object obj : pointsArray) {
             if (flag) {
@@ -160,13 +160,13 @@ public class ModelGenerator {
                 double[] convertedCoords = COORDINATE_SYSTEM_WGS84 ? new double[]{lng, lat} : CoordTransformUtils.gcj02Towgs84(lng, lat);
                 pointsList.add(new GPSPoint(timestamp, convertedCoords[0], convertedCoords[1]));
                 flag = false;
-                if (skipNum == sampleRate) {
+                if (skip == skipNum) {
                     flag = true;
                 }
             } else {
-                skipNum++;
-                if (skipNum == sampleRate) {
-                    skipNum = 0;
+                skip++;
+                if (skip == skipNum) {
+                    skip = 0;
                     flag = true;
                 }
             }
@@ -226,10 +226,10 @@ public class ModelGenerator {
         return new RoadNetwork(generateRoadSegments());
     }
 
-    public static List<Trajectory> generateMultiTrajectory(int numOfTrajs, int sampleRate) {
+    public static List<Trajectory> generateMultiTrajectory(int numOfTrajs) {
         List<Trajectory> trajectories = new ArrayList<>();
         for (int i = 0; i < numOfTrajs; i++) {
-            trajectories.add(generateTrajectory(i, sampleRate));
+            trajectories.add(generateTrajectory(i));
         }
         return trajectories;
     }

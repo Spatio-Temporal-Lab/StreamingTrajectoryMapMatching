@@ -5,6 +5,8 @@ import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.SequenceState;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.TiViterbi;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.TimeStep;
 import org.urbcomp.cupid.db.algorithm.shortestpath.AStarShortestPath;
+import org.urbcomp.cupid.db.algorithm.weightAdjuster.FixedWeightAdjuster;
+import org.urbcomp.cupid.db.algorithm.weightAdjuster.WeightAdjuster;
 import org.urbcomp.cupid.db.exception.AlgorithmExecuteException;
 import org.urbcomp.cupid.db.model.point.CandidatePoint;
 import org.urbcomp.cupid.db.model.point.GPSPoint;
@@ -46,12 +48,13 @@ public class AommMapMatcher {
         LinkedList<TimeStep> preTimeSteps = new LinkedList<>();
         List<SequenceState> seq = new ArrayList<>();
         TiViterbi viterbi = new TiViterbi();
+        FixedWeightAdjuster fixedWeightAdjuster = new FixedWeightAdjuster();
         for (int i = 0; i < traj.getGPSPointList().size(); i++) {
 
             GPSPoint p = traj.getGPSPointList().get(i);
             Tuple3<List<SequenceState>, TimeStep, TiViterbi> tuple2;
             recallNum = 0;
-            tuple2 = this.computeViterbiSequence(p, seq, preTimeSteps, viterbi, i);
+            tuple2 = this.computeViterbiSequence(p, seq, preTimeSteps, viterbi, i, fixedWeightAdjuster);
             seq = tuple2._1();
             TimeStep currentTimeStep = tuple2._2();
             viterbi = tuple2._3();
@@ -83,7 +86,7 @@ public class AommMapMatcher {
      * @param point 原始轨迹ptList
      * @return 保存了每一步step的所有状态
      */
-    private Tuple3<List<SequenceState>, TimeStep, TiViterbi> computeViterbiSequence(GPSPoint point, List<SequenceState> seq, LinkedList<TimeStep> preTimeStepList, TiViterbi viterbi, int index)
+    private Tuple3<List<SequenceState>, TimeStep, TiViterbi> computeViterbiSequence(GPSPoint point, List<SequenceState> seq, LinkedList<TimeStep> preTimeStepList, TiViterbi viterbi, int index, WeightAdjuster weightAdjuster)
             throws AlgorithmExecuteException {
         TimeStep timeStep = this.createTimeStep(point, index);//轨迹点+候选点集
         TimeStep preTimeStep = null;
@@ -125,7 +128,8 @@ public class AommMapMatcher {
                             timeStep.getObservation(),
                             timeStep.getCandidates(),
                             timeStep.getEmissionLogProbabilities(),
-                            timeStep.getTransitionLogProbabilities()
+                            timeStep.getTransitionLogProbabilities(),
+                            weightAdjuster
                     );
 
                     // strategy 3
@@ -142,7 +146,7 @@ public class AommMapMatcher {
                             preTimeStepList.removeLast();
                             if (!preTimeStepList.isEmpty() && !viterbi.isBroken) {
                                 recallNum++;
-                                return computeViterbiSequence(point, seq, preTimeStepList, viterbi, index);
+                                return computeViterbiSequence(point, seq, preTimeStepList, viterbi, index, weightAdjuster);
                             }
                             else if (!originViterbi.isBroken){
                                 seq.add(originState);

@@ -10,6 +10,8 @@ import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.TiHmmMapMatcher;
 import org.urbcomp.cupid.db.algorithm.shortestpath.BiDijkstraShortestPath;
 import org.urbcomp.cupid.db.algorithm.shortestpath.BidirectionalManyToManyShortestPath;
 import org.urbcomp.cupid.db.algorithm.shortestpath.SimpleManyToManyShortestPath;
+import org.urbcomp.cupid.db.algorithm.weightAdjuster.DynamicWeightAdjuster;
+import org.urbcomp.cupid.db.algorithm.weightAdjuster.FixedWeightAdjuster;
 import org.urbcomp.cupid.db.exception.AlgorithmExecuteException;
 import org.urbcomp.cupid.db.model.point.MapMatchedPoint;
 import org.urbcomp.cupid.db.model.roadnetwork.RoadNetwork;
@@ -26,6 +28,7 @@ public class experiment {
     private Trajectory trajectory;
     private TiHmmMapMatcher labelMapMatcher;
     private StreamMapMatcher ourMapMatcher;
+    private StreamMapMatcher baseMapMatcher;
     private AmmMapMatcher ammMapMatcher;
     private AommMapMatcher aommMapMatcher;
     private DwrmmMapMatcher dwrmmMapMatcher;
@@ -38,6 +41,7 @@ public class experiment {
         roadNetwork = ModelGenerator.generateRoadNetwork();
         labelMapMatcher = new TiHmmMapMatcher(roadNetwork, new SimpleManyToManyShortestPath(roadNetwork));
         ourMapMatcher = new StreamMapMatcher(roadNetwork, new SimpleManyToManyShortestPath(roadNetwork), new BidirectionalManyToManyShortestPath(roadNetwork));
+        baseMapMatcher = new StreamMapMatcher(roadNetwork, new SimpleManyToManyShortestPath(roadNetwork), new BidirectionalManyToManyShortestPath(roadNetwork));
         ammMapMatcher = new AmmMapMatcher(roadNetwork);
         aommMapMatcher = new AommMapMatcher(roadNetwork);
         dwrmmMapMatcher = new DwrmmMapMatcher(roadNetwork);
@@ -47,11 +51,11 @@ public class experiment {
     @Test
     public void accuracyAndEfficiencyTest() throws AlgorithmExecuteException {
         long totalDelay = 0; // 总延迟，单位为纳秒
-        long totalPoints = 0; // 总点数
         double averageDelay;
         int startIndex = 1;
-        int testNum = 2000;
-        boolean OURS = true;
+        int testNum = 100;
+        boolean OURS = false;
+        boolean BASE = false;
         boolean AMM = true;
         boolean AOMM = true;
         boolean DWRMM = true;
@@ -61,22 +65,20 @@ public class experiment {
             System.out.println("---- OURS ----");
             for (int index = startIndex; index <= testNum; index++) {
                 trajectory = ModelGenerator.generateTrajectory(index);
-                Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(index, 0);
+                Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(index, 3, 3);
+                DynamicWeightAdjuster dynamicWeightAdjuster = new DynamicWeightAdjuster();
+                FixedWeightAdjuster fixedWeightAdjuster = new FixedWeightAdjuster();
 
                 // offline hmm(label)
                 MapMatchedTrajectory labelResult = labelMapMatcher.mapMatch(trajectory);
 
                 // 计算准确率和延迟
                 long startTime = System.nanoTime();
-                MapMatchedTrajectory result = ourMapMatcher.onlineStreamMapMatch(sampledTrajectory);
+                MapMatchedTrajectory result = ourMapMatcher.onlineStreamMapMatch(sampledTrajectory, dynamicWeightAdjuster);
                 long endTime = System.nanoTime();
                 long delay = endTime - startTime;
                 totalDelay += delay;
-                EvaluateUtils.getAccuracy(labelResult, result, 0);
-
-                // 累计点数
-                int pointCount = labelResult.getMmPtList().size();
-                totalPoints += pointCount;
+                EvaluateUtils.getAccuracy(labelResult, result, 3, 3);
 
 //                System.out.println("Index: " + index);
 //                System.out.println("currAcc: " + EvaluateUtils.getCurrAcc());
@@ -85,11 +87,48 @@ public class experiment {
             }
             // 准确率
             System.out.println("Accuracy: "+ EvaluateUtils.getTotalAcc());
-            EvaluateUtils.reset();
+
             // 平均延迟
-            averageDelay = (double) totalDelay / totalPoints / 1_000_000.0;
+            averageDelay = (double) totalDelay / EvaluateUtils.getTotalNum() / 1_000_000.0;
             System.out.println("Average Delay: " + averageDelay + " ms");
-            totalPoints = 0;
+
+            EvaluateUtils.reset();
+            totalDelay = 0;
+        }
+
+
+        // base onlineHmm
+        if (BASE) {
+            System.out.println("---- Base onlineHmm ----");
+            for (int index = startIndex; index <= testNum; index++) {
+                trajectory = ModelGenerator.generateTrajectory(index);
+                Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(index);
+                FixedWeightAdjuster fixedWeightAdjuster = new FixedWeightAdjuster();
+
+                // offline hmm(label)
+                MapMatchedTrajectory labelResult = labelMapMatcher.mapMatch(trajectory);
+
+                // 计算准确率和延迟
+                long startTime = System.nanoTime();
+                MapMatchedTrajectory result = baseMapMatcher.streamMapMatch(sampledTrajectory, fixedWeightAdjuster);
+                long endTime = System.nanoTime();
+                long delay = endTime - startTime;
+                totalDelay += delay;
+                EvaluateUtils.getAccuracy(labelResult, result);
+
+//                System.out.println("Index: " + index);
+//                System.out.println("currAcc: " + EvaluateUtils.getCurrAcc());
+//                System.out.println("totalAcc: " + EvaluateUtils.getTotalAcc());
+//                System.out.println();
+            }
+            // 准确率
+            System.out.println("Accuracy: "+ EvaluateUtils.getTotalAcc());
+
+            // 平均延迟
+            averageDelay = (double) totalDelay / EvaluateUtils.getTotalNum() / 1_000_000.0;
+            System.out.println("Average Delay: " + averageDelay + " ms");
+
+            EvaluateUtils.reset();
             totalDelay = 0;
         }
 
@@ -99,7 +138,7 @@ public class experiment {
             System.out.println("---- AMM ----");
             for (int index = 1; index <= testNum; index++) {
                 trajectory = ModelGenerator.generateTrajectory(index);
-                Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(index, 0);
+                Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(index);
 
                 // offline hmm(label)
                 MapMatchedTrajectory labelResult = labelMapMatcher.mapMatch(trajectory);
@@ -111,24 +150,21 @@ public class experiment {
                 long endTime = System.nanoTime();
                 long delay = endTime - startTime;
                 totalDelay += delay;
-                EvaluateUtils.getAccuracy(labelResult, result, 0);
+                EvaluateUtils.getAccuracy(labelResult, result);
 
-                // 累计点数
-                int pointCount = labelResult.getMmPtList().size();
-                totalPoints += pointCount;
-
-//                System.out.println("Index: " + index);
-//                System.out.println("currAcc: " + EvaluateUtils.getCurrAcc());
-//                System.out.println("totalAcc: " + EvaluateUtils.getTotalAcc());
-//                System.out.println();
+                System.out.println("Index: " + index);
+                System.out.println("currAcc: " + EvaluateUtils.getCurrAcc());
+                System.out.println("totalAcc: " + EvaluateUtils.getTotalAcc());
+                System.out.println();
             }
             // 准确率
             System.out.println("Accuracy: "+ EvaluateUtils.getTotalAcc());
-            EvaluateUtils.reset();
+
             // 平均延迟
-            averageDelay = (double) totalDelay / totalPoints / 1_000_000.0;
+            averageDelay = (double) totalDelay / EvaluateUtils.getTotalNum() / 1_000_000.0;
             System.out.println("Average Delay: " + averageDelay + " ms");
-            totalPoints = 0;
+
+            EvaluateUtils.reset();
             totalDelay = 0;
         }
 
@@ -138,7 +174,7 @@ public class experiment {
             System.out.println("---- AOMM ----");
             for (int index = 1; index <= testNum; index++) {
                 trajectory = ModelGenerator.generateTrajectory(index);
-                Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(index, 0);
+                Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(index);
 
                 // offline hmm(label)
                 MapMatchedTrajectory labelResult = labelMapMatcher.mapMatch(trajectory);
@@ -149,24 +185,21 @@ public class experiment {
                 long endTime = System.nanoTime();
                 long delay = endTime - startTime;
                 totalDelay += delay;
-                EvaluateUtils.getAccuracy(labelResult, result, 0);
+                EvaluateUtils.getAccuracy(labelResult, result);
 
 //                System.out.println("Index: " + index);
 //                System.out.println("currAcc: " + EvaluateUtils.getCurrAcc());
 //                System.out.println("totalAcc: " + EvaluateUtils.getTotalAcc());
 //                System.out.println();
-
-                // 累计点数
-                int pointCount = labelResult.getMmPtList().size();
-                totalPoints += pointCount;
             }
             // 准确率
             System.out.println("Accuracy: "+ EvaluateUtils.getTotalAcc());
-            EvaluateUtils.reset();
+
             // 平均延迟
-            averageDelay = (double) totalDelay / totalPoints / 1_000_000.0;
+            averageDelay = (double) totalDelay / EvaluateUtils.getTotalNum() / 1_000_000.0;
             System.out.println("Average Delay: " + averageDelay + " ms");
-            totalPoints = 0;
+
+            EvaluateUtils.reset();
             totalDelay = 0;
         }
 
@@ -176,7 +209,7 @@ public class experiment {
             System.out.println("---- DW-RMM ----");
             for (int index = 1; index <= testNum; index++) {
                 trajectory = ModelGenerator.generateTrajectory(index);
-                Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(index, 0);
+                Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(index);
 
                 // offline hmm(label)
                 MapMatchedTrajectory labelResult = labelMapMatcher.mapMatch(trajectory);
@@ -187,25 +220,19 @@ public class experiment {
                 long endTime = System.nanoTime();
                 long delay = endTime - startTime;
                 totalDelay += delay;
-                EvaluateUtils.getAccuracy(labelResult, result, 0);
+                EvaluateUtils.getAccuracy(labelResult, result);
 
 //                System.out.println("Index: " + index);
 //                System.out.println("currAcc: " + EvaluateUtils.getCurrAcc());
 //                System.out.println("totalAcc: " + EvaluateUtils.getTotalAcc());
 //                System.out.println();
-
-                // 累计点数
-                int pointCount = labelResult.getMmPtList().size();
-                totalPoints += pointCount;
             }
             // 准确率
             System.out.println("Accuracy: "+ EvaluateUtils.getTotalAcc());
-            EvaluateUtils.reset();
+
             // 平均延迟
-            averageDelay = (double) totalDelay / totalPoints / 1_000_000.0;
+            averageDelay = (double) totalDelay / EvaluateUtils.getTotalNum() / 1_000_000.0;
             System.out.println("Average Delay: " + averageDelay + " ms");
-            totalPoints = 0;
-            totalDelay = 0;
         }
     }
 

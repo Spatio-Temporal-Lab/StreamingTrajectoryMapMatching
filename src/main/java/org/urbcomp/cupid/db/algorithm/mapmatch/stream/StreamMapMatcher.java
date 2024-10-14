@@ -8,6 +8,8 @@ import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.TiViterbi;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.TimeStep;
 import org.urbcomp.cupid.db.algorithm.shortestpath.AbstractManyToManyShortestPath;
 import org.urbcomp.cupid.db.algorithm.shortestpath.BidirectionalManyToManyShortestPath;
+import org.urbcomp.cupid.db.algorithm.weightAdjuster.DynamicWeightAdjuster;
+import org.urbcomp.cupid.db.algorithm.weightAdjuster.WeightAdjuster;
 import org.urbcomp.cupid.db.exception.AlgorithmExecuteException;
 import org.urbcomp.cupid.db.model.point.CandidatePoint;
 import org.urbcomp.cupid.db.model.point.GPSPoint;
@@ -93,16 +95,17 @@ public class StreamMapMatcher {
      * @return MapMatchedTrajectory after matching
      * @throws AlgorithmExecuteException In case of algorithm errors
      */
-    public MapMatchedTrajectory streamMapMatch(Trajectory trajectory) throws AlgorithmExecuteException {
+    public MapMatchedTrajectory streamMapMatch(Trajectory trajectory, WeightAdjuster weightAdjuster) throws AlgorithmExecuteException {
 
         TimeStep previousTimeStep = null;
         List<SequenceState> sequence = new ArrayList<>();
         TiViterbi viterbi = new TiViterbi();
+
         int index = 0;
 
         for (GPSPoint gpsPoint : trajectory.getGPSPointList()) {
             Tuple3<List<SequenceState>, TimeStep, TiViterbi> result =
-                    this.computeViterbiSequence(gpsPoint, sequence, previousTimeStep, viterbi, index);
+                    this.computeViterbiSequence(gpsPoint, sequence, previousTimeStep, viterbi, index, weightAdjuster);
             index++;
             sequence = result._1();
             previousTimeStep = result._2();
@@ -129,7 +132,7 @@ public class StreamMapMatcher {
      * @return MapMatchedTrajectory after online matching
      * @throws AlgorithmExecuteException In case of algorithm errors
      */
-    public MapMatchedTrajectory onlineStreamMapMatch(Trajectory trajectory) throws AlgorithmExecuteException {
+    public MapMatchedTrajectory onlineStreamMapMatch(Trajectory trajectory, WeightAdjuster weightAdjuster) throws AlgorithmExecuteException {
 
         TimeStep previousTimeStep = null;
         List<SequenceState> sequence = new ArrayList<>();
@@ -149,7 +152,7 @@ public class StreamMapMatcher {
                 currentTime = (viterbi.message == null) ? 0 : 1;
             }
 
-            result = this.computeViterbiSequence(gpsPoint, sequence, previousTimeStep, viterbi, currentTime, index);
+            result = this.computeOnlineViterbiSequence(gpsPoint, sequence, previousTimeStep, viterbi, currentTime, index, weightAdjuster);
             index++;
             sequence = result._1();
             previousTimeStep = result._2();
@@ -181,7 +184,7 @@ public class StreamMapMatcher {
      * @throws AlgorithmExecuteException In case of errors
      */
     private Tuple3<List<SequenceState>, TimeStep, TiViterbi> computeViterbiSequence(
-            GPSPoint point, List<SequenceState> sequence, TimeStep prevTimeStep, TiViterbi viterbi, int index)
+            GPSPoint point, List<SequenceState> sequence, TimeStep prevTimeStep, TiViterbi viterbi, int index, WeightAdjuster weightAdjuster)
             throws AlgorithmExecuteException {
         windowBearing.addPoint(point);
         TimeStep timeStep = this.createTimeStep(point, index);
@@ -201,7 +204,7 @@ public class StreamMapMatcher {
                         : bidirectionalPathAlgorithm.findShortestPath(startPoints, endPoints);
 
                 // 候选点扩展
-                this.processBackward(prevTimeStep, timeStep, viterbi, paths);
+//                this.processBackward(prevTimeStep, timeStep, viterbi, paths);
 
                 // 计算观测概率
                 this.computeEmissionProbabilities(timeStep, probabilities);
@@ -209,13 +212,15 @@ public class StreamMapMatcher {
                 // 计算转移概率
                 this.computeTransitionProbabilities(prevTimeStep, timeStep, probabilities, paths);
 
-//                this.adjustWithDirection(timeStep, preTimeStep, paths, probabilities);
+                // 方向调整
+//                this.adjustWithDirection(timeStep, prevTimeStep, paths, probabilities);
 
                 viterbi.nextStep(
                         timeStep.getObservation(),
                         timeStep.getCandidates(),
                         timeStep.getEmissionLogProbabilities(),
-                        timeStep.getTransitionLogProbabilities()
+                        timeStep.getTransitionLogProbabilities(),
+                        weightAdjuster
                 );
             } else {
                 //第一个点初始化概率
@@ -253,13 +258,14 @@ public class StreamMapMatcher {
      * @param time        The current time index.
      * @return A tuple containing the updated sequence, previous time step, and Viterbi object.
      */
-    private Tuple3<List<SequenceState>, TimeStep, OnlineViterbi> computeViterbiSequence(
+    private Tuple3<List<SequenceState>, TimeStep, OnlineViterbi> computeOnlineViterbiSequence(
             GPSPoint point,
             List<SequenceState> seq,
             TimeStep preTimeStep,
             OnlineViterbi viterbi,
             int time,
-            int index
+            int index,
+            WeightAdjuster weightAdjuster
     ) {
 //        System.out.println("current time: " + time);
         windowBearing.addPoint(point);
@@ -295,14 +301,15 @@ public class StreamMapMatcher {
                 this.processBackward(preTimeStep, currentTimeStep, viterbi, paths);
                 this.computeEmissionProbabilities(currentTimeStep, probabilities);
                 this.computeTransitionProbabilities(preTimeStep, currentTimeStep, probabilities, paths);
-//                this.adjustWithDirection(currentTimeStep, preTimeStep, paths, probabilities);
+                this.adjustWithDirection(currentTimeStep, preTimeStep, paths, probabilities);
 
                 viterbi.nextStep(
                         currentTimeStep.getObservation(),
                         currentTimeStep.getCandidates(),
                         currentTimeStep.getEmissionLogProbabilities(),
                         currentTimeStep.getTransitionLogProbabilities(),
-                        time
+                        time,
+                        weightAdjuster
                 );
 
             } else {

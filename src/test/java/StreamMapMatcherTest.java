@@ -24,6 +24,7 @@ import org.urbcomp.cupid.db.algorithm.mapmatch.stream.StreamMapMatcher;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.TiHmmMapMatcher;
 import org.urbcomp.cupid.db.algorithm.shortestpath.BiDijkstraShortestPath;
 import org.urbcomp.cupid.db.algorithm.shortestpath.SimpleManyToManyShortestPath;
+import org.urbcomp.cupid.db.algorithm.weightAdjuster.DynamicWeightAdjuster;
 import org.urbcomp.cupid.db.exception.AlgorithmExecuteException;
 import org.urbcomp.cupid.db.model.roadnetwork.RoadNetwork;
 import org.urbcomp.cupid.db.model.sample.ModelGenerator;
@@ -62,7 +63,7 @@ public class StreamMapMatcherTest {
 
     @Test
     public void matchTrajToMapMatchedTraj() throws AlgorithmExecuteException, IOException, JAXBException, SAXException {
-        MapMatchedTrajectory mmTrajectory = mapMatcher2.streamMapMatch(trajectory);
+        MapMatchedTrajectory mmTrajectory = mapMatcher2.streamMapMatch(trajectory, new DynamicWeightAdjuster());
         System.out.println(trajectory.toGeoJSON());
         System.out.println(mmTrajectory.toGeoJSON());
         assertEquals(trajectory.getGPSPointList().size(), mmTrajectory.getMmPtList().size());
@@ -88,7 +89,7 @@ public class StreamMapMatcherTest {
             while ((trajStr = br.readLine()) != null && count < trajectories_count) {
                 count++;
                 Trajectory trajectory = generateTrajectoryByStr(trajStr, 0);
-                MapMatchedTrajectory mmTrajectory = mapMatcher2.streamMapMatch(trajectory);
+                MapMatchedTrajectory mmTrajectory = mapMatcher2.streamMapMatch(trajectory, new DynamicWeightAdjuster());
                 writer.write(mmTrajectory.toGeoJSON());
                 writer.newLine();
                 success_count++;
@@ -115,7 +116,7 @@ public class StreamMapMatcherTest {
             trajectory = ModelGenerator.generateTrajectory(startIndex);
 
             // offline hmm(label)
-            Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(startIndex, sampleRate);
+            Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(startIndex);
             MapMatchedTrajectory mmTrajectory = mapMatcher.mapMatch(trajectory);
 //            BufferedWriter writer = new BufferedWriter(new FileWriter(trajectoryWritePath));
 //            writer.write(sampledTrajectory.toGeoJSON());
@@ -126,9 +127,9 @@ public class StreamMapMatcherTest {
 
 //            // our method
             mapMatcher2 = new StreamMapMatcher(roadNetwork, new SimpleManyToManyShortestPath(roadNetwork));
-            MapMatchedTrajectory mmTrajectory2 = mapMatcher2.streamMapMatch(sampledTrajectory);
+            MapMatchedTrajectory mmTrajectory2 = mapMatcher2.streamMapMatch(sampledTrajectory, new DynamicWeightAdjuster());
             assert mmTrajectory2 != null;
-            EvaluateUtils.getAccuracy(mmTrajectory, mmTrajectory2, sampleRate);
+            EvaluateUtils.getAccuracy(mmTrajectory, mmTrajectory2);
 
             // aomm
 //            aommMapMatcher = new AommMapMatcher(roadNetwork);

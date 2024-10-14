@@ -4,6 +4,7 @@ import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.ExtendedState;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.ForwardStepResult;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.SequenceState;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.TiViterbi;
+import org.urbcomp.cupid.db.algorithm.weightAdjuster.WeightAdjuster;
 import org.urbcomp.cupid.db.model.point.CandidatePoint;
 import org.urbcomp.cupid.db.model.point.GPSPoint;
 import scala.Tuple2;
@@ -105,7 +106,8 @@ public class OnlineViterbi extends TiViterbi {
             List<CandidatePoint> candidates,
             Map<CandidatePoint, Double> emissionLogProbabilities,
             Map<Tuple2<CandidatePoint, CandidatePoint>, Double> transitionLogProbabilities,
-            int time
+            int time,
+            WeightAdjuster weightAdjuster
     ) {
         if (message == null) throw new IllegalStateException("start with initial observation() must be called first.");
         if (isBroken) throw new IllegalStateException("Method must not be called after an HMM break.");
@@ -118,7 +120,8 @@ public class OnlineViterbi extends TiViterbi {
                 message,
                 emissionLogProbabilities,
                 transitionLogProbabilities,
-                time
+                time,
+                weightAdjuster
         );
 
         isBroken = hmmBreak(forwardStepResult.getNewMessage());
@@ -152,7 +155,8 @@ public class OnlineViterbi extends TiViterbi {
             Map<CandidatePoint, Double> message,
             Map<CandidatePoint, Double> emissionLogProbabilities,
             Map<Tuple2<CandidatePoint, CandidatePoint>, Double> transitionLogProbabilities,
-            int time
+            int time,
+            WeightAdjuster weightAdjuster
     ) {
         assert !prevCandidates.isEmpty();
 
@@ -184,7 +188,7 @@ public class OnlineViterbi extends TiViterbi {
                         curState,
                         transitionLogProbabilities
                 );
-                final double logProb = message.get(preState) + weightOptimizer.getTransitionWeight() * transitionLogProb;
+                final double logProb = message.get(preState) + weightAdjuster.getTransitionWeight() * transitionLogProb;
                 if (logProb > maxLogProb) {
                     maxTransitionLogProb = transitionLogProb;
                     maxLogProb = logProb;
@@ -193,7 +197,7 @@ public class OnlineViterbi extends TiViterbi {
             }
 
             double emissionLogProb = emissionLogProbabilities.get(curState);
-            result.getNewMessage().put(curState, (maxLogProb + weightOptimizer.getEmissionWeight() * emissionLogProb));
+            result.getNewMessage().put(curState, (maxLogProb + weightAdjuster.getEmissionWeight() * emissionLogProb));
 
             if (maxTransitionLogProb != Double.NEGATIVE_INFINITY && emissionLogProb != Double.NEGATIVE_INFINITY) {
                 accumulatedEmissionLogProb += emissionLogProb;
@@ -242,10 +246,10 @@ public class OnlineViterbi extends TiViterbi {
         // Update weights after processing all current states
         if (accumulatedTransitionLogProb != Double.NEGATIVE_INFINITY &&
                 accumulatedEmissionLogProb != Double.NEGATIVE_INFINITY) {
-            weightOptimizer.updateWeights(accumulatedEmissionLogProb, accumulatedTransitionLogProb);
+            weightAdjuster.updateWeights(accumulatedEmissionLogProb, accumulatedTransitionLogProb);
         }
-//            System.out.println("emission:" + weightOptimizer.getEmissionWeight());
-//            System.out.println("transition:" + weightOptimizer.getTransitionWeight());
+//            System.out.println("emission:" + weightAdjuster.getEmissionWeight());
+//            System.out.println("transition:" + weightAdjuster.getTransitionWeight());
 
         // If there are valid states and the state list is not empty
         if (!stateList.isEmpty() && validStateCount > 0) {
