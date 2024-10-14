@@ -1,6 +1,6 @@
 package org.urbcomp.cupid.db.algorithm.mapmatch.amm.inner;
 
-import org.urbcomp.cupid.db.algorithm.mapmatch.amm.AMM;
+import org.urbcomp.cupid.db.algorithm.mapmatch.amm.AmmMapMatcher;
 import org.urbcomp.cupid.db.algorithm.shortestpath.SimpleManyToManyShortestPath;
 import org.urbcomp.cupid.db.model.roadnetwork.Path;
 
@@ -38,8 +38,8 @@ public class PointsSet {
         this.con_previous = previous;
         for (Candidate current : candidates_list) {
             // 方向和位置得分参数设置为 10
-            current.setPositionScore(observation,10.0);
-            if (!current.setVelocityScore(v0, AMM.getDeltaV())) continue;
+            current.setPositionScore(observation, 10.0);
+            if (!current.setVelocityScore(v0, AmmMapMatcher.getDeltaV())) continue;
             if (current.getMinLength() < min_path) min_path = current.getMinLength();
             connected = true;
         }
@@ -47,10 +47,9 @@ public class PointsSet {
     }
 
     public void backward() {
-        System.out.println("fix and backward");
         if (con_previous == null) return;
         PointsSet prev_last = con_previous.con_previous;
-        SimpleManyToManyShortestPath algo = new SimpleManyToManyShortestPath(AMM.getRoadNetwork());
+        SimpleManyToManyShortestPath algo = new SimpleManyToManyShortestPath(AmmMapMatcher.getRoadNetwork());
         while (prev_last != null) {
             double new_length = min_path;
             for (Candidate current : candidates_list) {
@@ -70,7 +69,9 @@ public class PointsSet {
             if (new_length < min_path) {
                 min_path = new_length;
                 prev_last = prev_last.con_previous;
-            } else break;
+            } else {
+                break;
+            }
         }
     }
 }

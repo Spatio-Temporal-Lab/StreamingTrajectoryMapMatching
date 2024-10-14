@@ -56,6 +56,8 @@ public class CandidatePoint extends SpatialPoint {
      */
     private boolean skip = false;
 
+    private int index = -1;
+
     public boolean isSkip() {
         return skip;
     }
@@ -180,7 +182,7 @@ public class CandidatePoint extends SpatialPoint {
         RoadNetwork roadNetwork,
         double dist
     ) {
-        List<CandidatePoint> candidates = getCandidatePoint(pt, roadNetwork, dist);
+        List<CandidatePoint> candidates = getCandidatePoint(pt, roadNetwork, dist, -1);
         if (candidates.size() != 0) {
             return Collections.min(
                 candidates,
@@ -202,7 +204,8 @@ public class CandidatePoint extends SpatialPoint {
     public static List<CandidatePoint> getCandidatePoint(
         SpatialPoint pt,
         RoadNetwork roadNetwork,
-        double dist
+        double dist,
+        int index
     ) {
         Envelope bbox = GeoFunctions.getExtendedBBox(pt, dist);
         Rectangle rec = Geometries.rectangleGeographic(
@@ -220,6 +223,7 @@ public class CandidatePoint extends SpatialPoint {
         roadSegmentIterable.forEach(rs -> {
             CandidatePoint candiPt = calCandidatePoint(pt, rs);
             if (candiPt.errorDistanceInMeter <= dist) {
+                candiPt.setIndex(index);
                 result.add(candiPt);
             }
         });
@@ -247,5 +251,13 @@ public class CandidatePoint extends SpatialPoint {
             projectionPoint.getMatchedIndex(),
             projectionPoint.getErrorDistanceInMeter()
         );
+    }
+
+    public int getIndex() {
+        return index;
+    }
+
+    public void setIndex(int index) {
+        this.index = index;
     }
 }

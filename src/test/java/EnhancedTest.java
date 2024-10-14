@@ -1,10 +1,10 @@
 import org.junit.Before;
 import org.junit.Test;
-import org.urbcomp.cupid.db.algorithm.history.generateHistoryProb;
 import org.urbcomp.cupid.db.algorithm.mapmatch.stream.StreamMapMatcher;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.TiHmmMapMatcher;
 import org.urbcomp.cupid.db.algorithm.shortestpath.BidirectionalManyToManyShortestPath;
 import org.urbcomp.cupid.db.algorithm.shortestpath.SimpleManyToManyShortestPath;
+import org.urbcomp.cupid.db.algorithm.weightAdjuster.DynamicWeightAdjuster;
 import org.urbcomp.cupid.db.exception.AlgorithmExecuteException;
 import org.urbcomp.cupid.db.model.roadnetwork.RoadNetwork;
 import org.urbcomp.cupid.db.model.sample.ModelGenerator;
@@ -49,7 +49,7 @@ public class EnhancedTest {
         int startIndex = 1;
         testNum += startIndex;
 
-        int[] sampleRates = {0, 5, 10};
+        int[] sampleRates = {1, 5, 10};
 
 //        int sampleRate = 0;
 
@@ -67,7 +67,7 @@ public class EnhancedTest {
 
                 // 创建轨迹
                 trajectory = ModelGenerator.generateTrajectory(index);
-                Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(index, sampleRate);
+                Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(index, 3, 3 * sampleRate);
 
                 // 写入轨迹
 //            BufferedWriter writer = new BufferedWriter(new FileWriter(trajectoryWritePath + "trajectory_" + index + ".json"));
@@ -81,7 +81,7 @@ public class EnhancedTest {
                 MapMatchedTrajectory mmTrajectory2 = mapMatchedResult2.getMmTrajectory();
 
                 // 计算准确率
-                EvaluateUtils.getAccuracy(mmTrajectory, mmTrajectory2, sampleRate);
+                EvaluateUtils.getAccuracy(mmTrajectory, mmTrajectory2, 3, 3 * sampleRate);
                 double accuracy = EvaluateUtils.getCurrAcc();
 
                 // 统计实验信息
@@ -127,7 +127,7 @@ public class EnhancedTest {
     private MapMatchedResult streamMapMatchTrajectory(Trajectory sampledTrajectory, int index, String writePath, boolean isWrite) throws IOException, AlgorithmExecuteException, JAXBException, org.xml.sax.SAXException {
         // 进行流式匹配
         long startTime = System.currentTimeMillis();
-        MapMatchedTrajectory mmTrajectory2 = mapMatcher2.streamMapMatch(sampledTrajectory);
+        MapMatchedTrajectory mmTrajectory2 = mapMatcher2.streamMapMatch(sampledTrajectory, new DynamicWeightAdjuster());
         long endTime = System.currentTimeMillis();
         double elapsedTime = (endTime - startTime) / 1000.0;
 

@@ -1,7 +1,7 @@
 import com.fasterxml.jackson.core.JsonProcessingException;
 import org.junit.Before;
 import org.junit.Test;
-import org.urbcomp.cupid.db.algorithm.mapmatch.amm.AMM;
+import org.urbcomp.cupid.db.algorithm.mapmatch.amm.AmmMapMatcher;
 import org.urbcomp.cupid.db.algorithm.mapmatch.amm.inner.Candidate;
 import org.urbcomp.cupid.db.algorithm.mapmatch.routerecover.ShortestPathPathRecover;
 import org.urbcomp.cupid.db.algorithm.shortestpath.BiDijkstraShortestPath;
@@ -19,19 +19,19 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class AdaptiveMapMatcherTest {
-    private AMM mapMatcher;
+    private AmmMapMatcher mapMatcher;
     private ShortestPathPathRecover recover;
 
     @Before
     public void setUp() {
         RoadNetwork roadNetwork = ModelGenerator.generateRoadNetwork();
-        mapMatcher = new AMM(roadNetwork);
+        mapMatcher = new AmmMapMatcher(roadNetwork);
         recover = new ShortestPathPathRecover(roadNetwork, new BiDijkstraShortestPath(roadNetwork));
     }
 
     @Test
     public void matchSingleTrajectory() throws JsonProcessingException {
-        Trajectory trajectory = ModelGenerator.generateTrajectory(0, 0);
+        Trajectory trajectory = ModelGenerator.generateTrajectory(0);
         double v = mapMatcher.mapMatch(trajectory, 0);
         System.out.println("matched length:" + v);
         List<Candidate> matchedList = mapMatcher.getMatchedList();
@@ -43,7 +43,7 @@ public class AdaptiveMapMatcherTest {
 
     @Test
     public void matchMultiTrajectories() throws IOException {
-        List<Trajectory> trajectories = ModelGenerator.generateMultiTrajectory(1000, 0);
+        List<Trajectory> trajectories = ModelGenerator.generateMultiTrajectory(1000);
         for (int i = 0; i < trajectories.size(); i++) {
             Trajectory trajectory = trajectories.get(i);
             System.out.println("index " + (i + 1) + ":");

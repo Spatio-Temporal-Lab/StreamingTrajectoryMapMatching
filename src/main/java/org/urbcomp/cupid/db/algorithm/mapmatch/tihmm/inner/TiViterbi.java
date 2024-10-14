@@ -16,7 +16,7 @@
  */
 package org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner;
 
-import org.urbcomp.cupid.db.algorithm.mapmatch.stream.DynamicWeightOptimizer;
+import org.urbcomp.cupid.db.algorithm.weightAdjuster.WeightAdjuster;
 import org.urbcomp.cupid.db.model.point.CandidatePoint;
 import org.urbcomp.cupid.db.model.point.GPSPoint;
 import scala.Tuple2;
@@ -39,10 +39,6 @@ public class TiViterbi {
      * 每个candidate point 对应的p
      */
     public Map<CandidatePoint, Double> message;
-    /**
-     * 权重动态优化器
-     */
-    public DynamicWeightOptimizer weightOptimizer = new DynamicWeightOptimizer();
     /**
      * 是否停止初始化状态概率函数
      */
@@ -125,7 +121,8 @@ public class TiViterbi {
             List<CandidatePoint> curCandidates,
             Map<CandidatePoint, Double> message,
             Map<CandidatePoint, Double> emissionLogProbabilities,
-            Map<Tuple2<CandidatePoint, CandidatePoint>, Double> transitionLogProbabilities
+            Map<Tuple2<CandidatePoint, CandidatePoint>, Double> transitionLogProbabilities,
+            WeightAdjuster weightAdjuster
     ) {
         final ForwardStepResult result = new ForwardStepResult(curCandidates.size());
         assert !prevCandidates.isEmpty();
@@ -144,7 +141,7 @@ public class TiViterbi {
                         curState,
                         transitionLogProbabilities
                 );
-                final double logProb = message.get(preState) + weightOptimizer.getTransitionWeight() * transitionLogProb;
+                final double logProb = message.get(preState) + weightAdjuster.getTransitionWeight() * transitionLogProb;
                 if (logProb > maxLogProb) {
                     maxTransitionLogProb = transitionLogProb;
                     maxLogProb = logProb;
@@ -153,7 +150,7 @@ public class TiViterbi {
             }
             double emissionLogProb = emissionLogProbabilities.get(curState);
             result.getNewMessage()
-                    .put(curState, (maxLogProb + weightOptimizer.getEmissionWeight() * emissionLogProb));
+                    .put(curState, (maxLogProb + weightAdjuster.getEmissionWeight() * emissionLogProb));
             if (maxTransitionLogProb != Double.NEGATIVE_INFINITY && emissionLogProb != Double.NEGATIVE_INFINITY) {
                 accumulatedEmissionLogProb += emissionLogProb;
                 accumulatedTransitionLogProb += maxTransitionLogProb;
@@ -177,10 +174,10 @@ public class TiViterbi {
 //        System.out.println("transition:" + accumulatedTransitionLogProb);
         // 在处理完所有 curStates 后更新权重
         if (accumulatedTransitionLogProb != Double.NEGATIVE_INFINITY && accumulatedEmissionLogProb != Double.NEGATIVE_INFINITY) {
-            weightOptimizer.updateWeights(accumulatedEmissionLogProb, accumulatedTransitionLogProb);
+            weightAdjuster.updateWeights(accumulatedEmissionLogProb, accumulatedTransitionLogProb);
         }
-//        System.out.println("emission:" + weightOptimizer.getEmissionWeight());
-//        System.out.println("transition:" + weightOptimizer.getTransitionWeight());
+//        System.out.println("emission:" + weightAdjuster.getEmissionWeight());
+//        System.out.println("transition:" + weightAdjuster.getTransitionWeight());
         return result;
     }
 
@@ -266,7 +263,8 @@ public class TiViterbi {
             GPSPoint observation,
             List<CandidatePoint> candidates,
             Map<CandidatePoint, Double> emissionLogProbabilities,
-            Map<Tuple2<CandidatePoint, CandidatePoint>, Double> transitionLogProbabilities
+            Map<Tuple2<CandidatePoint, CandidatePoint>, Double> transitionLogProbabilities,
+            WeightAdjuster weightAdjuster
     ) {
         if (message == null) {
             throw new IllegalStateException(
@@ -282,7 +280,8 @@ public class TiViterbi {
                 candidates,
                 message,
                 emissionLogProbabilities,
-                transitionLogProbabilities
+                transitionLogProbabilities,
+                weightAdjuster
         );
         isBroken = hmmBreak(forwardStepResult.getNewMessage());
         if (isBroken) {

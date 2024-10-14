@@ -26,6 +26,14 @@ public class EvaluateUtils {
 
     static RoadNetwork roadNetwork = ModelGenerator.generateRoadNetwork();
 
+    public static void reset() {
+        errorNum = 0;
+        totalCorrectNum = 0;
+        totalNum = 0;
+        currAcc = 0.0;
+        totalAcc = 0.0;
+    }
+
     public static double calculateAccuracy(String baseFile, String matchFile, int sampleRate) {
         List<Double> idAcc = new ArrayList<>();
         try (BufferedReader br1 = new BufferedReader(new FileReader(baseFile));
@@ -258,13 +266,13 @@ public class EvaluateUtils {
                 rsLabel.getLengthInMeter() == rsResult.getLengthInMeter();
     }
 
-    public static void getAccuracy(MapMatchedTrajectory labels, MapMatchedTrajectory results, double sampleRate) {
+    public static void getAccuracy(MapMatchedTrajectory labels, MapMatchedTrajectory results) {
         int totalPoints = labels.getMmPtList().size();
         int resultPoints = results.getMmPtList().size();
 
-        if (totalPoints != resultPoints) {
-            throw new IllegalArgumentException("Labels and results must have the same number of points.");
-        }
+//        if (totalPoints != resultPoints) {
+//            throw new IllegalArgumentException("Labels and results must have the same number of points.");
+//        }
 
         if (totalPoints == 0) {
             currAcc = 0.0;
@@ -275,45 +283,40 @@ public class EvaluateUtils {
         List<MapMatchedPoint> sampleLabelList = new ArrayList<>();
         List<Integer> resultList = new ArrayList<>();
 
-        int skipNum = 0;
-        boolean flag = true;
-
-        for (int i = 0; i < totalPoints; i++) {
+        for (int i = 0; i < resultPoints; i++) {
             CandidatePoint resultPoint = results.getMmPtList().get(i).getCandidatePoint();
 
-            // 检查当前结果点是否需要跳过
-            if (resultPoint != null && resultPoint.isSkip()) {
-                continue;
-            }
+            // 添加标签点到 labelList
+            if (resultPoint != null) {
+                if (resultPoint.getIndex() == -1) {
+                    continue;
+                }
 
-            if (flag) {
-                // 添加标签点到 labelList
-                CandidatePoint labelCp = labels.getMmPtList().get(i).getCandidatePoint();
+                int resultId = resultPoint.getRoadSegmentId();
+                resultList.add(resultId);
+
+                // 添加对应的标签 MapMatchedPoint 到 sampleLabelList
+                CandidatePoint labelCp = labels.getMmPtList().get(resultPoint.getIndex()).getCandidatePoint();
+                sampleLabelList.add(labels.getMmPtList().get(resultPoint.getIndex()));
+
                 if (labelCp == null) {
                     labelList.add(0);
-                } else {
+                }
+                else {
                     int labelId = labelCp.getRoadSegmentId();
                     labelList.add(labelId);
                 }
-
-                // 添加对应的标签 MapMatchedPoint 到 sampleLabelList
+            }
+            else{
+                resultList.add(0);
+                CandidatePoint labelCp = labels.getMmPtList().get(i).getCandidatePoint();
                 sampleLabelList.add(labels.getMmPtList().get(i));
-
-                // 添加结果点到 resultList
-                if (resultPoint == null) {
-                    resultList.add(0);
-                } else {
-                    int resultId = resultPoint.getRoadSegmentId();
-                    resultList.add(resultId);
+                if (labelCp == null) {
+                    labelList.add(0);
                 }
-
-                // 根据 sampleRate 决定是否继续采样
-                flag = skipNum == sampleRate;
-            } else {
-                skipNum++;
-                if (skipNum == sampleRate) {
-                    skipNum = 0;
-                    flag = true;
+                else {
+                    int labelId = labelCp.getRoadSegmentId();
+                    labelList.add(labelId);
                 }
             }
         }
@@ -351,7 +354,116 @@ public class EvaluateUtils {
             }
         }
 
-        System.out.println("wrong Points : " + errorPointsCount);
+//        System.out.println("wrong Points : " + errorPointsCount);
+
+        // 处理所有点都被跳过的情况，避免除以零
+        if (totalComparedPoints == 0) {
+            currAcc = 0.0;
+            return;
+        }
+
+        errorNum = errorPointsCount;
+        totalCorrectNum += totalComparedPoints - errorPointsCount;
+        totalNum += totalComparedPoints;
+        currAcc = 1 - (errorPointsCount * 1.0 / totalComparedPoints);
+        totalAcc = totalCorrectNum * 1.0 / totalNum;
+    }
+
+    public static void getAccuracy(MapMatchedTrajectory labels, MapMatchedTrajectory results, int originalSampleRate, int resultSameplRate) {
+        int totalPoints = labels.getMmPtList().size();
+        int resultPoints = results.getMmPtList().size();
+
+//        if (totalPoints != resultPoints) {
+//            throw new IllegalArgumentException("Labels and results must have the same number of points.");
+//        }
+
+        if (totalPoints == 0) {
+            currAcc = 0.0;
+            return;
+        }
+
+        List<Integer> labelList = new ArrayList<>();
+        List<MapMatchedPoint> sampleLabelList = new ArrayList<>();
+        List<Integer> resultList = new ArrayList<>();
+
+        int sampleRate = resultSameplRate / originalSampleRate;
+        int skipNum = 0;
+        boolean flag = true;
+
+        for (int i = 0; i < resultPoints; i++) {
+            CandidatePoint resultPoint = results.getMmPtList().get(i).getCandidatePoint();
+
+                // 添加标签点到 labelList
+                if (resultPoint != null) {
+                    if (resultPoint.getIndex() == -1) {
+                        continue;
+                    }
+
+                    int resultId = resultPoint.getRoadSegmentId();
+                    resultList.add(resultId);
+
+                    // 添加对应的标签 MapMatchedPoint 到 sampleLabelList
+                    int index = resultPoint.getIndex() * sampleRate;
+                    CandidatePoint labelCp = labels.getMmPtList().get(index).getCandidatePoint();
+                    sampleLabelList.add(labels.getMmPtList().get(index));
+
+                    if (labelCp == null) {
+                        labelList.add(0);
+                    }
+                    else {
+                        int labelId = labelCp.getRoadSegmentId();
+                        labelList.add(labelId);
+                    }
+                }
+                else{
+                    resultList.add(0);
+                    CandidatePoint labelCp = labels.getMmPtList().get(i).getCandidatePoint();
+                    sampleLabelList.add(labels.getMmPtList().get(i));
+                    if (labelCp == null) {
+                        labelList.add(0);
+                    }
+                    else {
+                        int labelId = labelCp.getRoadSegmentId();
+                        labelList.add(labelId);
+                    }
+                }
+
+        }
+
+        int errorPointsCount = 0;
+        int totalComparedPoints = labelList.size(); // 实际参与比较的点数
+
+        // 确定比较的最小长度
+        int minSize = Math.min(resultList.size(), labelList.size());
+
+        for (int i = 0; i < minSize; i++) {
+//            System.out.println("i: " + i);
+            int label = labelList.get(i);
+            int result = resultList.get(i);
+            CandidatePoint labelCp = sampleLabelList.get(i).getCandidatePoint();
+            CandidatePoint resultCp = results.getMmPtList().get(i).getCandidatePoint();
+
+            // 检查标签点和结果点是否匹配
+            if (checkLabel(label, result, labelCp, resultCp)) {
+                // 匹配正确，不计入错误点数
+            } else if (i > 0 && result != 0 && label != 0 &&
+                    (isStartOrEnd(results.getMmPtList().get(i), result) || isStartOrEnd(sampleLabelList.get(i), label))) {
+                // 处理特殊错误情况
+                int count = checkError2(label, result, labelCp, resultCp);
+                errorPointsCount += count;
+                if (count != 0) {
+                    // 可以启用调试输出
+                    // System.out.println("index: " + i + " " + resultCp + " result: " + resultCp.getCoordinate() + " label: " + labelCp.getCoordinate());
+                }
+            } else {
+                // 普通错误，增加错误点数
+                errorPointsCount++;
+                // 可以启用调试输出
+                // System.out.println("index: " + i + " " + resultCp + " result: " + resultCp.getCoordinate() + " label: " + labelCp.getCoordinate());
+            }
+        }
+
+//        System.out.println("wrong Points : " + errorPointsCount);
 
         // 处理所有点都被跳过的情况，避免除以零
         if (totalComparedPoints == 0) {

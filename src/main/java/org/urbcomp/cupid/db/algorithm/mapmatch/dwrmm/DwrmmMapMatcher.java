@@ -54,7 +54,7 @@ public class DwrmmMapMatcher {
             // 检查是否进入了初始化阶段
             if (!isInitialized) {
                 // 初始化阶段的保守延迟匹配
-                if (!delayedInitialization(traj.getGPSPointList().get(i - 1), p, seq)) {
+                if (!delayedInitialization(traj.getGPSPointList().get(i - 1), p, seq, i)) {
                     continue; // 如果初始化失败，跳过当前点，等待下一个GPS点
                 }
                 isInitialized = true; // 初始化成功，进入正常匹配流程
@@ -62,7 +62,7 @@ public class DwrmmMapMatcher {
             }
 
             // 正常匹配
-            mapMatch(p, seq);
+            mapMatch(p, seq, i);
         }
 
         assert traj.getGPSPointList().size() == seq.size();
@@ -78,10 +78,10 @@ public class DwrmmMapMatcher {
     }
 
     // 初始化阶段的保守延迟匹配
-    private boolean delayedInitialization(GPSPoint prevPoint, GPSPoint currentPoint, List<SequenceState> seq) throws AlgorithmExecuteException {
+    private boolean delayedInitialization(GPSPoint prevPoint, GPSPoint currentPoint, List<SequenceState> seq, int index) throws AlgorithmExecuteException {
         // 获取两个点的候选路段
-        TimeStep prevTimeStep = createTimeStep(prevPoint);
-        TimeStep currentTimeStep = createTimeStep(currentPoint);
+        TimeStep prevTimeStep = createTimeStep(prevPoint, index - 1);
+        TimeStep currentTimeStep = createTimeStep(currentPoint, index);
 
         if (prevTimeStep == null || currentTimeStep == null) {
             CandidatePoint skipPoint = new CandidatePoint();
@@ -104,11 +104,11 @@ public class DwrmmMapMatcher {
             CandidatePoint matchedPoint = null;
             for (CandidatePoint currentCandidate : currentTimeStep.getCandidates()) {
                 // 计算距离得分、方向得分、连通性得分
-                double distanceScore = 10 * calculateDistanceScore(getDistanceInM(prevPoint, currentPoint));
+                double distanceScore = calculateDistanceScore(getDistanceInM(prevPoint, currentPoint));
 
                 double directionDifference = getBearingDifference(currentPoint, prevPoint, currentCandidate, prevCandidate);
                 double directionWeight = calculateDirectionWeight(directionDifference);
-                double directionScore = 0.1 * directionWeight * calculateDirectionScore(directionDifference);
+                double directionScore = directionWeight * calculateDirectionScore(directionDifference);
 
                 double linearDistance = getDistanceInM(currentPoint, prevPoint);
                 Path path = aStarShortestPath.findShortestPath(currentCandidate, prevCandidate);
@@ -182,8 +182,8 @@ public class DwrmmMapMatcher {
     }
 
     // 地图匹配
-    public void mapMatch(GPSPoint observation, List<SequenceState> seq) throws AlgorithmExecuteException {
-        TimeStep timeStep = createTimeStep(observation);
+    public void mapMatch(GPSPoint observation, List<SequenceState> seq, int index) throws AlgorithmExecuteException {
+        TimeStep timeStep = createTimeStep(observation, index);
         double matchedDistance = 0;
         double matchedDistanceDifference = 0;
         double[] bestScores = null;
@@ -212,7 +212,7 @@ public class DwrmmMapMatcher {
                     candidatePoint.getRoadSegmentId()
             );
             ProjectionPoint projectionPoint = ProjectionPoint.calProjection(observation, roadSegment.getPoints(), 0, roadSegment.getPoints().size() - 1);
-            distanceScore = 10 * calculateDistanceScore(projectionPoint.getErrorDistanceInMeter());
+            distanceScore = calculateDistanceScore(projectionPoint.getErrorDistanceInMeter());
 
             if (preTimeStep == null) {
                 totalScore = distanceScore;
@@ -227,7 +227,7 @@ public class DwrmmMapMatcher {
                 }
                 else {
                     directionWeight = calculateDirectionWeight(directionDifference);
-                    directionScore = 0.1 * directionWeight * calculateDirectionScore(directionDifference);
+                    directionScore = directionWeight * calculateDirectionScore(directionDifference);
                 }
 
                 // 连通性得分
@@ -411,12 +411,13 @@ public class DwrmmMapMatcher {
     }
 
     // 创建时间步，初始化候选点
-    private TimeStep createTimeStep(GPSPoint pt) {
+    private TimeStep createTimeStep(GPSPoint pt, int index) {
         TimeStep timeStep = null;
         List<CandidatePoint> candidates = CandidatePoint.getCandidatePoint(
                 pt,
                 roadNetwork,
-                50.0
+                50.0,
+                index
         );
         if (!candidates.isEmpty()) {
             timeStep = new TimeStep(pt, candidates);

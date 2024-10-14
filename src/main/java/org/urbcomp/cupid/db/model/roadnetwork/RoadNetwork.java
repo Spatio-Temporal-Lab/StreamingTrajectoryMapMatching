@@ -123,11 +123,13 @@ public class RoadNetwork implements java.io.Serializable {
                                             RoadNetwork roadNetwork,
                                             double radius) {
         List<PointsSet> trackList = new ArrayList<>();
+        int index = 0;
         for (AMMGPSPoint observation : AMMGPSPointList) {
-            List<CandidatePoint> candidatePoints = CandidatePoint.getCandidatePoint(observation, roadNetwork, radius);
+            List<CandidatePoint> candidatePoints = CandidatePoint.getCandidatePoint(observation, roadNetwork, radius, index);
             List<Candidate> candidates = new ArrayList<>();
             for (CandidatePoint candidatePoint : candidatePoints) { candidates.add(new Candidate(candidatePoint)); }
             trackList.add(new PointsSet(observation, candidates));
+            index++;
         }
         return trackList;
     }

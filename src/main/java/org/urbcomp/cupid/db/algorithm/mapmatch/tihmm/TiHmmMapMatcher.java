@@ -23,6 +23,8 @@ import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.SequenceState;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.TiViterbi;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.TimeStep;
 import org.urbcomp.cupid.db.algorithm.shortestpath.AbstractManyToManyShortestPath;
+import org.urbcomp.cupid.db.algorithm.weightAdjuster.DynamicWeightAdjuster;
+import org.urbcomp.cupid.db.algorithm.weightAdjuster.FixedWeightAdjuster;
 import org.urbcomp.cupid.db.exception.AlgorithmExecuteException;
 import org.urbcomp.cupid.db.model.point.CandidatePoint;
 import org.urbcomp.cupid.db.model.point.GPSPoint;
@@ -88,12 +90,13 @@ public class TiHmmMapMatcher {
      * @param pt 原始轨迹点
      * @return timestep
      */
-    private TimeStep createTimeStep(GPSPoint pt) {
+    private TimeStep createTimeStep(GPSPoint pt, int index) {
         TimeStep timeStep = null;
         List<CandidatePoint> candidates = CandidatePoint.getCandidatePoint(
                 pt,
                 roadNetwork,
-                measurementErrorSigma
+                measurementErrorSigma,
+                index
         );
         if (!candidates.isEmpty()) {
             timeStep = new TimeStep(pt, candidates);
@@ -115,12 +118,13 @@ public class TiHmmMapMatcher {
                 transitionProbabilityBeta
         );
         TiViterbi viterbi = new TiViterbi();
+        DynamicWeightAdjuster dynamicWeightAdjuster = new DynamicWeightAdjuster();
         TimeStep preTimeStep = null;
         int idx = 0;
         int nbPoints = ptList.size();// 点的数量
         while (idx < nbPoints) {
             windowBearing.addPoint(ptList.get(idx));
-            TimeStep timeStep = this.createTimeStep(ptList.get(idx));//轨迹点+候选点集
+            TimeStep timeStep = this.createTimeStep(ptList.get(idx), idx);//轨迹点+候选点集
             if (timeStep == null) {//没有候选点
                 seq.addAll(viterbi.computeMostLikelySequence()); //计算之前最有可能的序列
                 seq.add(new SequenceState(null, ptList.get(idx))); //添加新状态
@@ -153,7 +157,8 @@ public class TiHmmMapMatcher {
                             timeStep.getObservation(),
                             timeStep.getCandidates(),
                             timeStep.getEmissionLogProbabilities(),
-                            timeStep.getTransitionLogProbabilities()
+                            timeStep.getTransitionLogProbabilities(),
+                            dynamicWeightAdjuster
                     );
                 } else {
                     //第一个点初始化概率

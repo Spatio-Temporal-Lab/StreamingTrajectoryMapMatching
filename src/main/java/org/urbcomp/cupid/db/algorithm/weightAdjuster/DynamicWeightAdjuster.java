@@ -1,16 +1,12 @@
-package org.urbcomp.cupid.db.algorithm.mapmatch.stream;
+package org.urbcomp.cupid.db.algorithm.weightAdjuster;
 
-public class DynamicWeightOptimizer {
-    private double transitionWeight = 0.5;
-    private double emissionWeight = 0.5;
-    private double learningRate = 0.01;
+public class DynamicWeightAdjuster extends WeightAdjuster{
 
-    public DynamicWeightOptimizer() {}
+    public DynamicWeightAdjuster() {}
 
-    public DynamicWeightOptimizer(double initialTransitionWeight, double initialEmissionWeight, double learningRate) {
+    public DynamicWeightAdjuster(double initialTransitionWeight, double initialEmissionWeight) {
         this.transitionWeight = initialTransitionWeight;
         this.emissionWeight = initialEmissionWeight;
-        this.learningRate = learningRate;
     }
 
     public void updateWeights(double emissionLogProb, double transitionLogProb) {
@@ -34,13 +30,5 @@ public class DynamicWeightOptimizer {
             transitionWeight = 0.5;
             emissionWeight = 0.5;
         }
-    }
-
-    public double getTransitionWeight() {
-        return transitionWeight;
-    }
-
-    public double getEmissionWeight() {
-        return emissionWeight;
     }
 }
