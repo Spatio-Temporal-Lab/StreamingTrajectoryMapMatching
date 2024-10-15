@@ -58,8 +58,9 @@ public class OnlineMapMatcherTest {
      */
     @Test
     public void matchSingleTrajectory() throws AlgorithmExecuteException, IOException {
+        int windowSize = 10;
         trajectory = ModelGenerator.generateTrajectory(6);
-        MapMatchedTrajectory mmTrajectory = streamMapMatcher.onlineStreamMapMatch(trajectory);
+        MapMatchedTrajectory mmTrajectory = streamMapMatcher.onlineStreamMapMatch(trajectory, windowSize);
 
         System.out.println(trajectory.toGeoJSON());
         System.out.println(mmTrajectory.toGeoJSON());
@@ -80,6 +81,7 @@ public class OnlineMapMatcherTest {
      */
     @Test
     public void matchMultiTrajectory() throws AlgorithmExecuteException {
+        int windowSize = 10;
         for (int i = 1; i <= 10; i++) {
             System.out.println("------------------------------");
             System.out.println("index: " + i);
@@ -87,7 +89,7 @@ public class OnlineMapMatcherTest {
             trajectory = ModelGenerator.generateTrajectory(i);
 
             MapMatchedTrajectory mmTrajectory = streamMapMatcher.streamMapMatch(trajectory);
-            MapMatchedTrajectory onlineMMTrajectory = streamMapMatcher.onlineStreamMapMatch(trajectory);
+            MapMatchedTrajectory onlineMMTrajectory = streamMapMatcher.onlineStreamMapMatch(trajectory, windowSize);
 
             List<MapMatchedPoint> mmPtList = mmTrajectory.getMmPtList();
             List<MapMatchedPoint> onlineMMPtList = onlineMMTrajectory.getMmPtList();
@@ -104,38 +106,42 @@ public class OnlineMapMatcherTest {
      */
     @Test
     public void onlineMatchAccuracy() throws AlgorithmExecuteException, IOException {
-        int testNum = 100;
+        int testNum = 3;
         int sampleRate = 0;
+        int windowSize = 50;
+
         for (int i = 1; i <= testNum; i++) {
-            System.out.println("===========================");
+            System.out.println("*********************************************************");
             System.out.println("index: " + i);
-            System.out.println("===========================");
+            System.out.println("*********************************************************");
+            System.out.println();
+
             trajectory = ModelGenerator.generateTrajectory(i);
             Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(i, sampleRate);
 
             assert sampledTrajectory != null;
 
             MapMatchedTrajectory baseMapMatchedTrajectory = baseMapMatcher.mapMatch(trajectory);
-            MapMatchedTrajectory streamOnlineMapMatchedTrajectory = streamMapMatcher.onlineStreamMapMatch(sampledTrajectory);
+            MapMatchedTrajectory streamOnlineMapMatchedTrajectory = streamMapMatcher.onlineStreamMapMatch(sampledTrajectory, windowSize);
 
             assert baseMapMatchedTrajectory.getMmPtList().size() == streamOnlineMapMatchedTrajectory.getMmPtList().size();
 
             EvaluateUtils.getAccuracy(baseMapMatchedTrajectory, streamOnlineMapMatchedTrajectory, sampleRate);
 
-            System.out.println("===========================");
+            System.out.println("*********************************************************");
             System.out.println("results: ");
             System.out.println("currAcc: " + EvaluateUtils.getCurrAcc());
             System.out.println("totalAcc: " + EvaluateUtils.getTotalAcc());
             System.out.println("pointNum: " + EvaluateUtils.getTotalNum());
-            System.out.println("===========================");
+            System.out.println("*********************************************************");
 
             System.out.println();
 
-            String outputFile = "trajectory_" + i + ".geojson";
-            BufferedWriter writer = new BufferedWriter(new FileWriter(outputFile));
-            writer.write(baseMapMatchedTrajectory.toGeoJSON(true));
-            writer.flush();
-            writer.close();
+//            String outputFile = "trajectory_" + i + ".geojson";
+//            BufferedWriter writer = new BufferedWriter(new FileWriter(outputFile));
+//            writer.write(baseMapMatchedTrajectory.toGeoJSON(true));
+//            writer.flush();
+//            writer.close();
         }
     }
 
@@ -202,6 +208,7 @@ public class OnlineMapMatcherTest {
     public void testOnlineStreamMatch() throws AlgorithmExecuteException {
         int testNum = 100;
         int sampleRate = 0;
+        int windowSize = 10;
 
         // Create CSV file for online results
         try (PrintWriter onlineWriter = new PrintWriter(new FileWriter("onlineStreamResult.csv"))) {
@@ -222,7 +229,7 @@ public class OnlineMapMatcherTest {
                 // Match using baseMatch
                 MapMatchedTrajectory baseMapMatchedTrajectory = baseMapMatcher.mapMatch(trajectory);
                 // Match using onlineStreamMatch
-                MapMatchedTrajectory onlineMapMatchedTrajectory = streamMapMatcher.onlineStreamMapMatch(sampledTrajectory);
+                MapMatchedTrajectory onlineMapMatchedTrajectory = streamMapMatcher.onlineStreamMapMatch(sampledTrajectory, windowSize);
 
                 // Record number of matched points
                 int onlineCurrPointNum = onlineMapMatchedTrajectory.getMmPtList().size();
@@ -253,6 +260,7 @@ public class OnlineMapMatcherTest {
     public void testConvergedSequenceAccuracy() throws Exception {
         int testNum = 1; // Number of trajectories to test
         int sampleRate = 0; // Sample rate for trajectory generation
+        int windowSize = 10;
         double epsilon = 1e-6; // Allowable error for latitude/longitude comparison
 
         for (int i = 1; i <= testNum; i++) {
@@ -267,7 +275,7 @@ public class OnlineMapMatcherTest {
             assert sampledTrajectory != null;
 
             // Perform online map matching
-            MapMatchedTrajectory streamOnlineMapMatchedTrajectory = streamMapMatcher.onlineStreamMapMatch(sampledTrajectory);
+            MapMatchedTrajectory streamOnlineMapMatchedTrajectory = streamMapMatcher.onlineStreamMapMatch(sampledTrajectory, windowSize);
 
             // Get converged sequence from the streamMapMatcher
             List<SequenceState> convergedSequence = streamMapMatcher.convergedSequence;

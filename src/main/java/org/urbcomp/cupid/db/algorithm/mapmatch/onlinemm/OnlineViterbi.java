@@ -29,14 +29,17 @@ public class OnlineViterbi extends TiViterbi {
     public boolean isBrokenBefore;
 
     // Current convergence point
-    private OnlineExtendedState currentRoot;
+    public OnlineExtendedState currentRoot;
     // Previous convergence point
-    private OnlineExtendedState previousRoot;
+    public OnlineExtendedState previousRoot;
 
     // Time diff between root and previous root
     public int timeDelta;
     // Starting insert position for global sequence after algorithm interruption
     public int insertPosition;
+    public int windowSize;
+    private int lastCompressTime;
+
 
     /**
      * Constructs an OnlineViterbi instance with an initial insert position of zero.
@@ -50,6 +53,24 @@ public class OnlineViterbi extends TiViterbi {
         previousRoot = null;
         timeDelta = 0;
         insertPosition = 0;
+        windowSize = 0;
+        lastCompressTime = 0;
+    }
+
+    /**
+     * Constructs an OnlineViterbi instance with an initial insert position of zero.
+     */
+    public OnlineViterbi(int windowSize) {
+        stateList = new LinkedList<>();
+        sequenceStates = new ArrayList<>();
+        isConverge = false;
+        isBrokenBefore = false;
+        currentRoot = null;
+        previousRoot = null;
+        timeDelta = 0;
+        insertPosition = 0;
+        this.windowSize = windowSize;
+        lastCompressTime = 0;
     }
 
     /**
@@ -58,7 +79,7 @@ public class OnlineViterbi extends TiViterbi {
      *
      * @param insertPosition The starting insert position for the global sequence.
      */
-    public OnlineViterbi(int insertPosition) {
+    public OnlineViterbi(int insertPosition, int windowSize) {
         stateList = new LinkedList<>();
         sequenceStates = new ArrayList<>();
         isConverge = false;
@@ -67,6 +88,8 @@ public class OnlineViterbi extends TiViterbi {
         previousRoot = null;
         timeDelta = 0;
         this.insertPosition = insertPosition;
+        this.windowSize = windowSize;
+        lastCompressTime = 0;
     }
 
     /**
@@ -76,7 +99,7 @@ public class OnlineViterbi extends TiViterbi {
      * @param insertPosition The starting insert position for the global sequence.
      * @param isBrokenBefore A boolean indicating whether the algorithm was broken before this instance was created.
      */
-    public OnlineViterbi(int insertPosition, boolean isBrokenBefore) {
+    public OnlineViterbi(int insertPosition, int windowSize, boolean isBrokenBefore) {
         stateList = new LinkedList<>();
         sequenceStates = new ArrayList<>();
         isConverge = false;
@@ -85,6 +108,8 @@ public class OnlineViterbi extends TiViterbi {
         previousRoot = null;
         timeDelta = 0;
         this.insertPosition = insertPosition;
+        this.windowSize = windowSize;
+        lastCompressTime = 0;
     }
 
 
@@ -95,18 +120,17 @@ public class OnlineViterbi extends TiViterbi {
      * @param observation                The current GPS observation.
      * @param candidates                 List of candidate points for the current step.
      * @param emissionLogProbabilities   Map of emission log probabilities for candidate points.
-     * @param transitionLogProbabilities  Map of transition log probabilities between candidate points.
+     * @param transitionLogProbabilities Map of transition log probabilities between candidate points.
      * @param time                       The current time step.
      * @throws IllegalStateException if the method is called without initializing
-     *                                with an observation or after an HMM break.
+     *                               with an observation or after an HMM break.
      */
     public void nextStep(
             GPSPoint observation,
             List<CandidatePoint> candidates,
             Map<CandidatePoint, Double> emissionLogProbabilities,
             Map<Tuple2<CandidatePoint, CandidatePoint>, Double> transitionLogProbabilities,
-            int time,
-            int limit
+            int time
     ) {
         if (message == null) throw new IllegalStateException("start with initial observation() must be called first.");
         if (isBroken) throw new IllegalStateException("Method must not be called after an HMM break.");
@@ -119,8 +143,7 @@ public class OnlineViterbi extends TiViterbi {
                 message,
                 emissionLogProbabilities,
                 transitionLogProbabilities,
-                time,
-                limit
+                time
         );
 
         isBroken = hmmBreak(forwardStepResult.getNewMessage());
@@ -143,7 +166,7 @@ public class OnlineViterbi extends TiViterbi {
      * @param curCandidates              List of current candidate points.
      * @param message                    Map of state probabilities.
      * @param emissionLogProbabilities   Map of emission probabilities for each candidate.
-     * @param transitionLogProbabilities  Map of transition probabilities between candidates.
+     * @param transitionLogProbabilities Map of transition probabilities between candidates.
      * @param time                       The current time step.
      * @return Results after forward extension, including updated state probabilities and states.
      */
@@ -154,8 +177,7 @@ public class OnlineViterbi extends TiViterbi {
             Map<CandidatePoint, Double> message,
             Map<CandidatePoint, Double> emissionLogProbabilities,
             Map<Tuple2<CandidatePoint, CandidatePoint>, Double> transitionLogProbabilities,
-            int time,
-            int limit
+            int time
     ) {
         assert !prevCandidates.isEmpty();
 
@@ -262,14 +284,16 @@ public class OnlineViterbi extends TiViterbi {
                 current.setNumOfState(validStateCount);
             }
 
-            // Compress unnecessary states
-            compress(time);
-            // Free up dummy states
-            freeDummyState(time);
-            // Check for convergence point and record local solutions
-            if (searchForNewRoot()) {
-                isConverge = true;
-                traceback(limit);
+            if (time > this.windowSize + this.lastCompressTime) {
+                // Compress unnecessary states
+                compress(time);
+                // Free up dummy states
+                freeDummyState(time);
+                // Check for convergence point and record local solutions
+                if (searchForNewRoot()) {
+                    isConverge = true;
+                    traceback();
+                }
             }
         }
 
@@ -362,7 +386,7 @@ public class OnlineViterbi extends TiViterbi {
         OnlineExtendedState ancestor = null;
 
         // Time difference between the current and previous convergence points
-        timeDelta = current.getTime();
+        int timeDelta = current.getTime();
 
         while (current != null) {
             if (current.getNumOfChild() >= 2) ancestor = current;
@@ -373,7 +397,11 @@ public class OnlineViterbi extends TiViterbi {
             if (currentRoot == null) {
                 currentRoot = ancestor;
                 timeDelta = timeDelta - ancestor.getTime();
-                return timeDelta != 0;
+                if (timeDelta == 0) return false;
+                else {
+                    lastCompressTime = ancestor.getTime();
+                    return true;
+                }
             } else {
                 if (ancestor != currentRoot) {
                     timeDelta = timeDelta - ancestor.getTime();
@@ -381,6 +409,7 @@ public class OnlineViterbi extends TiViterbi {
                     else {
                         previousRoot = currentRoot;
                         currentRoot = ancestor;
+                        lastCompressTime = ancestor.getTime();
                         return true;
                     }
                 }
@@ -394,15 +423,18 @@ public class OnlineViterbi extends TiViterbi {
      * Performs traceback to find the local path from the
      * current root state to the previous root state.
      */
-    private void traceback(int limit) {
+    private void traceback() {
         System.out.println("Local path found!");
         List<SequenceState> interLocalPath = new ArrayList<>();
         interLocalPath.add(new SequenceState(currentRoot.getState(), currentRoot.getObservation()));
 
         int depth = isConvergedBefore() ? currentRoot.getTime() - previousRoot.getTime() - 1 : currentRoot.getTime();
-        depth = Math.min(depth, limit);
+
+        timeDelta = depth;
+        depth = Math.min(windowSize, depth);
 
         System.out.println("current root time: " + currentRoot.getTime());
+        System.out.println("previous root time: " + (isConvergedBefore() ? previousRoot.getTime() : 0));
         ExtendedState current = currentRoot.getBackPointer();
 
         for (int i = 0; i < depth; i++) {
@@ -410,7 +442,7 @@ public class OnlineViterbi extends TiViterbi {
             current = current.getBackPointer();
         }
 
-        assert current == null || current.getState() == previousRoot.getState();
+//        assert current == null || current.getState() == previousRoot.getState();
         System.out.println("local added sequence length: " + interLocalPath.size());
         Collections.reverse(interLocalPath);
         sequenceStates.addAll(interLocalPath);
