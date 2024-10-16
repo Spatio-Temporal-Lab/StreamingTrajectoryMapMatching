@@ -24,36 +24,76 @@ import scala.Tuple3;
 
 import java.util.*;
 
+/**
+ * StreamMapMatcher is responsible for performing map matching on trajectories
+ * using various Viterbi algorithms.
+ * <p>
+ * This class leverages the road network and shortest path algorithms to align GPS points
+ * with the road network based on probabilistic models.
+ * </p>
+ */
 public class StreamMapMatcher {
     /**
-     * Sigma parameter for the Gaussian distribution used in emission probabilities
+     * Sigma parameter for the Gaussian distribution used in emission probabilities.
      */
     private static final double measurementErrorSigma = 50.0;
 
     /**
-     * Beta parameter for the exponential distribution used in transition probabilities
+     * Beta parameter for the exponential distribution used in transition probabilities.
      */
     private static final double transitionProbabilityBeta = 5.0;
 
     /**
-     * Road network
+     * The road network on which the map matching is performed.
      */
     protected final RoadNetwork roadNetwork;
+
+    /**
+     * Shortest path algorithm for many-to-many pathfinding.
+     */
     protected final AbstractManyToManyShortestPath pathAlgorithm;
+
+    /**
+     * Contains emission and transition probabilities for the Hidden Markov Model.
+     */
     final HmmProbabilities probabilities = new HmmProbabilities(
             measurementErrorSigma,
             transitionProbabilityBeta
     );
+
+    /**
+     * Manages the bearing of the current window for processing.
+     */
     private final WindowBearing windowBearing = new WindowBearing();
+
+    /**
+     * Bidirectional shortest path algorithm.
+     */
     protected BidirectionalManyToManyShortestPath bidirectionalPathAlgorithm;
 
+    /**
+     * A list to store converged sequence states during processing.
+     */
     public List<SequenceState> convergedSequence = new ArrayList<>();
 
+    /**
+     * Constructs a StreamMapMatcher with the specified road network and path algorithm.
+     *
+     * @param roadNetwork    The road network used for map matching.
+     * @param pathAlgorithm  The shortest path algorithm for matching.
+     */
     public StreamMapMatcher(RoadNetwork roadNetwork, AbstractManyToManyShortestPath pathAlgorithm) {
         this.roadNetwork = roadNetwork;
         this.pathAlgorithm = pathAlgorithm;
     }
 
+    /**
+     * Constructs a StreamMapMatcher with the specified road network, path algorithm, and bidirectional path algorithm.
+     *
+     * @param roadNetwork              The road network used for map matching.
+     * @param pathAlgorithm            The shortest path algorithm for matching.
+     * @param bidirectionalPathAlgorithm The bidirectional shortest path algorithm.
+     */
     public StreamMapMatcher(RoadNetwork roadNetwork, AbstractManyToManyShortestPath pathAlgorithm, BidirectionalManyToManyShortestPath bidirectionalPathAlgorithm) {
         this.roadNetwork = roadNetwork;
         this.bidirectionalPathAlgorithm = bidirectionalPathAlgorithm;
@@ -61,23 +101,26 @@ public class StreamMapMatcher {
     }
 
     /**
-     * Find the candidate point with the highest probability from the map.
+     * Finds the candidate point with the highest probability from the given map of candidate points.
      *
-     * @param candidateMap Map containing candidate points and their probabilities
-     * @return The candidate point with the highest probability
+     * @param candidateMap A map containing candidate points and their associated probabilities.
+     * @return The candidate point with the highest probability, or null if the map is empty or null.
      */
     public static CandidatePoint findMaxValuePoint(Map<CandidatePoint, Double> candidateMap) {
         CandidatePoint maxCandidate = null;
         double maxProbability = Double.MIN_VALUE;
 
+        // Check if the candidate map is null
         if (candidateMap == null) {
             return maxCandidate;
         }
 
+        // Iterate through the candidate map to find the candidate with the maximum probability
         for (Map.Entry<CandidatePoint, Double> entry : candidateMap.entrySet()) {
             CandidatePoint candidatePoint = entry.getKey();
             double probability = entry.getValue();
 
+            // Update the max candidate if a new maximum is found
             if (maxCandidate == null || probability > maxProbability) {
                 maxCandidate = candidatePoint;
                 maxProbability = probability;
@@ -87,39 +130,41 @@ public class StreamMapMatcher {
     }
 
     /**
-     * Perform map matching on a trajectory using the stream map-matching method.
+     * Performs map matching on a trajectory using the stream map-matching method.
      *
-     * @param trajectory Trajectory containing GPS points
-     * @return MapMatchedTrajectory after matching
-     * @throws AlgorithmExecuteException In case of algorithm errors
+     * @param trajectory The trajectory containing GPS points to match.
+     * @return A MapMatchedTrajectory object after performing the matching.
+     * @throws AlgorithmExecuteException If there are errors during the algorithm execution.
      */
     public MapMatchedTrajectory streamMapMatch(Trajectory trajectory) throws AlgorithmExecuteException {
-
         TimeStep previousTimeStep = null;
         List<SequenceState> sequence = new ArrayList<>();
         TiViterbi viterbi = new TiViterbi();
 
-
+        // Iterate over each GPS point in the trajectory
         for (GPSPoint gpsPoint : trajectory.getGPSPointList()) {
+            // Compute the Viterbi sequence for the current GPS point
             Tuple3<List<SequenceState>, TimeStep, TiViterbi> result =
                     this.computeViterbiSequence(gpsPoint, sequence, previousTimeStep, viterbi);
 
-            sequence = result._1();
-            previousTimeStep = result._2();
-            viterbi = result._3();
+            sequence = result._1(); // Update the sequence with the computed states
+            previousTimeStep = result._2(); // Update the previous time step
+            viterbi = result._3(); // Update the Viterbi object
         }
 
+        // Ensure that the number of matched states corresponds to the GPS points
         assert trajectory.getGPSPointList().size() == sequence.size();
 
+        // Prepare matched points for the resulting trajectory
         List<MapMatchedPoint> matchedPoints = new ArrayList<>(sequence.size());
 
+        // Convert the sequence states to matched points
         for (SequenceState state : sequence) {
             CandidatePoint candidate = state.getState() != null ? state.getState() : null;
             matchedPoints.add(new MapMatchedPoint(state.getObservation(), candidate));
         }
 
         return new MapMatchedTrajectory(trajectory.getTid(), trajectory.getOid(), matchedPoints);
-
     }
 
     /**
@@ -148,7 +193,7 @@ public class StreamMapMatcher {
                 currentTime = (viterbi.message == null) ? 0 : 1;
             }
 
-            result = this.computeViterbiSequence(gpsPoint, sequence, previousTimeStep, viterbi, currentTime);
+            result = this.computeOnlineViterbiSequence(gpsPoint, sequence, previousTimeStep, viterbi, currentTime);
 
             sequence = result._1();
             previousTimeStep = result._2();
@@ -186,8 +231,10 @@ public class StreamMapMatcher {
         TimeStep timeStep = this.createTimeStep(point);
 
         if (timeStep == null) {
-            sequence.add(new SequenceState(null, point)); // No candidate points for this observation
-            viterbi = new TiViterbi(); // Reset Viterbi
+            // No candidate points for this observation
+            sequence.add(new SequenceState(null, point));
+            // Reset Viterbi
+            viterbi = new TiViterbi();
             prevTimeStep = null;
         } else {
             if (prevTimeStep != null) {
@@ -211,8 +258,8 @@ public class StreamMapMatcher {
                         timeStep.getTransitionLogProbabilities()
                 );
             } else {
-                //第一个点初始化概率
-                this.computeEmissionProbabilities(timeStep, probabilities);//计算观测概率
+                // Initialize probabilities for the first point
+                this.computeEmissionProbabilities(timeStep, probabilities);
                 viterbi.startWithInitialObservation(
                         timeStep.getObservation(),
                         timeStep.getCandidates(),
@@ -220,6 +267,7 @@ public class StreamMapMatcher {
                 );
             }
             if (viterbi.isBroken) {
+                // Handle broken Viterbi state
                 sequence.add(viterbi.computeMostLikelySequence().get(viterbi.computeMostLikelySequence().size() - 1));
                 viterbi = new TiViterbi();
                 viterbi.startWithInitialObservation(
@@ -228,7 +276,8 @@ public class StreamMapMatcher {
                         timeStep.getEmissionLogProbabilities()
                 );
             } else {
-                CandidatePoint maxPoint = StreamMapMatcher.findMaxValuePoint(viterbi.message);//找到最大概率的候选点
+                // Find the candidate point with the maximum probability
+                CandidatePoint maxPoint = StreamMapMatcher.findMaxValuePoint(viterbi.message);
                 sequence.add(new SequenceState(maxPoint, point));
             }
             prevTimeStep = timeStep;
@@ -239,145 +288,159 @@ public class StreamMapMatcher {
     /**
      * Computes a Viterbi sequence for a given GPS point.
      *
-     * @param point       The GPS point from the trajectory.
-     * @param seq         The current sequence of states.
-     * @param preTimeStep The previous time step for reference.
-     * @param viterbi     The Viterbi object used for calculations.
-     * @param time        The current time index.
+     * @param gpsPoint       The GPS point from the trajectory.
+     * @param currentSequence The current sequence of states.
+     * @param previousTimeStep The previous time step for reference.
+     * @param onlineViterbi  The Viterbi object used for calculations.
+     * @param currentTime The current time.
      * @return A tuple containing the updated sequence, previous time step, and Viterbi object.
      */
-    private Tuple3<List<SequenceState>, TimeStep, OnlineViterbi> computeViterbiSequence(
-            GPSPoint point,
-            List<SequenceState> seq,
-            TimeStep preTimeStep,
-            OnlineViterbi viterbi,
-            int time
+    private Tuple3<List<SequenceState>, TimeStep, OnlineViterbi> computeOnlineViterbiSequence(
+            GPSPoint gpsPoint,
+            List<SequenceState> currentSequence,
+            TimeStep previousTimeStep,
+            OnlineViterbi onlineViterbi,
+            int currentTime
     ) {
-        System.out.println("current time: " + time);
-        windowBearing.addPoint(point);
-        TimeStep currentTimeStep = this.createTimeStep(point); // Create time step with point and candidate set.
+        System.out.println("Current time: " + currentTime);
+        windowBearing.addPoint(gpsPoint);
+        TimeStep currentTimeStep = this.createTimeStep(gpsPoint); // Create time step with GPS point and candidate set.
 
-        int convergeStartIndex = viterbi.getSequenceStates().size();
+        int convergeStartIndex = onlineViterbi.getSequenceStates().size();
 
         if (currentTimeStep == null) {
-            System.out.println("curr time step is null!");
-
-//            System.out.println("======================================================");
-//            System.out.println("Sequence length before traceback last part: " + seq.size());
-//            updateSequenceAfterTraceback(viterbi, point, seq);
-//
-//            // Add the last element from the local sequence.
-            seq.add(new SequenceState(null, point));
-//            System.out.println("Sequence length after traceback last part: " + seq.size());
-//            System.out.println("======================================================");
+            System.out.println("Current time step is null!");
+            // Add the last element from the local sequence.
+            currentSequence.add(new SequenceState(null, gpsPoint));
 
             // Record the start position for global sequence insertion.
-            viterbi = new OnlineViterbi(seq.size());
-            preTimeStep = null;
+            onlineViterbi = new OnlineViterbi(currentSequence.size());
+            previousTimeStep = null;
         } else {
-            if (preTimeStep != null) {
+            if (previousTimeStep != null) {
                 // Find the shortest path between candidate points of the previous and current time steps.
-                Set<CandidatePoint> startPoints = new HashSet<>(preTimeStep.getCandidates());
+                Set<CandidatePoint> startPoints = new HashSet<>(previousTimeStep.getCandidates());
                 Set<CandidatePoint> endPoints = new HashSet<>(currentTimeStep.getCandidates());
 
                 Map<RoadNode, Map<RoadNode, Path>> paths = (bidirectionalPathAlgorithm == null)
                         ? pathAlgorithm.findShortestPath(startPoints, endPoints)
                         : bidirectionalPathAlgorithm.findShortestPath(startPoints, endPoints);
 
-//                this.processBackward(preTimeStep, currentTimeStep, viterbi, paths);
+                // Calculate emission and transition probabilities
                 this.computeEmissionProbabilities(currentTimeStep, probabilities);
-                this.computeTransitionProbabilities(preTimeStep, currentTimeStep, probabilities, paths);
-//                this.adjustWithDirection(currentTimeStep, preTimeStep, paths, probabilities);
+                this.computeTransitionProbabilities(previousTimeStep, currentTimeStep, probabilities, paths);
 
-                viterbi.nextStep(
+                onlineViterbi.nextStep(
                         currentTimeStep.getObservation(),
                         currentTimeStep.getCandidates(),
                         currentTimeStep.getEmissionLogProbabilities(),
                         currentTimeStep.getTransitionLogProbabilities(),
-                        time
+                        currentTime
                 );
 
             } else {
-                // Initialize probabilities for the first point.
+                // Initialize probabilities for the first GPS point.
                 this.computeEmissionProbabilities(currentTimeStep, probabilities);
-                viterbi.startWithInitialObservation(
+                onlineViterbi.startWithInitialObservation(
                         currentTimeStep.getObservation(),
                         currentTimeStep.getCandidates(),
                         currentTimeStep.getEmissionLogProbabilities()
                 );
             }
 
-            if (viterbi.isBroken) {
+            if (onlineViterbi.isBroken) {
                 // Handle the case where the Viterbi algorithm encounters an issue.
-//                System.out.println("Viterbi is broken.");
-//                System.out.println("======================================================");
-//                System.out.println("Sequence length before traceback last part: " + seq.size());
-//
-//                updateSequenceAfterTraceback(viterbi, point, seq);
-//
-//                List<SequenceState> localSequenceStates = viterbi.getSequenceStates();
-//                System.out.println("Local sequence length: " + localSequenceStates.size());
-//
-//                // Add the second last element from the local sequence.
-//                seq.add(localSequenceStates.get(localSequenceStates.size() - 2));
-//                System.out.println("Sequence length after traceback last part: " + seq.size());
-//                System.out.println("======================================================");
+                System.out.println("Viterbi is broken.");
+                System.out.println("Broken sequence size: " + currentSequence.size());
 
-                seq.add(viterbi.computeMostLikelySequence().get(viterbi.computeMostLikelySequence().size() - 1));
+                List<SequenceState> mostLikelySequence = onlineViterbi.computeMostLikelySequence();
+                SequenceState lastState = mostLikelySequence.get(mostLikelySequence.size() - 1);
+                currentSequence.add(lastState);
+
                 // Record the start position for global sequence insertion.
-                viterbi = new OnlineViterbi(seq.size(), true);
-                viterbi.startWithInitialObservation(
+                onlineViterbi = new OnlineViterbi(currentSequence.size(), true);
+                onlineViterbi.startWithInitialObservation(
                         currentTimeStep.getObservation(),
                         currentTimeStep.getCandidates(),
                         currentTimeStep.getEmissionLogProbabilities()
                 );
             } else {
-                if (viterbi.isConverge) {
+                if (onlineViterbi.isConverge) {
                     // Handle convergence of the Viterbi algorithm.
                     System.out.println("Viterbi has converged.");
                     System.out.println("======================================================");
-                    System.out.println("Sequence length before merging converge part: " + seq.size());
 
-                    List<SequenceState> sequenceStates = viterbi.getSequenceStates();
-                    // Record converged sequence.
-                    convergedSequence.addAll(sequenceStates.subList(convergeStartIndex, sequenceStates.size()));
+                    List<SequenceState> localSequence = onlineViterbi.getSequenceStates();
 
-                    int size = sequenceStates.size();
-                    System.out.println("Local sequence length: " + size);
-                    System.out.println("Insert position: " + viterbi.insertPosition);
+                    int globalSeqInsertStartIndex = -1;
+                    int localSeqInsertStartIndex = -1;
+                    convergeStartIndex = onlineViterbi.isConvergedBefore() ? convergeStartIndex : 0;
+
+                    System.out.println("Local sequence size: " + localSequence.size());
+                    System.out.println("Global sequence size: " + currentSequence.size());
+
+                    // Determine insertion points for sequences
+                    for (int i = convergeStartIndex; i < localSequence.size(); i++) {
+                        GPSPoint localObservation = localSequence.get(i).getObservation();
+
+                        for (int j = i + onlineViterbi.validStartInsertIndex; j < currentSequence.size(); j++) {
+                            GPSPoint globalObservation = currentSequence.get(j).getObservation();
+
+                            if (isSamePosition(localObservation, globalObservation)) {
+                                localSeqInsertStartIndex = i;
+                                globalSeqInsertStartIndex = j;
+                                break;
+                            }
+                        }
+                        if (localSeqInsertStartIndex != -1) break;
+                    }
+
                     System.out.println("Converge start index: " + convergeStartIndex);
+                    System.out.println("Global valid start index: " + onlineViterbi.validStartInsertIndex);
+                    System.out.println("Global sequence insert start index: " + globalSeqInsertStartIndex);
+                    System.out.println("Local sequence insert start index: " + localSeqInsertStartIndex);
 
-                    // 之前算法没有发生过中断，第一次收敛的序列从[index==0]开始复制（初始化的元素需要添加）
-                    // 之前算法如果发生过中断，第一次收敛的序列从[index==1]开始复制（初始化的元素不需要添加）
-                    // 非第一次收敛，从上一个时间的[preSeq.size()]开始复制，直到[currSeq.size()]
-                    int isBrokenBefore = viterbi.isBrokenBefore ? 1 : 0;
-                    convergeStartIndex = viterbi.isConvergedBefore() ? convergeStartIndex : isBrokenBefore;
+                    if (localSeqInsertStartIndex != -1) {
+                        int globalSeqInsertIndex = globalSeqInsertStartIndex;
+                        int i = localSeqInsertStartIndex;
+                        System.out.println("Expected Update size: " + (localSequence.size() - localSeqInsertStartIndex));
 
-                    for (int i = convergeStartIndex; i < size; i++) {
-                        // 算法中断前，从索引0开始复制，无需减1
-                        // 算法中断后，从索引1开始复制，需要减1
-                        int insertPosition = viterbi.isBrokenBefore ? i + viterbi.insertPosition - 1 : i + viterbi.insertPosition;
-                        if (i == convergeStartIndex) System.out.println("insert position: " + insertPosition);
-                        seq.set(insertPosition, sequenceStates.get(i));
+                        for (; i < localSequence.size(); i++) {
+                            if (globalSeqInsertIndex == currentSequence.size()) break;
+
+                            GPSPoint localObservation = localSequence.get(i).getObservation();
+                            GPSPoint globalObservation = currentSequence.get(globalSeqInsertIndex).getObservation();
+
+                            if (!isSamePosition(localObservation, globalObservation)) break;
+
+                            currentSequence.set(globalSeqInsertIndex++, localSequence.get(i));
+                        }
+
+                        System.out.println("Actual update size: " + (globalSeqInsertIndex - globalSeqInsertStartIndex));
+
+                        // Record converged sequence.
+                        convergedSequence.addAll(localSequence.subList(localSeqInsertStartIndex, i));
+
+                    } else {
+                        System.out.println("No corresponding sequence found.");
                     }
 
                     // Reset convergence state until the next convergence occurs.
-                    viterbi.isConverge = false;
-                    System.out.println("Sequence length after merging converge part: " + seq.size());
+                    onlineViterbi.isConverge = false;
                 }
 
                 // Find the candidate point with the maximum probability and add to the sequence.
-                CandidatePoint maxPoint = StreamMapMatcher.findMaxValuePoint(viterbi.message);
-                seq.add(new SequenceState(maxPoint, point));
+                CandidatePoint maxPoint = StreamMapMatcher.findMaxValuePoint(onlineViterbi.message);
+                currentSequence.add(new SequenceState(maxPoint, gpsPoint));
             }
 
-            System.out.println("After add current time point, sequence length: " + seq.size());
-            System.out.println("################################");
+            System.out.println("======================================================");
 
-            preTimeStep = currentTimeStep;
+            previousTimeStep = currentTimeStep;
         }
-        return Tuple3.apply(seq, preTimeStep, viterbi);
+        return Tuple3.apply(currentSequence, previousTimeStep, onlineViterbi);
     }
+
 
     /**
      * Handles the case where observation points may have shifted backward.
@@ -419,6 +482,7 @@ public class StreamMapMatcher {
         }
 
         if (isMatch) {
+            // Add previous candidate to current time step
             curTimeStep.addCandidate(preCandidatePoint);
         }
     }
@@ -433,22 +497,27 @@ public class StreamMapMatcher {
      */
     public void adjustWithDirection(TimeStep currTimeStep, TimeStep preTimeStep,
                                     Map<RoadNode, Map<RoadNode, Path>> paths, HmmProbabilities probabilities) {
+        // Check if there is a directional change detected
         if (!windowBearing.getChange()) {
-            // Directional change is not detected; no adjustment needed.
+            // No adjustment needed if there's no directional change
             System.out.println(windowBearing.getChange() + " " + windowBearing.getChangeScore() + " " + currTimeStep.getObservation());
         } else {
-            GPSPoint currObservationPoint = currTimeStep.getObservation();
-            GPSPoint preObservationPoint = preTimeStep.getObservation();
+            GPSPoint currObservationPoint = currTimeStep.getObservation(); // Get current observation
+            GPSPoint preObservationPoint = preTimeStep.getObservation(); // Get previous observation
 
+            // Calculate bearing based on the current and previous points
             double observationBearing = GeoFunctions.getBearing(
                     preObservationPoint.getLng(), preObservationPoint.getLat(),
                     currObservationPoint.getLng(), currObservationPoint.getLat()
             );
+
+            // Calculate speed between the two observations
             double speed = GeoFunctions.getDistanceInM(
                     preObservationPoint.getLng(), preObservationPoint.getLat(),
                     currObservationPoint.getLng(), currObservationPoint.getLat()) * 1000 /
                     (currObservationPoint.getTime().getTime() - preObservationPoint.getTime().getTime());
 
+            // If speed is below a threshold, log the information
             if (speed < 2.0) {
                 System.out.println(
                         windowBearing.getChange() + " "
@@ -456,33 +525,42 @@ public class StreamMapMatcher {
                                 + "speed: " + speed + " "
                                 + currTimeStep.getObservation());
             } else {
+                // Iterate through the transition probabilities
                 for (Map.Entry<Tuple2<CandidatePoint, CandidatePoint>, Double> entry :
                         currTimeStep.getTransitionLogProbabilities().entrySet()) {
 
-                    Tuple2<CandidatePoint, CandidatePoint> key = entry.getKey();
+                    Tuple2<CandidatePoint, CandidatePoint> key = entry.getKey(); // Get candidate points
 
+                    // Retrieve road segments for the candidate points
                     RoadSegment startRoadSegment = roadNetwork.getRoadSegmentById(key._1.getRoadSegmentId());
                     RoadSegment endRoadSegment = roadNetwork.getRoadSegmentById(key._2.getRoadSegmentId());
 
+                    // Get the subpath between the end of the start segment and the start of the end segment
                     Path subPath = paths.get(startRoadSegment.getEndNode()).get(endRoadSegment.getStartNode());
+                    // Complete the path using the algorithm
                     Path path = pathAlgorithm.getCompletePath(key._1, key._2, subPath);
 
+                    // Calculate the candidate's bearing
                     double candidateBearing = path.calDisWeightDirection(roadNetwork);
+                    // Calculate the angle difference between the observation bearing and candidate bearing
                     double angleDifference = Math.abs(observationBearing - candidateBearing);
 
+                    // Adjust the angle difference if it's greater than 180 degrees
                     if (angleDifference > 180) {
                         angleDifference = 360 - angleDifference;
                     }
 
+                    // Update transition probabilities based on the direction
                     currTimeStep.getTransitionLogProbabilities().put(
                             key, currTimeStep.getTransitionLogProbabilities().get(key) +
                                     probabilities.directionLogProbability(angleDifference));
                 }
 
-//                System.out.println("true direction: " + windowBearing.getChangeScore() + " " + currTimeStep.getObservation());
+//            System.out.println("true direction: " + windowBearing.getChangeScore() + " " + currTimeStep.getObservation());
             }
         }
     }
+
 
     /**
      * Calculates the emission probabilities based on the given time step and probability distribution.
@@ -552,21 +630,13 @@ public class StreamMapMatcher {
     }
 
     /**
-     * Updates the given sequence with the local sequence states after performing a traceback.
+     * Checks if two GPS points are at the same position based on their longitude and latitude.
      *
-     * @param viterbi The Viterbi instance used for traceback.
-     * @param point   The point to be traced back.
-     * @param seq     The sequence to be updated.
+     * @param p1 The first GPS point to compare.
+     * @param p2 The second GPS point to compare.
+     * @return True if both points are considered the same position, false otherwise.
      */
-    private void updateSequenceAfterTraceback(OnlineViterbi viterbi, GPSPoint point, List<SequenceState> seq) {
-        viterbi.tracebackLastPart(point);
-        List<SequenceState> localSequenceStates = viterbi.getSequenceStates();
-        System.out.println("Local sequence length: " + localSequenceStates.size());
-        int startIndex = seq.size() - localSequenceStates.size() + 1;
-
-        // Update elements in the sequence.
-        for (int i = startIndex; i < seq.size(); i++) {
-            seq.set(i, localSequenceStates.get(i - startIndex));
-        }
+    private boolean isSamePosition(GPSPoint p1, GPSPoint p2) {
+        return Math.abs(p1.getLng() - p2.getLng()) < 1e-6 && Math.abs(p1.getLat() - p2.getLat()) < 1e-6;
     }
 }

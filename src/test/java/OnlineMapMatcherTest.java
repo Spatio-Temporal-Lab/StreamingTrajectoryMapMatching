@@ -20,7 +20,6 @@ import org.urbcomp.cupid.db.util.EvaluateUtils;
 import org.urbcomp.cupid.db.util.GeoJSONParser;
 
 import java.io.*;
-import java.text.ParseException;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
@@ -108,10 +107,11 @@ public class OnlineMapMatcherTest {
     public void onlineMatchAccuracy() throws AlgorithmExecuteException, IOException {
         int testNum = 6;
         int sampleRate = 0;
-        for (int i = 6; i <= testNum; i++) {
-            System.out.println("===========================");
+        for (int i = 1; i <= testNum; i++) {
+            System.out.println("======================================================");
             System.out.println("index: " + i);
-            System.out.println("===========================");
+            System.out.println("======================================================");
+
             trajectory = ModelGenerator.generateTrajectory(i);
             Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(i, sampleRate);
 
@@ -124,20 +124,20 @@ public class OnlineMapMatcherTest {
 
             EvaluateUtils.getAccuracy(baseMapMatchedTrajectory, streamOnlineMapMatchedTrajectory, sampleRate);
 
-            System.out.println("===========================");
+            System.out.println("======================================================");
             System.out.println("results: ");
             System.out.println("currAcc: " + EvaluateUtils.getCurrAcc());
             System.out.println("totalAcc: " + EvaluateUtils.getTotalAcc());
             System.out.println("pointNum: " + EvaluateUtils.getTotalNum());
-            System.out.println("===========================");
+            System.out.println("======================================================");
 
             System.out.println();
 
-            String outputFile = "trajectory_" + i + ".geojson";
-            BufferedWriter writer = new BufferedWriter(new FileWriter(outputFile));
-            writer.write(baseMapMatchedTrajectory.toGeoJSON(true));
-            writer.flush();
-            writer.close();
+//            String outputFile = "trajectory_" + i + ".geojson";
+//            BufferedWriter writer = new BufferedWriter(new FileWriter(outputFile));
+//            writer.write(baseMapMatchedTrajectory.toGeoJSON(true));
+//            writer.flush();
+//            writer.close();
         }
     }
 
@@ -146,7 +146,7 @@ public class OnlineMapMatcherTest {
      * Records matching results for each trajectory and generates two CSV files.
      */
     @Test
-    public void testNoOnlineStreamMatch() throws AlgorithmExecuteException {
+    public void testStreamMatchAccuracy() throws AlgorithmExecuteException {
         int testNum = 100;
         int sampleRate = 0;
 
@@ -201,12 +201,12 @@ public class OnlineMapMatcherTest {
      * Records matching results for each trajectory and generates a CSV file.
      */
     @Test
-    public void testOnlineStreamMatch() throws AlgorithmExecuteException {
+    public void testOnlineStreamMatchAccuracy() throws AlgorithmExecuteException {
         int testNum = 100;
         int sampleRate = 0;
 
         // Create CSV file for online results
-        try (PrintWriter onlineWriter = new PrintWriter(new FileWriter("onlineStreamResult.csv"))) {
+        try (PrintWriter onlineWriter = new PrintWriter(new FileWriter("onlineStreamResult_1.csv"))) {
 
             // Write headers for the CSV file
             onlineWriter.println("TrajectoryIndex,currPointNum,totalPointNum,currAcc,totalAcc");

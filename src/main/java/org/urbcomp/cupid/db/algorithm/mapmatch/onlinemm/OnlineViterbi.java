@@ -36,7 +36,7 @@ public class OnlineViterbi extends TiViterbi {
     // Time diff between root and previous root
     public int timeDelta;
     // Starting insert position for global sequence after algorithm interruption
-    public int insertPosition;
+    public int validStartInsertIndex;
 
     /**
      * Constructs an OnlineViterbi instance with an initial insert position of zero.
@@ -49,16 +49,16 @@ public class OnlineViterbi extends TiViterbi {
         currentRoot = null;
         previousRoot = null;
         timeDelta = 0;
-        insertPosition = 0;
+        validStartInsertIndex = 0;
     }
 
     /**
      * Constructs an OnlineViterbi instance with a specified insert position.
      * For recording insert position of global sequence when algorithm breaks.
      *
-     * @param insertPosition The starting insert position for the global sequence.
+     * @param validStartInsertIndex The starting insert position for the global sequence.
      */
-    public OnlineViterbi(int insertPosition) {
+    public OnlineViterbi(int validStartInsertIndex) {
         stateList = new LinkedList<>();
         sequenceStates = new ArrayList<>();
         isConverge = false;
@@ -66,17 +66,17 @@ public class OnlineViterbi extends TiViterbi {
         currentRoot = null;
         previousRoot = null;
         timeDelta = 0;
-        this.insertPosition = insertPosition;
+        this.validStartInsertIndex = validStartInsertIndex;
     }
 
     /**
      * Constructs an OnlineViterbi instance with a specified insert position and broken state indicator.
      * This constructor is used for recording the insert position of the global sequence when the algorithm breaks.
      *
-     * @param insertPosition The starting insert position for the global sequence.
-     * @param isBrokenBefore A boolean indicating whether the algorithm was broken before this instance was created.
+     * @param validStartInsertIndex The starting insert position for the global sequence.
+     * @param isBrokenBefore        A boolean indicating whether the algorithm was broken before this instance was created.
      */
-    public OnlineViterbi(int insertPosition, boolean isBrokenBefore) {
+    public OnlineViterbi(int validStartInsertIndex, boolean isBrokenBefore) {
         stateList = new LinkedList<>();
         sequenceStates = new ArrayList<>();
         isConverge = false;
@@ -84,7 +84,7 @@ public class OnlineViterbi extends TiViterbi {
         currentRoot = null;
         previousRoot = null;
         timeDelta = 0;
-        this.insertPosition = insertPosition;
+        this.validStartInsertIndex = validStartInsertIndex;
     }
 
 
@@ -95,10 +95,10 @@ public class OnlineViterbi extends TiViterbi {
      * @param observation                The current GPS observation.
      * @param candidates                 List of candidate points for the current step.
      * @param emissionLogProbabilities   Map of emission log probabilities for candidate points.
-     * @param transitionLogProbabilities  Map of transition log probabilities between candidate points.
+     * @param transitionLogProbabilities Map of transition log probabilities between candidate points.
      * @param time                       The current time step.
      * @throws IllegalStateException if the method is called without initializing
-     *                                with an observation or after an HMM break.
+     *                               with an observation or after an HMM break.
      */
     public void nextStep(
             GPSPoint observation,
@@ -123,7 +123,6 @@ public class OnlineViterbi extends TiViterbi {
 
         isBroken = hmmBreak(forwardStepResult.getNewMessage());
         if (isBroken) {
-            System.out.println("viterbi stops when executing [FORWARD STEP]");
             return;
         }
 
@@ -141,7 +140,7 @@ public class OnlineViterbi extends TiViterbi {
      * @param curCandidates              List of current candidate points.
      * @param message                    Map of state probabilities.
      * @param emissionLogProbabilities   Map of emission probabilities for each candidate.
-     * @param transitionLogProbabilities  Map of transition probabilities between candidates.
+     * @param transitionLogProbabilities Map of transition probabilities between candidates.
      * @param time                       The current time step.
      * @return Results after forward extension, including updated state probabilities and states.
      */
@@ -393,11 +392,12 @@ public class OnlineViterbi extends TiViterbi {
      */
     private void traceback() {
         System.out.println("Local path found!");
+        System.out.println("Current root time: " + currentRoot.getTime());
+
         List<SequenceState> interLocalPath = new ArrayList<>();
         interLocalPath.add(new SequenceState(currentRoot.getState(), currentRoot.getObservation()));
 
         int depth = isConvergedBefore() ? currentRoot.getTime() - previousRoot.getTime() - 1 : currentRoot.getTime();
-        System.out.println("current root time: " + currentRoot.getTime());
         ExtendedState current = currentRoot.getBackPointer();
 
         for (int i = 0; i < depth; i++) {
@@ -406,9 +406,11 @@ public class OnlineViterbi extends TiViterbi {
         }
 
         assert current == null || current.getState() == previousRoot.getState();
-        System.out.println("local added sequence length: " + interLocalPath.size());
+
         Collections.reverse(interLocalPath);
         sequenceStates.addAll(interLocalPath);
+
+        System.out.println("Local added sequence length: " + interLocalPath.size());
     }
 
     /**
@@ -420,15 +422,13 @@ public class OnlineViterbi extends TiViterbi {
      */
     public void tracebackLastPart(GPSPoint observation) {
         System.out.println("traceback last part");
+
         List<SequenceState> interLocalPath = new ArrayList<>();
-
         CandidatePoint maxValuePoint = findMaxValuePoint(message);
-
         interLocalPath.add(new SequenceState(maxValuePoint, observation));
 
         if (lastExtendedStates == null) return;
         ExtendedState current = lastExtendedStates.get(maxValuePoint);
-
 
         while (current != currentRoot) {
             interLocalPath.add(new SequenceState(current.getState(), current.getObservation()));
