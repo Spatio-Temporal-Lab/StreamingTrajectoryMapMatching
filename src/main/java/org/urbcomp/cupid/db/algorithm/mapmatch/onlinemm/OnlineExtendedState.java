@@ -124,5 +124,6 @@ public class OnlineExtendedState extends ExtendedState {
     public void setParent(OnlineExtendedState parent) {
         this.parent = parent;
     }
+
 }
 

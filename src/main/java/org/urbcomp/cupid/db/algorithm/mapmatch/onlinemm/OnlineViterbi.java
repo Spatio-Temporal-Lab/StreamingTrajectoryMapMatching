@@ -2,7 +2,6 @@ package org.urbcomp.cupid.db.algorithm.mapmatch.onlinemm;
 
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.ExtendedState;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.ForwardStepResult;
-import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.SequenceState;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.TiViterbi;
 import org.urbcomp.cupid.db.model.point.CandidatePoint;
 import org.urbcomp.cupid.db.model.point.GPSPoint;
@@ -21,7 +20,7 @@ public class OnlineViterbi extends TiViterbi {
     // Collection of Viterbi states
     private final LinkedList<OnlineExtendedState> stateList;
     // Local solutions for the current sequence
-    private final List<SequenceState> sequenceStates;
+    private final List<OnlineSequenceState> sequenceStates;
 
     // Convergence status
     public boolean isConverge;
@@ -37,6 +36,8 @@ public class OnlineViterbi extends TiViterbi {
     public int timeDelta;
     // Starting insert position for global sequence after algorithm interruption
     public int validStartInsertIndex;
+    // Boundary size of convergence from the current time step
+    public int windowSize;
 
     /**
      * Constructs an OnlineViterbi instance with an initial insert position of zero.
@@ -50,6 +51,7 @@ public class OnlineViterbi extends TiViterbi {
         previousRoot = null;
         timeDelta = 0;
         validStartInsertIndex = 0;
+        windowSize = 0;
     }
 
     /**
@@ -67,6 +69,7 @@ public class OnlineViterbi extends TiViterbi {
         previousRoot = null;
         timeDelta = 0;
         this.validStartInsertIndex = validStartInsertIndex;
+        windowSize = 0;
     }
 
     /**
@@ -85,8 +88,32 @@ public class OnlineViterbi extends TiViterbi {
         previousRoot = null;
         timeDelta = 0;
         this.validStartInsertIndex = validStartInsertIndex;
+        windowSize = 0;
     }
 
+    public OnlineViterbi(int validStartInsertIndex, int windowSize) {
+        stateList = new LinkedList<>();
+        sequenceStates = new ArrayList<>();
+        isConverge = false;
+        this.isBrokenBefore = false;
+        currentRoot = null;
+        previousRoot = null;
+        timeDelta = 0;
+        this.validStartInsertIndex = validStartInsertIndex;
+        this.windowSize = windowSize;
+    }
+
+    public OnlineViterbi(int validStartInsertIndex, int windowSize, boolean isBrokenBefore) {
+        stateList = new LinkedList<>();
+        sequenceStates = new ArrayList<>();
+        isConverge = false;
+        this.isBrokenBefore = isBrokenBefore;
+        currentRoot = null;
+        previousRoot = null;
+        timeDelta = 0;
+        this.validStartInsertIndex = validStartInsertIndex;
+        this.windowSize = windowSize;
+    }
 
     /**
      * Processes the next step in the Viterbi algorithm using the given observation
@@ -391,17 +418,19 @@ public class OnlineViterbi extends TiViterbi {
      * current root state to the previous root state.
      */
     private void traceback() {
-        System.out.println("Local path found!");
-        System.out.println("Current root time: " + currentRoot.getTime());
+        int currentTime = currentRoot.getTime();
 
-        List<SequenceState> interLocalPath = new ArrayList<>();
-        interLocalPath.add(new SequenceState(currentRoot.getState(), currentRoot.getObservation()));
+        System.out.println("Local path found!");
+        System.out.println("Current root time: " + currentTime);
+
+        List<OnlineSequenceState> interLocalPath = new ArrayList<>();
+        interLocalPath.add(new org.urbcomp.cupid.db.algorithm.mapmatch.onlinemm.OnlineSequenceState(currentRoot.getState(), currentRoot.getObservation(), currentTime--));
 
         int depth = isConvergedBefore() ? currentRoot.getTime() - previousRoot.getTime() - 1 : currentRoot.getTime();
         ExtendedState current = currentRoot.getBackPointer();
 
         for (int i = 0; i < depth; i++) {
-            interLocalPath.add(new SequenceState(current.getState(), current.getObservation()));
+            interLocalPath.add(new OnlineSequenceState(current.getState(), current.getObservation(), currentTime--));
             current = current.getBackPointer();
         }
 
@@ -423,15 +452,15 @@ public class OnlineViterbi extends TiViterbi {
     public void tracebackLastPart(GPSPoint observation) {
         System.out.println("traceback last part");
 
-        List<SequenceState> interLocalPath = new ArrayList<>();
+        List<OnlineSequenceState> interLocalPath = new ArrayList<>();
         CandidatePoint maxValuePoint = findMaxValuePoint(message);
-        interLocalPath.add(new SequenceState(maxValuePoint, observation));
+        interLocalPath.add(new OnlineSequenceState(maxValuePoint, observation));
 
         if (lastExtendedStates == null) return;
         ExtendedState current = lastExtendedStates.get(maxValuePoint);
 
         while (current != currentRoot) {
-            interLocalPath.add(new SequenceState(current.getState(), current.getObservation()));
+            interLocalPath.add(new OnlineSequenceState(current.getState(), current.getObservation()));
             current = current.getBackPointer();
         }
 
@@ -453,7 +482,7 @@ public class OnlineViterbi extends TiViterbi {
      *
      * @return A List of SequenceState objects.
      */
-    public List<SequenceState> getSequenceStates() {
+    public List<OnlineSequenceState> getSequenceStates() {
         return sequenceStates;
     }
 

@@ -1,6 +1,7 @@
 package org.urbcomp.cupid.db.algorithm.mapmatch.stream;
 
 import org.urbcomp.cupid.db.algorithm.bearing.WindowBearing;
+import org.urbcomp.cupid.db.algorithm.mapmatch.onlinemm.OnlineSequenceState;
 import org.urbcomp.cupid.db.algorithm.mapmatch.onlinemm.OnlineViterbi;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.HmmProbabilities;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.SequenceState;
@@ -12,6 +13,7 @@ import org.urbcomp.cupid.db.exception.AlgorithmExecuteException;
 import org.urbcomp.cupid.db.model.point.CandidatePoint;
 import org.urbcomp.cupid.db.model.point.GPSPoint;
 import org.urbcomp.cupid.db.model.point.MapMatchedPoint;
+import org.urbcomp.cupid.db.model.point.SpatialPoint;
 import org.urbcomp.cupid.db.model.roadnetwork.Path;
 import org.urbcomp.cupid.db.model.roadnetwork.RoadNetwork;
 import org.urbcomp.cupid.db.model.roadnetwork.RoadNode;
@@ -75,6 +77,8 @@ public class StreamMapMatcher {
      * A list to store converged sequence states during processing.
      */
     public List<SequenceState> convergedSequence = new ArrayList<>();
+
+    public List<Double> traceDelayRateList = new ArrayList<>();
 
     /**
      * Constructs a StreamMapMatcher with the specified road network and path algorithm.
@@ -174,11 +178,11 @@ public class StreamMapMatcher {
      * @return MapMatchedTrajectory after online matching
      * @throws AlgorithmExecuteException In case of algorithm errors
      */
-    public MapMatchedTrajectory onlineStreamMapMatch(Trajectory trajectory) throws AlgorithmExecuteException {
+    public MapMatchedTrajectory onlineStreamMapMatch(Trajectory trajectory, int windowSize) throws AlgorithmExecuteException {
 
         TimeStep previousTimeStep = null;
         List<SequenceState> sequence = new ArrayList<>();
-        OnlineViterbi viterbi = new OnlineViterbi();
+        OnlineViterbi viterbi = new OnlineViterbi(0, windowSize);
 
         int currentTime = 0;
         int trajectorySize = trajectory.getGPSPointList().size();
@@ -222,11 +226,9 @@ public class StreamMapMatcher {
      * @param prevTimeStep Previous time step
      * @param viterbi      Viterbi object for sequence calculation
      * @return A tuple containing the updated sequence, time step, and Viterbi object
-     * @throws AlgorithmExecuteException In case of errors
      */
     private Tuple3<List<SequenceState>, TimeStep, TiViterbi> computeViterbiSequence(
-            GPSPoint point, List<SequenceState> sequence, TimeStep prevTimeStep, TiViterbi viterbi)
-            throws AlgorithmExecuteException {
+            GPSPoint point, List<SequenceState> sequence, TimeStep prevTimeStep, TiViterbi viterbi) {
         windowBearing.addPoint(point);
         TimeStep timeStep = this.createTimeStep(point);
 
@@ -314,7 +316,7 @@ public class StreamMapMatcher {
             currentSequence.add(new SequenceState(null, gpsPoint));
 
             // Record the start position for global sequence insertion.
-            onlineViterbi = new OnlineViterbi(currentSequence.size());
+            onlineViterbi = new OnlineViterbi(currentSequence.size(), onlineViterbi.windowSize);
             previousTimeStep = null;
         } else {
             if (previousTimeStep != null) {
@@ -358,7 +360,7 @@ public class StreamMapMatcher {
                 currentSequence.add(lastState);
 
                 // Record the start position for global sequence insertion.
-                onlineViterbi = new OnlineViterbi(currentSequence.size(), true);
+                onlineViterbi = new OnlineViterbi(currentSequence.size(), onlineViterbi.windowSize, true);
                 onlineViterbi.startWithInitialObservation(
                         currentTimeStep.getObservation(),
                         currentTimeStep.getCandidates(),
@@ -370,10 +372,14 @@ public class StreamMapMatcher {
                     System.out.println("Viterbi has converged.");
                     System.out.println("======================================================");
 
-                    List<SequenceState> localSequence = onlineViterbi.getSequenceStates();
+                    List<OnlineSequenceState> localSequence = onlineViterbi.getSequenceStates();
 
                     int globalSeqInsertStartIndex = -1;
                     int localSeqInsertStartIndex = -1;
+                    int earliestTime = currentTime - onlineViterbi.windowSize;
+                    int correctedPoints = 0;
+                    double traceDelayRate = 0;
+
                     convergeStartIndex = onlineViterbi.isConvergedBefore() ? convergeStartIndex : 0;
 
                     System.out.println("Local sequence size: " + localSequence.size());
@@ -406,17 +412,37 @@ public class StreamMapMatcher {
                         System.out.println("Expected Update size: " + (localSequence.size() - localSeqInsertStartIndex));
 
                         for (; i < localSequence.size(); i++) {
+                            // 超过了当前序列的长度
                             if (globalSeqInsertIndex == currentSequence.size()) break;
 
-                            GPSPoint localObservation = localSequence.get(i).getObservation();
-                            GPSPoint globalObservation = currentSequence.get(globalSeqInsertIndex).getObservation();
+                            OnlineSequenceState localState = localSequence.get(i);
+                            SequenceState globalState = currentSequence.get(globalSeqInsertIndex);
 
-                            if (!isSamePosition(localObservation, globalObservation)) break;
+                            GPSPoint localObservation = localState.getObservation();
+                            GPSPoint globalObservation = globalState.getObservation();
 
-                            currentSequence.set(globalSeqInsertIndex++, localSequence.get(i));
+                            CandidatePoint localCandidate = localState.getState();
+                            CandidatePoint globalCandidate = globalState.getState();
+
+                            // 回溯的候选点时间在窗口外
+                            if (localState.time < earliestTime - onlineViterbi.windowSize) continue;
+                            // 观测点的位置不同
+                            if (!isSamePosition(localObservation, globalObservation)) continue;
+                            // 经过回溯得到了正确匹配点
+                            if (!isSamePosition(localCandidate, globalCandidate)) {
+                                int delayTime = localState.time - earliestTime;
+                                traceDelayRate += delayTime;
+                                correctedPoints++;
+                            }
+                            currentSequence.set(globalSeqInsertIndex++, localState);
                         }
 
+                        traceDelayRate = correctedPoints != 0 ? traceDelayRate / correctedPoints : 0;
+                        traceDelayRateList.add(traceDelayRate);
+
                         System.out.println("Actual update size: " + (globalSeqInsertIndex - globalSeqInsertStartIndex));
+                        System.out.println("The number of points that were correctly updated: " + correctedPoints);
+                        System.out.println("Delay rate for correct backtracking: " + traceDelayRate);
 
                         // Record converged sequence.
                         convergedSequence.addAll(localSequence.subList(localSeqInsertStartIndex, i));
@@ -636,7 +662,7 @@ public class StreamMapMatcher {
      * @param p2 The second GPS point to compare.
      * @return True if both points are considered the same position, false otherwise.
      */
-    private boolean isSamePosition(GPSPoint p1, GPSPoint p2) {
+    private boolean isSamePosition(SpatialPoint p1, SpatialPoint p2) {
         return Math.abs(p1.getLng() - p2.getLng()) < 1e-6 && Math.abs(p1.getLat() - p2.getLat()) < 1e-6;
     }
 }
