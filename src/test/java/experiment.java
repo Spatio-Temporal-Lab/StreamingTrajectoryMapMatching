@@ -53,6 +53,7 @@ public class experiment {
         long totalDelay = 0; // 总延迟，单位为纳秒
         double averageDelay;
         int startIndex = 1;
+        int windowSize = 10;
         int testNum = 2000;
         boolean OURS = true;
         boolean BASE = true;
@@ -74,7 +75,7 @@ public class experiment {
 
                 // 计算准确率和延迟
                 long startTime = System.nanoTime();
-                MapMatchedTrajectory result = ourMapMatcher.onlineStreamMapMatch(sampledTrajectory, dynamicWeightAdjuster);
+                MapMatchedTrajectory result = ourMapMatcher.onlineStreamMapMatch(sampledTrajectory, dynamicWeightAdjuster, windowSize);
                 long endTime = System.nanoTime();
                 long delay = endTime - startTime;
                 totalDelay += delay;

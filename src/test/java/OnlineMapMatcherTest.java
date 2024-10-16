@@ -20,10 +20,14 @@ import org.urbcomp.cupid.db.model.trajectory.Trajectory;
 import org.urbcomp.cupid.db.util.EvaluateUtils;
 import org.urbcomp.cupid.db.util.GeoJSONParser;
 
-import java.io.*;
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 /**
  * Test class for the OnlineMapMatcher functionality, including tests for
@@ -35,7 +39,6 @@ public class OnlineMapMatcherTest {
     private StreamMapMatcher streamMapMatcher;
     private TiHmmMapMatcher baseMapMatcher;
     private ShortestPathPathRecover recover;
-    private RoadNetwork roadNetwork;
 
     /**
      * Sets up the test environment by generating a sample trajectory and road network.
@@ -44,7 +47,7 @@ public class OnlineMapMatcherTest {
     @Before
     public void setUp() {
         trajectory = ModelGenerator.generateTrajectory();
-        roadNetwork = ModelGenerator.generateRoadNetwork();
+        RoadNetwork roadNetwork = ModelGenerator.generateRoadNetwork();
         baseMapMatcher = new TiHmmMapMatcher(roadNetwork, new SimpleManyToManyShortestPath(roadNetwork));
         streamMapMatcher = new StreamMapMatcher(roadNetwork, new SimpleManyToManyShortestPath(roadNetwork), new BidirectionalManyToManyShortestPath(roadNetwork));
         recover = new ShortestPathPathRecover(roadNetwork, new BiDijkstraShortestPath(roadNetwork));
@@ -59,8 +62,9 @@ public class OnlineMapMatcherTest {
      */
     @Test
     public void matchSingleTrajectory() throws AlgorithmExecuteException, IOException {
+        int windowSize = 10;
         trajectory = ModelGenerator.generateTrajectory(6);
-        MapMatchedTrajectory mmTrajectory = streamMapMatcher.onlineStreamMapMatch(trajectory, new DynamicWeightAdjuster());
+        MapMatchedTrajectory mmTrajectory = streamMapMatcher.onlineStreamMapMatch(trajectory, new DynamicWeightAdjuster(), windowSize);
 
         System.out.println(trajectory.toGeoJSON());
         System.out.println(mmTrajectory.toGeoJSON());
@@ -81,6 +85,7 @@ public class OnlineMapMatcherTest {
      */
     @Test
     public void matchMultiTrajectory() throws AlgorithmExecuteException {
+        int windowSize = 10;
         for (int i = 1; i <= 10; i++) {
             System.out.println("------------------------------");
             System.out.println("index: " + i);
@@ -88,7 +93,7 @@ public class OnlineMapMatcherTest {
             trajectory = ModelGenerator.generateTrajectory(i);
 
             MapMatchedTrajectory mmTrajectory = streamMapMatcher.streamMapMatch(trajectory, new DynamicWeightAdjuster());
-            MapMatchedTrajectory onlineMMTrajectory = streamMapMatcher.onlineStreamMapMatch(trajectory, new DynamicWeightAdjuster());
+            MapMatchedTrajectory onlineMMTrajectory = streamMapMatcher.onlineStreamMapMatch(trajectory, new DynamicWeightAdjuster(), windowSize);
 
             List<MapMatchedPoint> mmPtList = mmTrajectory.getMmPtList();
             List<MapMatchedPoint> onlineMMPtList = onlineMMTrajectory.getMmPtList();
@@ -106,6 +111,8 @@ public class OnlineMapMatcherTest {
     @Test
     public void onlineMatchAccuracy() throws AlgorithmExecuteException, IOException {
         int testNum = 100;
+        int windowSize = 10;
+
         for (int i = 1; i <= testNum; i++) {
             System.out.println("===========================");
             System.out.println("index: " + i);
@@ -113,21 +120,19 @@ public class OnlineMapMatcherTest {
             trajectory = ModelGenerator.generateTrajectory(i);
             Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(i);
 
-            assert sampledTrajectory != null;
-
             MapMatchedTrajectory baseMapMatchedTrajectory = baseMapMatcher.mapMatch(trajectory);
-            MapMatchedTrajectory streamOnlineMapMatchedTrajectory = streamMapMatcher.onlineStreamMapMatch(sampledTrajectory, new DynamicWeightAdjuster());
+            MapMatchedTrajectory streamOnlineMapMatchedTrajectory = streamMapMatcher.onlineStreamMapMatch(sampledTrajectory, new DynamicWeightAdjuster(), windowSize);
 
             assert baseMapMatchedTrajectory.getMmPtList().size() == streamOnlineMapMatchedTrajectory.getMmPtList().size();
 
             EvaluateUtils.getAccuracy(baseMapMatchedTrajectory, streamOnlineMapMatchedTrajectory);
 
-            System.out.println("===========================");
+            System.out.println("======================================================");
             System.out.println("results: ");
             System.out.println("currAcc: " + EvaluateUtils.getCurrAcc());
             System.out.println("totalAcc: " + EvaluateUtils.getTotalAcc());
             System.out.println("pointNum: " + EvaluateUtils.getTotalNum());
-            System.out.println("===========================");
+            System.out.println("======================================================");
 
             System.out.println();
 
@@ -160,8 +165,6 @@ public class OnlineMapMatcherTest {
 
                 trajectory = ModelGenerator.generateTrajectory(i);
                 Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(i);
-
-                assert sampledTrajectory != null;
 
                 // Match using baseMatch
                 MapMatchedTrajectory baseMapMatchedTrajectory = baseMapMatcher.mapMatch(trajectory);
@@ -200,6 +203,7 @@ public class OnlineMapMatcherTest {
     @Test
     public void testOnlineStreamMatch() throws AlgorithmExecuteException {
         int testNum = 100;
+        int windowSize = 10;
 
         // Create CSV file for online results
         try (PrintWriter onlineWriter = new PrintWriter(new FileWriter("onlineStreamResult.csv"))) {
@@ -215,12 +219,10 @@ public class OnlineMapMatcherTest {
                 trajectory = ModelGenerator.generateTrajectory(i);
                 Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(i);
 
-                assert sampledTrajectory != null;
-
                 // Match using baseMatch
                 MapMatchedTrajectory baseMapMatchedTrajectory = baseMapMatcher.mapMatch(trajectory);
                 // Match using onlineStreamMatch
-                MapMatchedTrajectory onlineMapMatchedTrajectory = streamMapMatcher.onlineStreamMapMatch(sampledTrajectory, new DynamicWeightAdjuster());
+                MapMatchedTrajectory onlineMapMatchedTrajectory = streamMapMatcher.onlineStreamMapMatch(sampledTrajectory, new DynamicWeightAdjuster(), windowSize);
 
                 // Record number of matched points
                 int onlineCurrPointNum = onlineMapMatchedTrajectory.getMmPtList().size();
@@ -251,6 +253,7 @@ public class OnlineMapMatcherTest {
     public void testConvergedSequenceAccuracy() throws Exception {
         int testNum = 1; // Number of trajectories to test
         double epsilon = 1e-6; // Allowable error for latitude/longitude comparison
+        int windowSize = 10;
 
         for (int i = 1; i <= testNum; i++) {
             System.out.println("===========================");
@@ -261,18 +264,17 @@ public class OnlineMapMatcherTest {
             trajectory = ModelGenerator.generateTrajectory(i);
             Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(i);
 
-            assert sampledTrajectory != null;
 
             // Perform online map matching
-            streamMapMatcher.onlineStreamMapMatch(sampledTrajectory, new DynamicWeightAdjuster());
+            streamMapMatcher.onlineStreamMapMatch(sampledTrajectory, new DynamicWeightAdjuster(), windowSize);
 
             // Get converged sequence from the streamMapMatcher
             List<SequenceState> convergedSequence = streamMapMatcher.convergedSequence;
 
-            // Load the corresponding GeoJSON file
+            // Load the corresponding GeoJSON file (assumed to be pre-generated and available in the path)
             String geojsonFilePath = "trajectory_" + i + ".geojson";
 
-            // Parse the GeoJSON to extract rawPoints
+            // Parse the GeoJSON to extract rawPoints (assuming a utility class GeoJSONParser exists)
             List<GPSPoint> rawPointsFromGeoJSON = GeoJSONParser.parseRawPointsFromGeoJSON(geojsonFilePath);
             List<CandidatePoint> candidatePointsFromGeoJSON = GeoJSONParser.parseCandidatePointsFromGeoJSON(geojsonFilePath);
 
@@ -280,66 +282,34 @@ public class OnlineMapMatcherTest {
             System.out.println("Converged sequence size: " + convergedSequence.size());
             System.out.println("Global sequence size: " + rawPointsFromGeoJSON.size());
 
-            // Use two pointers to compare raw points
-            int seqPointer = 0;
-            int geoPointer = 0;
-
-            while (seqPointer < convergedSequence.size() && geoPointer < rawPointsFromGeoJSON.size()) {
-                SequenceState sequenceState = convergedSequence.get(seqPointer);
+            // Compare each point in the converged sequence with the corresponding points in the GeoJSON file
+            for (int j = 0; j < convergedSequence.size(); j++) {
+                SequenceState sequenceState = convergedSequence.get(j);
 
                 GPSPoint rawPointFromSequence = sequenceState.getObservation();
                 CandidatePoint candidatePointFromSequence = sequenceState.getState();
 
-                GPSPoint rawPointFromGeoJSON = rawPointsFromGeoJSON.get(geoPointer);
-                CandidatePoint candidatePointFromGeoJSON = candidatePointsFromGeoJSON.get(geoPointer);
+                GPSPoint rawPointFromGeoJSON = rawPointsFromGeoJSON.get(j);
+                CandidatePoint candidatePointFromGeoJSON = candidatePointsFromGeoJSON.get(j);
+                System.out.println("The " + j + "-th point");
+                System.out.println("rawPointFromSequence:" + rawPointFromSequence.getLat() + "," + rawPointFromSequence.getLng());
+                System.out.println("rawPointFromGeoJSON:" + rawPointFromGeoJSON.getLat() + "," + rawPointFromGeoJSON.getLng());
 
                 // Compare raw points' latitude and longitude
-                if (Math.abs(rawPointFromSequence.getLat() - rawPointFromGeoJSON.getLat()) < epsilon &&
-                        Math.abs(rawPointFromSequence.getLng() - rawPointFromGeoJSON.getLng()) < epsilon) {
+                assertTrue(Math.abs(rawPointFromSequence.getLat() - rawPointFromGeoJSON.getLat()) < epsilon);
+                assertTrue(Math.abs(rawPointFromSequence.getLng() - rawPointFromGeoJSON.getLng()) < epsilon);
 
-                    // If raw points match, compare the candidate points
-                    boolean candidateMatch = false;
-                    while (geoPointer < candidatePointsFromGeoJSON.size()) {
-                        candidatePointFromGeoJSON = candidatePointsFromGeoJSON.get(geoPointer);
-
-                        if (candidatePointFromSequence != null && candidatePointFromGeoJSON != null) {
-                            // Compare candidate points
-                            if (Math.abs(candidatePointFromSequence.getLat() - candidatePointFromGeoJSON.getLat()) < epsilon &&
-                                    Math.abs(candidatePointFromSequence.getLng() - candidatePointFromGeoJSON.getLng()) < epsilon) {
-                                candidateMatch = true;
-                                break;
-                            }
-                        } else if (candidatePointFromSequence == null && candidatePointFromGeoJSON == null) {
-                            // Both candidate points are null
-                            candidateMatch = true;
-                            break;
-                        }
-
-                        // If the candidate points do not match, move the geoPointer forward
-                        geoPointer++;
-                    }
-
-                    // If a matching candidate point is found, move both pointers forward
-                    if (candidateMatch) {
-                        seqPointer++;
-                        geoPointer++;
-                    } else {
-                        // No matching candidate point found for this GPS point
-                        throw new AssertionError("Candidate point for GPS point at index " + seqPointer + " does not match.");
-                    }
+                // Compare candidate points' latitude and longitude
+                if (candidatePointFromSequence != null && candidatePointFromGeoJSON != null) {
+                    assertTrue(Math.abs(candidatePointFromSequence.getLat() - candidatePointFromGeoJSON.getLat()) < epsilon);
+                    assertTrue(Math.abs(candidatePointFromSequence.getLng() - candidatePointFromGeoJSON.getLng()) < epsilon);
                 } else {
-                    // If raw points do not match, move the geoPointer forward
-                    geoPointer++;
+                    // Both candidate points must be null
+                    assertEquals(candidatePointFromSequence, candidatePointFromGeoJSON);
                 }
             }
 
-            // If all sequence points have been matched, the test passes
-            if (seqPointer == convergedSequence.size()) {
-                System.out.println("Trajectory " + i + " passed the accuracy test.");
-            } else {
-                System.out.println("Trajectory " + i + " did not pass the accuracy test.");
-                throw new AssertionError("Converged sequence does not match the GeoJSON data.");
-            }
+            System.out.println("Trajectory " + i + " passed the accuracy test.");
         }
     }
 
