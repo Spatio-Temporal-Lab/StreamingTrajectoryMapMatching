@@ -67,7 +67,7 @@ public class TiViterbi {
             List<CandidatePoint> candidates,
             Map<CandidatePoint, Double> initialLogProbabilities
     ) {
-        if (message != null) throw new IllegalArgumentException("Initial probabilities have already been set.");
+//        if (message != null) throw new IllegalArgumentException("Initial probabilities have already been set.");
 
         Map<CandidatePoint, Double> initialMessage = new HashMap<>(initialLogProbabilities.size());
 
