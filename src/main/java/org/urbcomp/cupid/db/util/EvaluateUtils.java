@@ -256,6 +256,8 @@ public class EvaluateUtils {
     private static boolean checkLabel(int label, int result, CandidatePoint labelPoint, CandidatePoint resultPoint) {
         if (Math.abs(label) == Math.abs(result)) {
             return true;
+        } else if (label == 0 || result == 0) {
+            return false;
         } else if (labelPoint.getLat() == resultPoint.getLat() && labelPoint.getLng() == resultPoint.getLng()) {
             return true;
         }

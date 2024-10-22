@@ -102,6 +102,9 @@ public class AmmMapMatcher {
         }
         if (matchedPath == null) {
             System.out.println("no match path!");
+            if (matched_list != null) {
+                matched_list.clear();
+            }
             return 0.0;
         }
         // 4. 更新模型参数

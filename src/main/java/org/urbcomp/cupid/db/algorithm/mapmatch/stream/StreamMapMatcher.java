@@ -80,8 +80,9 @@ public class StreamMapMatcher {
     public List<SequenceState> convergedSequence = new ArrayList<>();
 
 
-    public List<Double> traceDelayRateList = new ArrayList<>();
+    private Double delayTime = 0.0;
 
+    private int delayNums = 0;
     /**
      * Constructs a StreamMapMatcher with the specified road network and path algorithm.
      *
@@ -332,9 +333,11 @@ public class StreamMapMatcher {
                         ? pathAlgorithm.findShortestPath(startPoints, endPoints)
                         : bidirectionalPathAlgorithm.findShortestPath(startPoints, endPoints);
 
+                this.processBackward(previousTimeStep, currentTimeStep, onlineViterbi, paths);
                 // Calculate emission and transition probabilities
                 this.computeEmissionProbabilities(currentTimeStep, probabilities);
                 this.computeTransitionProbabilities(previousTimeStep, currentTimeStep, probabilities, paths);
+                this.adjustWithDirection(currentTimeStep, previousTimeStep, paths, probabilities);
 
                 onlineViterbi.nextStep(
                         currentTimeStep.getObservation(),
@@ -383,7 +386,7 @@ public class StreamMapMatcher {
                     int localSeqInsertStartIndex = -1;
                     int earliestTime = currentTime - onlineViterbi.windowSize;
                     int correctedPoints = 0;
-                    double traceDelayRate = 0;
+                    double traceDelay = 0;
 
                     convergeStartIndex = onlineViterbi.isConvergedBefore() ? convergeStartIndex : 0;
 
@@ -436,18 +439,19 @@ public class StreamMapMatcher {
                             // 经过回溯得到了正确匹配点
                             if (!isSamePosition(localCandidate, globalCandidate)) {
                                 int delayTime = localState.time - earliestTime;
-                                traceDelayRate += delayTime;
+                                traceDelay += delayTime;
                                 correctedPoints++;
                             }
                             currentSequence.set(globalSeqInsertIndex++, localState);
                         }
 
-                        traceDelayRate = correctedPoints != 0 ? traceDelayRate / correctedPoints : 0;
-                        traceDelayRateList.add(traceDelayRate);
+                        if (correctedPoints != 0 && traceDelay > 0) {
+                            delayNums += correctedPoints;
+                            delayTime += traceDelay;
+                        }
 
                         System.out.println("Actual update size: " + (globalSeqInsertIndex - globalSeqInsertStartIndex));
                         System.out.println("The number of points that were correctly updated: " + correctedPoints);
-                        System.out.println("Delay rate for correct backtracking: " + traceDelayRate);
 
                         // Record converged sequence.
                         convergedSequence.addAll(localSequence.subList(localSeqInsertStartIndex, i));
@@ -653,5 +657,13 @@ public class StreamMapMatcher {
      */
     private boolean isSamePosition(SpatialPoint p1, SpatialPoint p2) {
         return Math.abs(p1.getLng() - p2.getLng()) < 1e-6 && Math.abs(p1.getLat() - p2.getLat()) < 1e-6;
+    }
+
+    public Double getDelayTime() {
+        return delayTime;
+    }
+
+    public int getDelayNums() {
+        return delayNums;
     }
 }
