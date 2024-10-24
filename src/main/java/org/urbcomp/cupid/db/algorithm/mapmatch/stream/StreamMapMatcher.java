@@ -182,7 +182,7 @@ public class StreamMapMatcher {
      * @throws AlgorithmExecuteException In case of algorithm errors
      */
     public MapMatchedTrajectory onlineStreamMapMatch(Trajectory trajectory, WeightAdjuster weightAdjuster, int windowSize) throws AlgorithmExecuteException {
-
+        bidirectionalPathAlgorithm.clearCache();
         TimeStep previousTimeStep = null;
         List<SequenceState> sequence = new ArrayList<>();
         OnlineViterbi viterbi = new OnlineViterbi(0, windowSize);
@@ -310,14 +310,14 @@ public class StreamMapMatcher {
             int currentTime,
             int index
     ) {
-        System.out.println("Current time: " + currentTime);
+//        System.out.println("Current time: " + currentTime);
         windowBearing.addPoint(gpsPoint);
         TimeStep currentTimeStep = this.createTimeStep(gpsPoint, index); // Create time step with GPS point and candidate set.
 
         int convergeStartIndex = onlineViterbi.getSequenceStates().size();
 
         if (currentTimeStep == null) {
-            System.out.println("Current time step is null!");
+//            System.out.println("Current time step is null!");
             // Add the last element from the local sequence.
             currentSequence.add(new SequenceState(null, gpsPoint));
 
@@ -361,8 +361,8 @@ public class StreamMapMatcher {
 
             if (onlineViterbi.isBroken) {
                 // Handle the case where the Viterbi algorithm encounters an issue.
-                System.out.println("Viterbi is broken.");
-                System.out.println("Broken sequence size: " + currentSequence.size());
+//                System.out.println("Viterbi is broken.");
+//                System.out.println("Broken sequence size: " + currentSequence.size());
 
                 List<SequenceState> mostLikelySequence = onlineViterbi.computeMostLikelySequence();
                 SequenceState lastState = mostLikelySequence.get(mostLikelySequence.size() - 1);
@@ -378,8 +378,8 @@ public class StreamMapMatcher {
             } else {
                 if (onlineViterbi.isConverge) {
                     // Handle convergence of the Viterbi algorithm.
-                    System.out.println("Viterbi has converged.");
-                    System.out.println("======================================================");
+//                    System.out.println("Viterbi has converged.");
+//                    System.out.println("======================================================");
 
                     List<OnlineSequenceState> localSequence = onlineViterbi.getSequenceStates();
 
@@ -391,8 +391,8 @@ public class StreamMapMatcher {
 
                     convergeStartIndex = onlineViterbi.isConvergedBefore() ? convergeStartIndex : 0;
 
-                    System.out.println("Local sequence size: " + localSequence.size());
-                    System.out.println("Global sequence size: " + currentSequence.size());
+//                    System.out.println("Local sequence size: " + localSequence.size());
+//                    System.out.println("Global sequence size: " + currentSequence.size());
 
                     // Determine insertion points for sequences
                     for (int i = convergeStartIndex; i < localSequence.size(); i++) {
@@ -410,15 +410,15 @@ public class StreamMapMatcher {
                         if (localSeqInsertStartIndex != -1) break;
                     }
 
-                    System.out.println("Converge start index: " + convergeStartIndex);
-                    System.out.println("Global valid start index: " + onlineViterbi.validStartInsertIndex);
-                    System.out.println("Global sequence insert start index: " + globalSeqInsertStartIndex);
-                    System.out.println("Local sequence insert start index: " + localSeqInsertStartIndex);
+//                    System.out.println("Converge start index: " + convergeStartIndex);
+//                    System.out.println("Global valid start index: " + onlineViterbi.validStartInsertIndex);
+//                    System.out.println("Global sequence insert start index: " + globalSeqInsertStartIndex);
+//                    System.out.println("Local sequence insert start index: " + localSeqInsertStartIndex);
 
                     if (localSeqInsertStartIndex != -1) {
                         int globalSeqInsertIndex = globalSeqInsertStartIndex;
                         int i = localSeqInsertStartIndex;
-                        System.out.println("Expected Update size: " + (localSequence.size() - localSeqInsertStartIndex));
+//                        System.out.println("Expected Update size: " + (localSequence.size() - localSeqInsertStartIndex));
 
                         for (; i < localSequence.size(); i++) {
                             // 超过了当前序列的长度
@@ -451,14 +451,14 @@ public class StreamMapMatcher {
                             delayTime += traceDelay;
                         }
 
-                        System.out.println("Actual update size: " + (globalSeqInsertIndex - globalSeqInsertStartIndex));
-                        System.out.println("The number of points that were correctly updated: " + correctedPoints);
+//                        System.out.println("Actual update size: " + (globalSeqInsertIndex - globalSeqInsertStartIndex));
+//                        System.out.println("The number of points that were correctly updated: " + correctedPoints);
 
                         // Record converged sequence.
                         convergedSequence.addAll(localSequence.subList(localSeqInsertStartIndex, i));
 
                     } else {
-                        System.out.println("No corresponding sequence found.");
+//                        System.out.println("No corresponding sequence found.");
                     }
 
                     // Reset convergence state until the next convergence occurs.
@@ -470,7 +470,7 @@ public class StreamMapMatcher {
                 currentSequence.add(new SequenceState(maxPoint, gpsPoint));
             }
 
-            System.out.println("======================================================");
+//            System.out.println("======================================================");
 
             previousTimeStep = currentTimeStep;
         }

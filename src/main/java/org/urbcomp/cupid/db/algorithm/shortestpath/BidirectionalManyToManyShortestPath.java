@@ -15,22 +15,30 @@ public class BidirectionalManyToManyShortestPath {
     private final BidirectionalDijkstraShortestPath<org.urbcomp.cupid.db.model.roadnetwork.RoadNode, org.urbcomp.cupid.db.model.roadnetwork.RoadSegment> algo;
     private final RoadNetwork roadNetwork;
     private final MapResultCache resultCache;
+    private static final int k = 1;  // 时间步窗口大小
+    private static final boolean USE_CACHE = false;
+    private int currentStep;
 
     public BidirectionalManyToManyShortestPath(RoadNetwork roadNetwork) {
         this.roadNetwork = roadNetwork;
         this.algo = new BidirectionalDijkstraShortestPath<>(roadNetwork.getDirectedRoadGraph());
         this.resultCache = new MapResultCache();
+        this.currentStep = 0;
     }
 
-    public void clearCache(){
+    public void clearCache() {
         resultCache.clearCache();
+        currentStep = 0;
     }
 
     public Map<RoadNode, Map<RoadNode, Path>> findShortestPath(
             Set<CandidatePoint> startPoints,
             Set<CandidatePoint> endPoints
     ) {
+        // 更新当前时间步
+        currentStep++;
 
+        // 处理起始点和终点集合
         Set<RoadNode> startNodes = new HashSet<>();
         Set<RoadNode> endNodes = new HashSet<>();
         for (CandidatePoint startPt : startPoints) {
@@ -43,47 +51,15 @@ public class BidirectionalManyToManyShortestPath {
             RoadSegment endRoadSegment = roadNetwork.getRoadSegmentById(endPt.getRoadSegmentId());
             endNodes.add(endRoadSegment.getStartNode());
         }
-        return findManyToManyShortestPath(startNodes, endNodes, false);
+
+        // 查找最短路径并更新缓存
+        Map<RoadNode, Map<RoadNode, Path>> results = findManyToManyShortestPath(startNodes, endNodes, USE_CACHE);
+
+        // 清除过期的缓存
+        resultCache.evictExpiredEntries(currentStep, k);
+
+        return results;
     }
-
-    public void getCache(){
-        Map<RoadNode, Map<RoadNode, Path>> cache = resultCache.getCache();
-        long totalSizeInBytes = 0;
-
-        // 假设每个 RoadNode 大约占 32 字节
-        int roadNodeSize = 32;
-
-        // 假设每个 Path 对象的基本大小为 128 字节
-        int pathBaseSize = 128;
-
-        // 假设每个 SpatialPoint 对象大约占 24 字节
-        int spatialPointSize = 24;
-
-        // 假设每个 RoadSegment ID (int) 大约占 4 字节
-        int roadSegmentIdSize = 4;
-
-        for (Map.Entry<RoadNode, Map<RoadNode, Path>> entry : cache.entrySet()) {
-            totalSizeInBytes += roadNodeSize; // 加入 key (startNode) 的大小
-            for (Map.Entry<RoadNode, Path> innerEntry : entry.getValue().entrySet()) {
-                totalSizeInBytes += roadNodeSize; // 加入 key (endNode) 的大小
-                Path path = innerEntry.getValue();
-
-                // 加入 Path 对象的基础大小
-                totalSizeInBytes += pathBaseSize;
-
-                // 加入 Path 中的 SpatialPoint 列表的大小
-                totalSizeInBytes += path.getPoints().size() * spatialPointSize;
-
-                // 加入 Path 中的 roadSegmentIds 列表的大小
-                totalSizeInBytes += path.getRoadSegmentIds().size() * roadSegmentIdSize;
-            }
-        }
-
-        double totalSizeInMB = totalSizeInBytes / (1024.0 * 1024.0);
-
-        System.out.printf("当前缓存占用的估计内存大小: %.2f MB\n", totalSizeInMB);
-    }
-
 
     public Map<RoadNode, Map<RoadNode, Path>> findManyToManyShortestPath(
             Set<RoadNode> startNodes,
@@ -101,6 +77,7 @@ public class BidirectionalManyToManyShortestPath {
                     Path cachedPath = resultCache.getCachedPath(startNode, endNode);
                     if (cachedPath != null) {
                         tmpMap.put(endNode, cachedPath);
+                        resultCache.updateTimeStep(startNode, endNode, currentStep);  // 更新缓存的时间步
                         continue;
                     }
                 }
@@ -109,7 +86,7 @@ public class BidirectionalManyToManyShortestPath {
                 if (startNode.equals(endNode)) {
                     tmpMap.put(endNode, new Path(0, new ArrayList<>(), new ArrayList<>()));
                     if (useCache) {
-                        resultCache.cachePath(startNode, endNode, tmpMap.get(endNode));
+                        resultCache.cachePath(startNode, endNode, tmpMap.get(endNode), currentStep);
                     }
                     continue;
                 }
@@ -138,7 +115,7 @@ public class BidirectionalManyToManyShortestPath {
                 tmpMap.put(endNode, resultPath);
                 // 如果启用缓存，缓存结果
                 if (useCache) {
-                    resultCache.cachePath(startNode, endNode, resultPath);
+                    resultCache.cachePath(startNode, endNode, resultPath, currentStep);
                 }
             }
             results.put(startNode, tmpMap);
@@ -149,7 +126,7 @@ public class BidirectionalManyToManyShortestPath {
 }
 
 class MapResultCache {
-    private final Map<RoadNode, Map<RoadNode, Path>> cache;
+    private final Map<RoadNode, Map<RoadNode, CacheEntry>> cache;
 
     public MapResultCache() {
         this.cache = new HashMap<>();
@@ -158,14 +135,40 @@ class MapResultCache {
     // 获取缓存的路径
     public Path getCachedPath(RoadNode startNode, RoadNode endNode) {
         if (cache.containsKey(startNode)) {
-            return cache.get(startNode).getOrDefault(endNode, null);
+            CacheEntry entry = cache.get(startNode).get(endNode);
+            if (entry != null) {
+                return entry.path;
+            }
         }
         return null;
     }
 
-    // 缓存路径
-    public void cachePath(RoadNode startNode, RoadNode endNode, Path path) {
-        cache.computeIfAbsent(startNode, k -> new HashMap<>()).put(endNode, path);
+    // 缓存路径并记录时间步
+    public void cachePath(RoadNode startNode, RoadNode endNode, Path path, int timeStep) {
+        cache.computeIfAbsent(startNode, k -> new HashMap<>())
+                .put(endNode, new CacheEntry(path, timeStep));
+    }
+
+    // 更新缓存条目的时间步
+    public void updateTimeStep(RoadNode startNode, RoadNode endNode, int timeStep) {
+        if (cache.containsKey(startNode) && cache.get(startNode).containsKey(endNode)) {
+            cache.get(startNode).get(endNode).timeStep = timeStep;
+        }
+    }
+
+    // 清除过期的缓存条目
+    public void evictExpiredEntries(int currentStep, int k) {
+        for (Iterator<Map.Entry<RoadNode, Map<RoadNode, CacheEntry>>> it = cache.entrySet().iterator(); it.hasNext(); ) {
+            Map.Entry<RoadNode, Map<RoadNode, CacheEntry>> entry = it.next();
+            Map<RoadNode, CacheEntry> innerMap = entry.getValue();
+
+            innerMap.values().removeIf(cacheEntry -> (currentStep - cacheEntry.timeStep) > k);
+
+            // 如果内层映射为空，则移除外层映射
+            if (innerMap.isEmpty()) {
+                it.remove();
+            }
+        }
     }
 
     // 清空缓存
@@ -173,11 +176,14 @@ class MapResultCache {
         cache.clear();
     }
 
-    public Map<RoadNode, Map<RoadNode, Path>> getCache() {
-        return cache;
+    // 缓存条目类
+    static class CacheEntry {
+        Path path;
+        int timeStep;
+
+        CacheEntry(Path path, int timeStep) {
+            this.path = path;
+            this.timeStep = timeStep;
+        }
     }
-
-
-
-
 }
