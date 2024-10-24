@@ -1,19 +1,3 @@
-/*
- * Copyright (C) 2022  ST-Lab
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
-
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
 package org.urbcomp.cupid.db.algorithm.shortestpath;
 
 import org.jgrapht.GraphPath;
@@ -38,6 +22,9 @@ public class BidirectionalManyToManyShortestPath {
         this.resultCache = new MapResultCache();
     }
 
+    public void clearCache(){
+        resultCache.clearCache();
+    }
 
     public Map<RoadNode, Map<RoadNode, Path>> findShortestPath(
             Set<CandidatePoint> startPoints,
@@ -56,9 +43,47 @@ public class BidirectionalManyToManyShortestPath {
             RoadSegment endRoadSegment = roadNetwork.getRoadSegmentById(endPt.getRoadSegmentId());
             endNodes.add(endRoadSegment.getStartNode());
         }
-        return findManyToManyShortestPath(startNodes, endNodes, true);
-//        return findManyToManyShortestPath(startNodes, endNodes);
+        return findManyToManyShortestPath(startNodes, endNodes, false);
     }
+
+    public void getCache(){
+        Map<RoadNode, Map<RoadNode, Path>> cache = resultCache.getCache();
+        long totalSizeInBytes = 0;
+
+        // 假设每个 RoadNode 大约占 32 字节
+        int roadNodeSize = 32;
+
+        // 假设每个 Path 对象的基本大小为 128 字节
+        int pathBaseSize = 128;
+
+        // 假设每个 SpatialPoint 对象大约占 24 字节
+        int spatialPointSize = 24;
+
+        // 假设每个 RoadSegment ID (int) 大约占 4 字节
+        int roadSegmentIdSize = 4;
+
+        for (Map.Entry<RoadNode, Map<RoadNode, Path>> entry : cache.entrySet()) {
+            totalSizeInBytes += roadNodeSize; // 加入 key (startNode) 的大小
+            for (Map.Entry<RoadNode, Path> innerEntry : entry.getValue().entrySet()) {
+                totalSizeInBytes += roadNodeSize; // 加入 key (endNode) 的大小
+                Path path = innerEntry.getValue();
+
+                // 加入 Path 对象的基础大小
+                totalSizeInBytes += pathBaseSize;
+
+                // 加入 Path 中的 SpatialPoint 列表的大小
+                totalSizeInBytes += path.getPoints().size() * spatialPointSize;
+
+                // 加入 Path 中的 roadSegmentIds 列表的大小
+                totalSizeInBytes += path.getRoadSegmentIds().size() * roadSegmentIdSize;
+            }
+        }
+
+        double totalSizeInMB = totalSizeInBytes / (1024.0 * 1024.0);
+
+        System.out.printf("当前缓存占用的估计内存大小: %.2f MB\n", totalSizeInMB);
+    }
+
 
     public Map<RoadNode, Map<RoadNode, Path>> findManyToManyShortestPath(
             Set<RoadNode> startNodes,
@@ -71,29 +96,33 @@ public class BidirectionalManyToManyShortestPath {
             Map<RoadNode, Path> tmpMap = new HashMap<>();
 
             for (RoadNode endNode : endNodes) {
-
-                if (resultCache.getPreviousResult().containsKey(startNode) &&
-                        resultCache.getPreviousResult().get(startNode).containsKey(endNode)) {
-                    tmpMap.put(endNode, resultCache.getPreviousResult().get(startNode).get(endNode));
-                    continue;
+                // 如果启用缓存，首先检查缓存中是否已经有结果
+                if (useCache) {
+                    Path cachedPath = resultCache.getCachedPath(startNode, endNode);
+                    if (cachedPath != null) {
+                        tmpMap.put(endNode, cachedPath);
+                        continue;
+                    }
                 }
 
-                // Check if the start and end nodes are the same
+                // 如果起点和终点相同
                 if (startNode.equals(endNode)) {
-                    // Handle case where start and end nodes are the same
                     tmpMap.put(endNode, new Path(0, new ArrayList<>(), new ArrayList<>()));
+                    if (useCache) {
+                        resultCache.cachePath(startNode, endNode, tmpMap.get(endNode));
+                    }
                     continue;
                 }
 
-                // Check if there is a path between startNode and endNode
+                // 使用算法查找最短路径
                 GraphPath<RoadNode, RoadSegment> shortestPath = algo.getPath(startNode, endNode);
                 Path resultPath;
 
                 if (shortestPath == null || shortestPath.getLength() == 0) {
-                    // No valid path exists
+                    // 没有有效路径
                     resultPath = new Path(Double.MAX_VALUE, new ArrayList<>(), new ArrayList<>());
                 } else {
-                    // Calculate path details
+                    // 计算路径细节
                     List<SpatialPoint> points = new ArrayList<>();
                     double length = 0;
                     List<Integer> roadSegmentIds = new ArrayList<>();
@@ -107,92 +136,48 @@ public class BidirectionalManyToManyShortestPath {
                     resultPath = new Path(length, points, roadSegmentIds);
                 }
                 tmpMap.put(endNode, resultPath);
-            }
-
-            // Update the current result cache with the temporary results
-            resultCache.updateCurrentResult(startNode, tmpMap);
-            results.put(startNode, tmpMap);
-        }
-
-        return results;
-    }
-
-    public Map<RoadNode, Map<RoadNode, Path>> findManyToManyShortestPath(
-            Set<RoadNode> startNodes,
-            Set<RoadNode> endNodes
-    ) {
-        Map<RoadNode, Map<RoadNode, Path>> results = new HashMap<>();
-
-        for (RoadNode startNode : startNodes) {
-            Map<RoadNode, Path> tmpMap = new HashMap<>();
-
-            for (RoadNode endNode : endNodes) {
-                // Check if the start and end nodes are the same
-                if (startNode.equals(endNode)) {
-                    // Handle case where start and end nodes are the same
-                    tmpMap.put(endNode, new Path(0, new ArrayList<>(), new ArrayList<>()));
-                    continue;
+                // 如果启用缓存，缓存结果
+                if (useCache) {
+                    resultCache.cachePath(startNode, endNode, resultPath);
                 }
-
-                // Check if there is a path between startNode and endNode
-                GraphPath<RoadNode, RoadSegment> shortestPath = algo.getPath(startNode, endNode);
-                Path resultPath;
-
-                if (shortestPath == null || shortestPath.getLength() == 0) {
-                    // No valid path exists
-                    resultPath = new Path(Double.MAX_VALUE, new ArrayList<>(), new ArrayList<>());
-                } else {
-                    // Calculate path details
-                    List<SpatialPoint> points = new ArrayList<>();
-                    double length = 0;
-                    List<Integer> roadSegmentIds = new ArrayList<>();
-
-                    for (RoadSegment rs : shortestPath.getEdgeList()) {
-                        length += rs.getLengthInMeter();
-                        points.addAll(rs.getPoints());
-                        roadSegmentIds.add(rs.getRoadSegmentId());
-                    }
-
-                    resultPath = new Path(length, points, roadSegmentIds);
-                }
-                tmpMap.put(endNode, resultPath);
             }
             results.put(startNode, tmpMap);
         }
 
         return results;
     }
-
 }
 
 class MapResultCache {
-    private final Map<RoadNode, Map<RoadNode, Path>> currentResult;
-    private final Map<RoadNode, Map<RoadNode, Path>> previousResult;
+    private final Map<RoadNode, Map<RoadNode, Path>> cache;
 
     public MapResultCache() {
-        this.currentResult = new HashMap<>();
-        this.previousResult = new HashMap<>();
+        this.cache = new HashMap<>();
     }
 
-    // 更新当前结果
-    public void updateCurrentResult(RoadNode startNode, Map<RoadNode, Path> paths) {
-        currentResult.put(startNode, paths);
+    // 获取缓存的路径
+    public Path getCachedPath(RoadNode startNode, RoadNode endNode) {
+        if (cache.containsKey(startNode)) {
+            return cache.get(startNode).getOrDefault(endNode, null);
+        }
+        return null;
     }
 
-    // 清空当前结果，并将其赋值给上一次结果
-    public void refreshResults() {
-        previousResult.clear();
-        previousResult.putAll(currentResult);
-        currentResult.clear();
+    // 缓存路径
+    public void cachePath(RoadNode startNode, RoadNode endNode, Path path) {
+        cache.computeIfAbsent(startNode, k -> new HashMap<>()).put(endNode, path);
     }
 
-    // 获取当前结果
-    public Map<RoadNode, Map<RoadNode, Path>> getCurrentResult() {
-        return currentResult;
+    // 清空缓存
+    public void clearCache() {
+        cache.clear();
     }
 
-    // 获取上一次结果
-    public Map<RoadNode, Map<RoadNode, Path>> getPreviousResult() {
-        return previousResult;
+    public Map<RoadNode, Map<RoadNode, Path>> getCache() {
+        return cache;
     }
+
+
+
+
 }
