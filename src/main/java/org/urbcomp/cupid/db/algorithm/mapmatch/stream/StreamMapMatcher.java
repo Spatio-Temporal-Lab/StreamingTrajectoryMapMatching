@@ -144,6 +144,7 @@ public class StreamMapMatcher {
      * @throws AlgorithmExecuteException In case of algorithm errors
      */
     public MapMatchedTrajectory streamMapMatch(Trajectory trajectory, WeightAdjuster weightAdjuster) throws AlgorithmExecuteException {
+        bidirectionalPathAlgorithm.clearCache();
 
         TimeStep previousTimeStep = null;
         List<SequenceState> sequence = new ArrayList<>();

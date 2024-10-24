@@ -22,6 +22,10 @@ public class BidirectionalManyToManyShortestPath {
         this.resultCache = new MapResultCache();
     }
 
+    public void clearCache(){
+        resultCache.clearCache();
+    }
+
     public Map<RoadNode, Map<RoadNode, Path>> findShortestPath(
             Set<CandidatePoint> startPoints,
             Set<CandidatePoint> endPoints
