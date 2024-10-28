@@ -15,8 +15,8 @@ public class BidirectionalManyToManyShortestPath {
     private final BidirectionalDijkstraShortestPath<org.urbcomp.cupid.db.model.roadnetwork.RoadNode, org.urbcomp.cupid.db.model.roadnetwork.RoadSegment> algo;
     private final RoadNetwork roadNetwork;
     private final MapResultCache resultCache;
-    private static final int k = 1;  // 时间步窗口大小
-    private static final boolean USE_CACHE = false;
+    private static final int k = 5;  // 时间步窗口大小
+    private static final boolean USE_CACHE = true;
     private int currentStep;
 
     public BidirectionalManyToManyShortestPath(RoadNetwork roadNetwork) {

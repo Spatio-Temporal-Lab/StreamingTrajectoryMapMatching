@@ -150,7 +150,7 @@ public class TiHmmMapMatcher {
                     this.computeTransitionProbabilities(preTimeStep, timeStep, probabilities, paths);
 
                     //计算方向概率
-                    this.adjustWithDirection(timeStep, preTimeStep, paths, probabilities);
+//                    this.adjustWithDirection(timeStep, preTimeStep, paths, probabilities);
 
                     //计算维特比
                     viterbi.nextStep(

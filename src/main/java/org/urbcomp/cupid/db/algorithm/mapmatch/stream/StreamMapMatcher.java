@@ -233,7 +233,7 @@ public class StreamMapMatcher {
     private Tuple3<List<SequenceState>, TimeStep, TiViterbi> computeViterbiSequence(
             GPSPoint point, List<SequenceState> sequence, TimeStep prevTimeStep, TiViterbi viterbi, int index, WeightAdjuster weightAdjuster)
             throws AlgorithmExecuteException {
-        windowBearing.addPoint(point);
+//        windowBearing.addPoint(point);
         TimeStep timeStep = this.createTimeStep(point, index);
 
         if (timeStep == null) {
@@ -252,7 +252,7 @@ public class StreamMapMatcher {
                         ? pathAlgorithm.findShortestPath(startPoints, endPoints)
                         : bidirectionalPathAlgorithm.findShortestPath(startPoints, endPoints);
 
-//                this.processBackward(prevTimeStep, timeStep, viterbi, paths);
+                this.processBackward(prevTimeStep, timeStep, viterbi, paths);
                 this.computeEmissionProbabilities(timeStep, probabilities);
                 this.computeTransitionProbabilities(prevTimeStep, timeStep, probabilities, paths);
 //                this.adjustWithDirection(timeStep, prevTimeStep, paths, probabilities);
@@ -311,7 +311,7 @@ public class StreamMapMatcher {
             int index
     ) {
 //        System.out.println("Current time: " + currentTime);
-        windowBearing.addPoint(gpsPoint);
+//        windowBearing.addPoint(gpsPoint);
         TimeStep currentTimeStep = this.createTimeStep(gpsPoint, index); // Create time step with GPS point and candidate set.
 
         int convergeStartIndex = onlineViterbi.getSequenceStates().size();
@@ -338,7 +338,7 @@ public class StreamMapMatcher {
                 // Calculate emission and transition probabilities
                 this.computeEmissionProbabilities(currentTimeStep, probabilities);
                 this.computeTransitionProbabilities(previousTimeStep, currentTimeStep, probabilities, paths);
-                this.adjustWithDirection(currentTimeStep, previousTimeStep, paths, probabilities);
+//                this.adjustWithDirection(currentTimeStep, previousTimeStep, paths, probabilities);
 
                 onlineViterbi.nextStep(
                         currentTimeStep.getObservation(),
