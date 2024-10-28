@@ -425,8 +425,8 @@ public class OnlineViterbi extends TiViterbi {
     private void traceback() {
         int currentTime = currentRoot.getTime();
 
-        System.out.println("Local path found!");
-        System.out.println("Current root time: " + currentTime);
+//        System.out.println("Local path found!");
+//        System.out.println("Current root time: " + currentTime);
 
         List<OnlineSequenceState> localSequence = new ArrayList<>();
         localSequence.add(new OnlineSequenceState(currentRoot.getState(), currentRoot.getObservation(), currentTime--));
@@ -444,7 +444,7 @@ public class OnlineViterbi extends TiViterbi {
         Collections.reverse(localSequence);
         sequenceStates.addAll(localSequence);
 
-        System.out.println("Local added sequence length: " + localSequence.size());
+//        System.out.println("Local added sequence length: " + localSequence.size());
     }
 
     /**
@@ -455,7 +455,7 @@ public class OnlineViterbi extends TiViterbi {
      * @param observation The GPS point observation to include in the path.
      */
     public void tracebackLastPart(GPSPoint observation) {
-        System.out.println("traceback last part");
+//        System.out.println("traceback last part");
 
         List<OnlineSequenceState> interLocalPath = new ArrayList<>();
         CandidatePoint maxValuePoint = findMaxValuePoint(message);
