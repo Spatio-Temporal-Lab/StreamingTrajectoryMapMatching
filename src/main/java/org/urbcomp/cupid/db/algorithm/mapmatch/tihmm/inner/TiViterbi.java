@@ -23,25 +23,14 @@ import scala.Tuple2;
 
 import java.util.*;
 
-/**
- * Tihmm 核心算法class
- */
 public class TiViterbi {
-    /**
-     * 上一个状态下每一个candidate point 对应的extended state
-     */
+
     public Map<CandidatePoint, ExtendedState> lastExtendedStates;
-    /**
-     * 上一个状态下原始轨迹点对应的所有candidate point
-     */
+
     public List<CandidatePoint> prevCandidates;
-    /**
-     * 每个candidate point 对应的p
-     */
+
     public Map<CandidatePoint, Double> message;
-    /**
-     * 是否停止初始化状态概率函数
-     */
+
     public Boolean isBroken = false;
 
     public TiViterbi(Map<CandidatePoint, ExtendedState> lastExtendedStates, List<CandidatePoint> prevCandidates, Map<CandidatePoint, Double> message, Boolean isBroken) {
@@ -55,23 +44,15 @@ public class TiViterbi {
     }
 
 
-    /**
-     * 初始状态概率函数
-     *
-     * @param observation             原始轨迹点
-     * @param candidates              原始轨迹点对应的candidates
-     * @param initialLogProbabilities 初始状态概率
-     */
     private void initializeStateProbabilities(
             GPSPoint observation,
             List<CandidatePoint> candidates,
             Map<CandidatePoint, Double> initialLogProbabilities
     ) {
-//        if (message != null) throw new IllegalArgumentException("Initial probabilities have already been set.");
 
         Map<CandidatePoint, Double> initialMessage = new HashMap<>(initialLogProbabilities.size());
 
-        // 复制所有候选点的观测概率
+
         for (CandidatePoint candidate : candidates) {
             if (!initialLogProbabilities.containsKey(candidate))
                 throw new IllegalArgumentException("No initial probability for " + candidate);
@@ -80,10 +61,9 @@ public class TiViterbi {
         }
 
         isBroken = hmmBreak(initialMessage);
-//        System.out.println("initialize fail? " + isBroken);
         if (isBroken) return;
 
-        message = initialMessage; // 保存初始状态概率
+        message = initialMessage;
         lastExtendedStates = new HashMap<>(candidates.size());
         prevCandidates = new ArrayList<>(candidates.size());
 
@@ -93,28 +73,14 @@ public class TiViterbi {
         }
     }
 
-    /**
-     * 如果初始化的概率有接近无穷小的，停止初始化
-     *
-     * @param message 状态概率
-     */
+
     protected Boolean hmmBreak(Map<CandidatePoint, Double> message) {
         for (Double logProbability : message.values())
             if (!logProbability.equals(Double.NEGATIVE_INFINITY)) return false;
         return true;
     }
 
-    /**
-     * 开始viterbi计算，向前extend
-     *
-     * @param observation                原始轨迹点
-     * @param prevCandidates             之前的candidates
-     * @param curCandidates              当前的candidates
-     * @param message                    状态概率
-     * @param emissionLogProbabilities   emission p
-     * @param transitionLogProbabilities transition p
-     * @return 向前extend后的结果
-     */
+
     private ForwardStepResult forwardStep(
             GPSPoint observation,
             List<CandidatePoint> prevCandidates,
@@ -127,7 +93,7 @@ public class TiViterbi {
         final ForwardStepResult result = new ForwardStepResult(curCandidates.size());
         assert !prevCandidates.isEmpty();
 
-        // 用于累积当前时间步的梯度
+
         double accumulatedEmissionLogProb = 0.0;
         double accumulatedTransitionLogProb = 0.0;
 
@@ -170,25 +136,13 @@ public class TiViterbi {
                 result.getNewExtendedStates().put(curState, extendedState);
             }
         }
-//        System.out.println("emission:" + accumulatedEmissionLogProb );
-//        System.out.println("transition:" + accumulatedTransitionLogProb);
-        // 在处理完所有 curStates 后更新权重
+
         if (accumulatedTransitionLogProb != Double.NEGATIVE_INFINITY && accumulatedEmissionLogProb != Double.NEGATIVE_INFINITY) {
             weightAdjuster.updateWeights(accumulatedEmissionLogProb, accumulatedTransitionLogProb);
         }
-//        System.out.println("emission:" + weightAdjuster.getEmissionWeight());
-//        System.out.println("transition:" + weightAdjuster.getTransitionWeight());
         return result;
     }
 
-    /**
-     * 给定transition 计算对应概率
-     *
-     * @param preState                   之前的state
-     * @param curState                   现在的state
-     * @param transitionLogProbabilities 转移概率的map
-     * @return 概率p
-     */
     protected double transitionLogProbability(
             CandidatePoint preState,
             CandidatePoint curState,
@@ -198,11 +152,7 @@ public class TiViterbi {
         return transitionLogProbabilities.getOrDefault(transition, Double.NEGATIVE_INFINITY);
     }
 
-    /**
-     * 计算当前状态下概率最大对应的state
-     *
-     * @return candidate point
-     */
+
     private CandidatePoint mostLikelyState() {
         assert !message.isEmpty();
         CandidatePoint result = null;
@@ -217,11 +167,7 @@ public class TiViterbi {
         return result;
     }
 
-    /**
-     * 取回概率最大的一系列转移过程
-     *
-     * @return list，包含每一步转移对应的状态
-     */
+
     private List<SequenceState> retrieveMostLikelySequence() {
         assert !message.isEmpty();
         CandidatePoint lastState = mostLikelyState();
@@ -236,13 +182,7 @@ public class TiViterbi {
         return result;
     }
 
-    /**
-     * 初始化启动第一步viterbi计算
-     *
-     * @param observation              原始轨迹点
-     * @param candidates               对应的candidates
-     * @param emissionLogProbabilities 每一个candidate对应的 emission p
-     */
+
     public void startWithInitialObservation(
             GPSPoint observation,
             List<CandidatePoint> candidates,
@@ -251,14 +191,7 @@ public class TiViterbi {
         initializeStateProbabilities(observation, candidates, emissionLogProbabilities);
     }
 
-    /**
-     * 向下一步viterbi计算， 更新当前状态的信息
-     *
-     * @param observation                原始轨迹点
-     * @param candidates                 对应的candidates
-     * @param emissionLogProbabilities   每一个candidate对应的 emission p
-     * @param transitionLogProbabilities 每一个transition对应的 transition p
-     */
+
     public void nextStep(
             GPSPoint observation,
             List<CandidatePoint> candidates,
@@ -292,11 +225,7 @@ public class TiViterbi {
         prevCandidates = new ArrayList<>(candidates);
     }
 
-    /**
-     * 辅助函数，下概率最大对应的每一步的extended state 组成的list
-     *
-     * @return list 包含每一步对应的extended state
-     */
+
     public List<SequenceState> computeMostLikelySequence() {
         if (message == null) {
             return new ArrayList<>();

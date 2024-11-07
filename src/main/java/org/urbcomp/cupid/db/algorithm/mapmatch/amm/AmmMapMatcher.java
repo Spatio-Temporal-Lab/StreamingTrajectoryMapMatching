@@ -78,7 +78,6 @@ public class AmmMapMatcher {
             current.v0 = calculateMinimumVelocity(velocity, previous, current);
             if (current.setScore(previous)) {
                 current.score = SolverUtils.maximizeScore(current.getCandidates(), punishFactor1, punishFactor2);
-//                System.out.println("score: " + current.score);
                 if (current.score > scoreThreshold) {
                     previous = current;
                     if (consecutiveDeletions > 2) {
@@ -93,7 +92,6 @@ public class AmmMapMatcher {
             }
         }
 
-//        System.out.println("generate path");
         int location = trackList.size() - 1;
         List<Path> matchedPath = null;
         while (location > 0 && matchedPath == null) {
@@ -101,13 +99,12 @@ public class AmmMapMatcher {
             location--;
         }
         if (matchedPath == null) {
-            System.out.println("no match path!");
             if (matched_list != null) {
                 matched_list.clear();
             }
             return 0.0;
         }
-        // 4. 更新模型参数
+
         updateParams(id);
         return matchedLength;
     }
@@ -115,7 +112,7 @@ public class AmmMapMatcher {
     private List<Path> generatePath(PointsSet final_point) {
         Candidate last_point = null;
         double min_length = Double.MAX_VALUE;
-        // 距离最短的点作为回溯的第一个点
+
         for (Candidate candidate : final_point.getCandidates()) {
             if (candidate.getMinLength() < min_length) last_point = candidate;
         }
@@ -126,20 +123,19 @@ public class AmmMapMatcher {
         matched_list.add(last_point);
         matchedLength = last_point.min_length;
         List<Path> result = new ArrayList<>();
-        // 向前回溯，记录最优路径和最优的上一个候选点
+
         while (last_point.best_previous != null) {
             result.add(last_point.best_path);
             last_point = last_point.best_previous;
             matched_list.add(last_point);
         }
-        // 逆序输出
+
         Collections.reverse(matched_list);
         Collections.reverse(result);
         return result;
     }
 
     private void updateParams(int id) {
-//        System.out.println("update params");
         double newPosSigma = 0;
         for (Candidate candidate : matched_list) {
             newPosSigma += Math.pow(MapUtil.calculateDistance(candidate.candidate, candidate.parent.getObservation()), 2.0);

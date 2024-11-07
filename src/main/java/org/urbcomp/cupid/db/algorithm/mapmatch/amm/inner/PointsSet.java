@@ -13,8 +13,6 @@ public class PointsSet {
     private double min_path = Double.MAX_VALUE;
     public double score;
     public PointsSet con_previous = null;
-    public Candidate matched_candidate;
-    public Path matched_path;
 
     public PointsSet(AMMGPSPoint gps, List<Candidate> candidates) {
         observation = gps;
@@ -37,7 +35,7 @@ public class PointsSet {
         boolean connected = false;
         this.con_previous = previous;
         for (Candidate current : candidates_list) {
-            // 方向和位置得分参数设置为 10
+
             current.setPositionScore(observation, 10.0);
             if (!current.setVelocityScore(v0, AmmMapMatcher.getDeltaV())) continue;
             if (current.getMinLength() < min_path) min_path = current.getMinLength();
@@ -65,7 +63,7 @@ public class PointsSet {
                     }
                 }
             }
-            // 如果最短路径没有变短，则退出回溯
+
             if (new_length < min_path) {
                 min_path = new_length;
                 prev_last = prev_last.con_previous;

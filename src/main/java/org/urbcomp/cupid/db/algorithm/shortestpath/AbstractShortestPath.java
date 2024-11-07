@@ -19,7 +19,6 @@ package org.urbcomp.cupid.db.algorithm.shortestpath;
 import com.github.davidmoten.guavamini.Lists;
 import org.jgrapht.GraphPath;
 import org.jgrapht.alg.interfaces.ShortestPathAlgorithm;
-import org.urbcomp.cupid.db.exception.AlgorithmExecuteException;
 import org.urbcomp.cupid.db.model.point.CandidatePoint;
 import org.urbcomp.cupid.db.model.point.SpatialPoint;
 import org.urbcomp.cupid.db.model.roadnetwork.*;
@@ -55,15 +54,8 @@ public abstract class AbstractShortestPath {
         this.algo = algo;
     }
 
-    /**
-     * 获得最短路径的Id列表，以及点列表
-     * @param startPoint 起始点
-     * @param endPoint 终止点
-     * @return path
-     * @throws AlgorithmExecuteException 当找不到最近的路网，则抛出异常
-     */
-    public Path findShortestPath(SpatialPoint startPoint, SpatialPoint endPoint)
-        throws AlgorithmExecuteException {
+
+    public Path findShortestPath(SpatialPoint startPoint, SpatialPoint endPoint) {
         if (startPoint.equals(endPoint)) {
             return new Path(0, Arrays.asList(startPoint, endPoint), new ArrayList<>());
         }
@@ -77,11 +69,7 @@ public abstract class AbstractShortestPath {
             roadNetwork,
             searchDistance
         );
-        if (startCandidatePoint == null || endCandidatePoint == null) {
-            throw new AlgorithmExecuteException(
-                "No candidate road segment found, please increase the search distance or check your query points"
-            );
-        }
+
         RoadSegment startRoadSegment = roadNetwork.getRoadSegmentById(
             startCandidatePoint.getRoadSegmentId()
         );
@@ -89,7 +77,6 @@ public abstract class AbstractShortestPath {
             endCandidatePoint.getRoadSegmentId()
         );
 
-        // 两个点在同一条双向路段上，并且方向相反
         if (startRoadSegment.getRoadSegmentId() == -endRoadSegment.getRoadSegmentId()) {
             endCandidatePoint = reverseCandidatePoint(
                 endCandidatePoint,
@@ -98,7 +85,7 @@ public abstract class AbstractShortestPath {
             );
             endRoadSegment = startRoadSegment;
         }
-        // 两个点在同一条路段上, 并且出发点在前
+
         if (startRoadSegment.getRoadSegmentId() == endRoadSegment.getRoadSegmentId()
             && startCandidatePoint.getOffsetInMeter() <= endCandidatePoint.getOffsetInMeter()) {
             return getPathInSameRoadSegmentInOrder(
@@ -109,7 +96,7 @@ public abstract class AbstractShortestPath {
                 startRoadSegment
             );
         }
-        // 两个点在同一条双向路段上，并且出发点在后
+
         if (startRoadSegment.getRoadSegmentId() == endRoadSegment.getRoadSegmentId()
             && startCandidatePoint.getOffsetInMeter() > endCandidatePoint.getOffsetInMeter()
             && startRoadSegment.getDirection() == RoadSegmentDirection.DUAL) {
@@ -122,7 +109,7 @@ public abstract class AbstractShortestPath {
             );
         }
 
-        // 处理在不同路段的情况
+
         List<Path> paths = new ArrayList<>();
         paths.add(
             getPathByEndNodeToStartNode(
@@ -290,13 +277,6 @@ public abstract class AbstractShortestPath {
         );
     }
 
-    /**
-     * 获得从起始点的子路径
-     * @param startPoint 起始点
-     * @param startCandidatePoint 起始点对应的候选点
-     * @param startRoadSegment 起始点对应的路段
-     * @return 起始点到对应路段终端的子路径
-     */
     private Path getSubPathFromStartPoint(
         SpatialPoint startPoint,
         CandidatePoint startCandidatePoint,
@@ -314,13 +294,6 @@ public abstract class AbstractShortestPath {
         );
     }
 
-    /**
-     * 获得到目标点的子路径
-     * @param endPoint 目标点
-     * @param endCandidatePoint 目标点对应的候选点
-     * @param endRoadSegment    目标点对应的路段
-     * @return 对应路段始端到终止点的子路径
-     */
     private Path getSubPathToEndPoint(
         SpatialPoint endPoint,
         CandidatePoint endCandidatePoint,

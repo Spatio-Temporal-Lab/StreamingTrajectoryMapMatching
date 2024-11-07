@@ -53,11 +53,7 @@ public class RoadGraph extends AbstractBaseGraph<RoadNode, RoadSegment> {
                 endNode1.equals(startNode2) || endNode1.equals(endNode2);
     }
 
-    /**
-     * 获取某条路段的所有邻接边（不包括自身）
-     * @param edge 图中的边，代表一条路段
-     * @return 对应路段的所有邻接边
-     */
+
     public Set<RoadSegment> getOneHopReachableEdges(RoadSegment edge) {
         RoadNode endNode = edge.getEndNode();
         Set<RoadSegment> reachableEdges = new HashSet<>(this.outgoingEdgesOf(endNode));

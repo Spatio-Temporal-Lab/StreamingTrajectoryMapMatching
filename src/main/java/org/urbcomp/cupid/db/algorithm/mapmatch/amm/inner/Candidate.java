@@ -30,32 +30,30 @@ public class Candidate {
     }
 
     public boolean setVelocityScore(double v0, double delta_v) {
-        // 对应GPS点的前一个GPS点为空
         if (parent.con_previous == null) {
             velocity_score = calculateVelocityScore(v0, v0, delta_v);
             min_length = 0;
         } else {
-            // 获取前一个GPS点的候选点集合
             List<Candidate> previous_list = parent.con_previous.getCandidates();
             SimpleManyToManyShortestPath algo = new SimpleManyToManyShortestPath(AmmMapMatcher.getRoadNetwork());
             velocity_score = 0;
             for (Candidate start : previous_list) {
-                // 寻找前一个候选点到当前候选点沿路网的最短路径
+
                 Path path = algo.findShortestPathBetweenCandidates(start.candidate, this.candidate);
                 double score = 0;
                 if (!path.getPoints().isEmpty()) {
                     double length = path.getLengthInMeter();
-                    // 更新最短路径长度，最优邻接候选点，最优与邻接候选点的路径
+
                     if (length + start.min_length < min_length) {
                         min_length = length + start.min_length;
                         best_previous = start;
                         best_path = path;
                     }
-                    // 计算当前候选点的速度（与GPS点的速度进行相似性比较）
+
                     double velocity = length / (double) (parent.getObservation().getTimestamp() - parent.con_previous.getObservation().getTimestamp());
                     score = calculateVelocityScore(velocity, v0, delta_v);
                 }
-                // 计算当前候选点的得分
+
                 velocity_score += score * start.probability;
             }
         }

@@ -19,21 +19,11 @@ package org.urbcomp.cupid.db.model.point;
 import java.sql.Timestamp;
 
 public class MapMatchedPoint implements java.io.Serializable {
-    /**
-     * 原始点
-     */
+
     private final GPSPoint rawPoint;
-    /**
-     * 候选点
-     */
+
     private final CandidatePoint candidatePoint;
 
-    /**
-     * 构造函数
-     *
-     * @param rawPoint       原始点
-     * @param candidatePoint 匹配点
-     */
     public MapMatchedPoint(GPSPoint rawPoint, CandidatePoint candidatePoint) {
         this.rawPoint = rawPoint;
         this.candidatePoint = candidatePoint;

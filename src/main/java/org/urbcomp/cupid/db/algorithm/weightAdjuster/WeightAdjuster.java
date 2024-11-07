@@ -2,7 +2,6 @@ package org.urbcomp.cupid.db.algorithm.weightAdjuster;
 
 public abstract class WeightAdjuster {
     protected double transitionWeight = 0.5;
-
     protected double emissionWeight = 0.5;
     protected double learningRate = 0.01;
 

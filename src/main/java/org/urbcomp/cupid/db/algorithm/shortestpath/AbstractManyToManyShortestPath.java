@@ -42,19 +42,19 @@ public class AbstractManyToManyShortestPath {
             Set<CandidatePoint> startPoints,
             Set<CandidatePoint> endPoints
     ) {
-        // 记录候选点所在路段
+
         Set<RoadNode> startNodes = new HashSet<>();
         Set<RoadNode> endNodes = new HashSet<>();
         for (CandidatePoint startPt : startPoints) {
             RoadSegment startRoadSegment = roadNetwork.getRoadSegmentById(
                     startPt.getRoadSegmentId()
             );
-            // 对于起始点，获取其路段的终点
+
             startNodes.add(startRoadSegment.getEndNode());
         }
         for (CandidatePoint endPt : endPoints) {
             RoadSegment endRoadSegment = roadNetwork.getRoadSegmentById(endPt.getRoadSegmentId());
-            // 对于结束点，获取其路段的始点
+
             endNodes.add(endRoadSegment.getStartNode());
         }
         return findManyToManyShortestPath(startNodes, endNodes);
@@ -86,7 +86,7 @@ public class AbstractManyToManyShortestPath {
             Set<RoadNode> startNodes,
             Set<RoadNode> endNodes
     ) {
-        // 返回任意两点之间的最短路径
+
         ManyToManyShortestPathsAlgorithm.ManyToManyShortestPaths<RoadNode, RoadSegment> paths = algo
                 .getManyToManyPaths(startNodes, endNodes);
 
@@ -95,7 +95,7 @@ public class AbstractManyToManyShortestPath {
             Map<RoadNode, Path> tmpMap = new HashMap<>();
             for (RoadNode endNode : endNodes) {
                 if (!isConnected(startNode, endNode)) {
-                    // 如果两个点不连通则直接返回 Path
+
                     tmpMap.put(
                             endNode,
                             new Path(Double.MAX_VALUE, new ArrayList<>(), new ArrayList<>())
@@ -144,7 +144,7 @@ public class AbstractManyToManyShortestPath {
                 endCandidatePoint.getRoadSegmentId()
         );
 
-        // 两个点在同一条双向路段上，并且方向相反
+
         if (startRoadSegment.getRoadSegmentId() == -endRoadSegment.getRoadSegmentId()) {
             endCandidatePoint = reverseCandidatePoint(
                     endCandidatePoint,
@@ -153,7 +153,7 @@ public class AbstractManyToManyShortestPath {
             );
             endRoadSegment = startRoadSegment;
         }
-        // 两个点在同一条路段上, 并且出发点在前
+
         if (startRoadSegment.getRoadSegmentId() == endRoadSegment.getRoadSegmentId()
                 && startCandidatePoint.getOffsetInMeter() <= endCandidatePoint.getOffsetInMeter()) {
             return getPathInSameRoadSegmentInOrder(
@@ -162,7 +162,7 @@ public class AbstractManyToManyShortestPath {
                     startRoadSegment
             );
         }
-        // 两个点在同一条双向路段上，并且出发点在后
+
         if (startRoadSegment.getRoadSegmentId() == endRoadSegment.getRoadSegmentId()
                 && startCandidatePoint.getOffsetInMeter() > endCandidatePoint.getOffsetInMeter()
                 && startRoadSegment.getDirection() == RoadSegmentDirection.DUAL) {
@@ -174,9 +174,6 @@ public class AbstractManyToManyShortestPath {
         } else {
             Path result = getSubPathFromStartPoint(startCandidatePoint, startRoadSegment);
             result.addPath(path);
-//            if (startCandidatePoint.getRoadSegmentId() == 61448){
-//                System.out.println("end path " + endCandidatePoint.getRoadSegmentId()+ " " + getSubPathToEndPoint(endCandidatePoint, endRoadSegment));
-//            }
             result.addPath(getSubPathToEndPoint(endCandidatePoint, endRoadSegment));
             return result;
 

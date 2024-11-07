@@ -19,48 +19,21 @@ package org.urbcomp.cupid.db.util;
 import static org.urbcomp.cupid.db.util.GeoFunctions.EARTH_RADIUS_IN_METER;
 import static org.urbcomp.cupid.db.util.GeoFunctions.FLATTENING;
 
-/**
- * 不同坐标系之间的转换方法，包含百度，高德，谷歌，国家地理坐标系之间的互相转换 *
- * 百度：bd09
- * 高德谷歌：火星坐标系gcj02
- */
+
 public class CoordTransformUtils {
-    /**
-     * 角度转化为PI的3000倍
-     */
+
     private static final double X_PI = Math.PI * 3000.0 / 180.0;
 
-    /**
-     * 百度坐标系(BD-09)转WGS坐标
-     *
-     * @param lng 百度坐标纬度
-     * @param lat 百度坐标经度
-     * @return WGS84坐标数组
-     */
     public static double[] bd09Towgs84(double lng, double lat) {
         double[] gcj = bd09Togcj02(lng, lat);
         return gcj02Towgs84(gcj[0], gcj[1]);
     }
 
-    /**
-     * WGS坐标转百度坐标系(BD-09)
-     *
-     * @param lng WGS84坐标系的经度
-     * @param lat WGS84坐标系的纬度
-     * @return 百度坐标数组
-     */
     public static double[] wgs84Tobd09(double lng, double lat) {
         double[] gcj = wgs84Togcj02(lng, lat);
         return gcj02Tobd09(gcj[0], gcj[1]);
     }
 
-    /**
-     * 火星坐标系(GCJ-02，如谷歌/高德)转百度坐标系(BD-09)
-     *
-     * @param lng 火星坐标经度
-     * @param lat 火星坐标纬度
-     * @return 百度坐标数组
-     */
     public static double[] gcj02Tobd09(double lng, double lat) {
         double z = Math.sqrt(lng * lng + lat * lat) + 0.00002 * Math.sin(lat * X_PI);
         double theta = Math.atan2(lat, lng) + 0.000003 * Math.cos(lng * X_PI);
@@ -69,13 +42,7 @@ public class CoordTransformUtils {
         return new double[] { bdLng, bdLat };
     }
 
-    /**
-     * 百度坐标系(BD-09)转火星坐标系(GCJ-02，如谷歌、高德)
-     *
-     * @param lng 百度坐标纬度
-     * @param lat 百度坐标经度
-     * @return 火星坐标数组
-     */
+
     public static double[] bd09Togcj02(double lat, double lng) {
         double x = lat - 0.0065;
         double y = lng - 0.006;
@@ -86,13 +53,7 @@ public class CoordTransformUtils {
         return new double[] { ggLng, ggLat };
     }
 
-    /**
-     * WGS84转GCJ02(火星坐标系)
-     *
-     * @param lng WGS84坐标系的经度
-     * @param lat WGS84坐标系的纬度
-     * @return 火星坐标数组
-     */
+
     public static double[] wgs84Togcj02(double lng, double lat) {
         if (isOutOfChina(lng, lat)) {
             return new double[] { lng, lat };
@@ -101,13 +62,7 @@ public class CoordTransformUtils {
         return new double[] { lng + delta[0], lat + delta[1] };
     }
 
-    /**
-     * GCJ02(火星坐标系)转GPS84
-     *
-     * @param lng 火星坐标系的经度
-     * @param lat 火星坐标系纬度
-     * @return WGS84坐标数组
-     */
+
     public static double[] gcj02Towgs84(double lng, double lat) {
         if (isOutOfChina(lng, lat)) {
             return new double[] { lng, lat };
@@ -117,13 +72,7 @@ public class CoordTransformUtils {
         return new double[] { lng - delta[0], lat - delta[1] };
     }
 
-    /**
-     * 计算经纬度差
-     *
-     * @param lng 经度
-     * @param lat 纬度
-     * @return 经纬度差数组, delta[0]经度差，delta[1]纬度差
-     */
+
     private static double[] calDelta(double lng, double lat) {
         double[] delta = new double[2];
         double dLat = calDeltaLat(lng - 105.0, lat - 35.0);
@@ -139,13 +88,7 @@ public class CoordTransformUtils {
         return delta;
     }
 
-    /**
-     * 纬度转换
-     *
-     * @param lng 经度
-     * @param lat 纬度
-     * @return 返回纬度差
-     */
+
     private static double calDeltaLat(double lng, double lat) {
         double ret = -100.0 + 2.0 * lng + 3.0 * lat + 0.2 * lat * lat + 0.1 * lng * lat + 0.2 * Math
             .sqrt(Math.abs(lng));
@@ -157,13 +100,7 @@ public class CoordTransformUtils {
         return ret;
     }
 
-    /**
-     * 经度转换
-     *
-     * @param lng 经度
-     * @param lat 纬度
-     * @return 返回经度差
-     */
+
     private static double calDeltaLng(double lng, double lat) {
         double ret = 300.0 + lng + 2.0 * lat + 0.1 * lng * lng + 0.1 * lng * lat + 0.1 * Math.sqrt(
             Math.abs(lng)
@@ -176,13 +113,7 @@ public class CoordTransformUtils {
         return ret;
     }
 
-    /**
-     * 判断是否在国内，不在国内不做偏移
-     *
-     * @param lng 经度
-     * @param lat 纬度
-     * @return true:不在中国国内，false:在中国国内
-     */
+
     private static boolean isOutOfChina(double lng, double lat) {
         return lng < 72.004 || lng > 137.8347 || lat < 0.8293 || lat > 55.8271;
     }

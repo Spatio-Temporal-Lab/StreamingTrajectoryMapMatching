@@ -7,7 +7,4 @@ public class FixedWeightAdjuster extends WeightAdjuster {
     public FixedWeightAdjuster(double initialTransitionWeight, double initialEmissionWeight) {
         super(initialTransitionWeight, initialEmissionWeight);
     }
-
-    @Override
-    public void updateWeights(double emissionLogProb, double transitionLogProb) {}
 }

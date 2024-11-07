@@ -37,13 +37,13 @@ public class RoadNode extends SpatialPoint {
     }
 
     public Set<RoadSegment> getOutgoingSegments(RoadNetwork roadNetwork) {
-        // 从 algo 中获取邻接图，并使用邻接图的方法获取出度边
+
         RoadGraph graph = roadNetwork.getDirectedRoadGraph();
         return graph.outgoingEdgesOf(this);
     }
 
     public Set<RoadSegment> getIncomingSegments(RoadNetwork roadNetwork) {
-        // 从 algo 中获取邻接图，并使用邻接图的方法获取入度边
+
         RoadGraph graph = roadNetwork.getDirectedRoadGraph();
         return graph.incomingEdgesOf(this);
     }

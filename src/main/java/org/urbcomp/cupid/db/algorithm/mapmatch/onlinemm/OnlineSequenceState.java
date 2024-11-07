@@ -7,12 +7,7 @@ import org.urbcomp.cupid.db.model.point.GPSPoint;
 public class OnlineSequenceState extends SequenceState {
 
     public int time;
-    /**
-     * 构造函数
-     *
-     * @param state       原始point的candidate
-     * @param observation 原始point
-     */
+
     public OnlineSequenceState(CandidatePoint state, GPSPoint observation) {
         super(state, observation);
     }

@@ -26,36 +26,20 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * 辅助class，保存状态信息
- */
+
 public class TimeStep {
-    /**
-     * 匹配点
-     */
+
     private CandidatePoint match;
-    /**
-     * 原始轨迹点
-     */
+
     private final GPSPoint observation;
-    /**
-     * 轨迹点对应的candidate point列表
-     */
+
     private final List<CandidatePoint> candidates;
-    /**
-     * 每一个candidate point对应的emission概率
-     */
+
     private final Map<CandidatePoint, Double> emissionLogProbabilities = new HashMap<>();
-    /**
-     * <candidatePt,candidatePt>为索引 (transition) Tuple2<fromCandidatePoint, toCandidatePoint>
-     */
+
     private final Map<Tuple2<CandidatePoint, CandidatePoint>, Double> transitionLogProbabilities =
             new HashMap<>();
 
-    /**
-     * @param observation point
-     * @param candidates  candidate point
-     */
     public TimeStep(GPSPoint observation, List<CandidatePoint> candidates) {
         if (observation == null || candidates == null) {
             throw new NullPointerException("Observation and candidates must not be null.");
@@ -64,11 +48,7 @@ public class TimeStep {
         this.candidates = candidates;
     }
 
-    /**
-     * 添加 emission 概率
-     * @param candidate candidate point
-     * @param emissionLogProbability 对应的emission概率
-     */
+
     public void addEmissionLogProbability(CandidatePoint candidate, Double emissionLogProbability) {
         if (emissionLogProbabilities.containsKey(candidate)) {
             throw new IllegalArgumentException("Candidate has already been added.");
@@ -76,12 +56,7 @@ public class TimeStep {
         emissionLogProbabilities.put(candidate, emissionLogProbability);
     }
 
-    /**
-     * 添加transition概率
-     * @param fromPosition 之前的candidate point
-     * @param toPosition 当前的candidate point
-     * @param transitionLogProbability 给定的transition概率
-     */
+
     public void addTransitionLogProbability(
             CandidatePoint fromPosition,
             CandidatePoint toPosition,
@@ -91,11 +66,9 @@ public class TimeStep {
                 fromPosition,
                 toPosition
         );
-//        System.out.println(transitionLogProbabilities + "  " + transition);
 
         if (transitionLogProbabilities.containsKey(transition)) {
             transitionLogProbabilities.remove(transition);
-//            throw new IllegalArgumentException("Transition has already been added.");
         }
         transitionLogProbabilities.put(transition, transitionLogProbability);
     }

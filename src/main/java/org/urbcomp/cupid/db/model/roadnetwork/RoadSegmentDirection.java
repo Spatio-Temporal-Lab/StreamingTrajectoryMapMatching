@@ -17,7 +17,7 @@
 package org.urbcomp.cupid.db.model.roadnetwork;
 
 public enum RoadSegmentDirection {
-    // 未定义
+
     UNDEFINED(-1),
     // dual way, i.e., bi-directional
     DUAL(1),

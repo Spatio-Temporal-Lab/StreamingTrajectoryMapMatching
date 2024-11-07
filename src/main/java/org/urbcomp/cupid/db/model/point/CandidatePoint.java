@@ -114,13 +114,11 @@ public class CandidatePoint extends SpatialPoint {
     private double calOffsetInMeter(RoadSegment roadSegment, int matchedIndex) {
         double offset = 0;
 
-        // 路段开始到matchedIndex点的距离
         List<SpatialPoint> points = roadSegment.getPoints();
         for (int i = 0; i < matchedIndex; i++) {
             offset += GeoFunctions.getDistanceInM(points.get(i), points.get(i + 1));
         }
 
-        // matched point到matchedIndex的距离
         offset += GeoFunctions.getDistanceInM(
             new SpatialPoint(roadSegment.getPoints().get(matchedIndex).getCoordinate()),
             this
@@ -169,14 +167,7 @@ public class CandidatePoint extends SpatialPoint {
             && super.equals(g);
     }
 
-    /**
-     * 找到离原始点最近的candidate point
-     *
-     * @param pt          原始点
-     * @param roadNetwork 路网索引
-     * @param dist        搜索距离
-     * @return candidate point
-     */
+
     public static CandidatePoint getNearestCandidatePoint(
         SpatialPoint pt,
         RoadNetwork roadNetwork,
@@ -193,14 +184,7 @@ public class CandidatePoint extends SpatialPoint {
         }
     }
 
-    /**
-     * 给定一个点 和一个搜索距离 返回range query的roadSegment
-     *
-     * @param pt          点
-     * @param roadNetwork 路网索引
-     * @param dist        搜索的距离
-     * @return 这个点在搜索范围内，所有可能对应的 candidate points
-     */
+
     public static List<CandidatePoint> getCandidatePoint(
         SpatialPoint pt,
         RoadNetwork roadNetwork,
@@ -230,13 +214,7 @@ public class CandidatePoint extends SpatialPoint {
         return result;
     }
 
-    /**
-     * 给一个点，路网，加上对应的roadSegment，找出candidate point
-     *
-     * @param rawPoint 原始点
-     * @param rs       路段
-     * @return 对应在该路段上的candidate point
-     */
+
     public static CandidatePoint calCandidatePoint(SpatialPoint rawPoint, RoadSegment rs) {
         List<SpatialPoint> points = rs.getPoints();
         ProjectionPoint projectionPoint = ProjectionPoint.calProjection(

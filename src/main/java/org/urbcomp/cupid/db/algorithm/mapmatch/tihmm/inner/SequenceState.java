@@ -19,24 +19,13 @@ package org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner;
 import org.urbcomp.cupid.db.model.point.CandidatePoint;
 import org.urbcomp.cupid.db.model.point.GPSPoint;
 
-/**
- * 辅助class，保存状态信息
- */
+
 public class SequenceState {
-    /**
-     * 原始point的candidate
-     */
+
     private final CandidatePoint state;
-    /**
-     * 原始point
-     */
+
     private final GPSPoint observation;
 
-    /**
-     * 构造函数
-     * @param state 原始point的candidate
-     * @param observation 原始point
-     */
     public SequenceState(CandidatePoint state, GPSPoint observation) {
         this.state = state;
         this.observation = observation;

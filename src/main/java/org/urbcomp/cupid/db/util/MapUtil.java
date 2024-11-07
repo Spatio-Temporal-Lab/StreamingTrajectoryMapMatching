@@ -43,13 +43,7 @@ public class MapUtil {
         return true;
     }
 
-    /**
-     * 计算从点A到点B的方向
-     *
-     * @param pointA 点A
-     * @param pointB 点B
-     * @return 方向（以度为单位）
-     */
+
     public static double calculateDirection(SpatialPoint pointA, SpatialPoint pointB) {
         double lat1 = Math.toRadians(pointA.getLat());
         double lon1 = Math.toRadians(pointA.getLng());

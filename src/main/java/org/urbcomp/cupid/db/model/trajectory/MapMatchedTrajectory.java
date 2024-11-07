@@ -27,21 +27,12 @@ import java.util.List;
 
 public class MapMatchedTrajectory implements Serializable {
     private final String tid;
-    /**
-     * 对象ID
-     */
+
     private final String oid;
-    /**
-     * 地图匹配后的点
-     */
+
     private final List<MapMatchedPoint> mmPtList;
 
-    /**
-     * 构造函数
-     *
-     * @param oid      对象id
-     * @param mmPtList 匹配点list
-     */
+
     public MapMatchedTrajectory(String tid, String oid, List<MapMatchedPoint> mmPtList) {
         this.tid = tid;
         this.oid = oid;

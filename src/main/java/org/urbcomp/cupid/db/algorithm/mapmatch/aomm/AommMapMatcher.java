@@ -5,10 +5,8 @@ import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.SequenceState;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.TiViterbi;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.inner.TimeStep;
 import org.urbcomp.cupid.db.algorithm.shortestpath.AStarShortestPath;
-import org.urbcomp.cupid.db.algorithm.shortestpath.AbstractManyToManyShortestPath;
 import org.urbcomp.cupid.db.algorithm.weightAdjuster.FixedWeightAdjuster;
 import org.urbcomp.cupid.db.algorithm.weightAdjuster.WeightAdjuster;
-import org.urbcomp.cupid.db.exception.AlgorithmExecuteException;
 import org.urbcomp.cupid.db.model.point.CandidatePoint;
 import org.urbcomp.cupid.db.model.point.GPSPoint;
 import org.urbcomp.cupid.db.model.point.MapMatchedPoint;
@@ -24,11 +22,9 @@ import scala.Tuple3;
 
 import java.util.*;
 
-// 复现论文“A Self-adjusting Online Map Matching Method”
+
 public class AommMapMatcher {
-    /**
-     * 路网
-     */
+
     protected final RoadNetwork roadNetwork;
 
     protected final AStarShortestPath aStarShortestPath;
@@ -44,9 +40,8 @@ public class AommMapMatcher {
 
     private int recallNum;
 
-    public MapMatchedTrajectory aommMapMatch(Trajectory traj) throws AlgorithmExecuteException {
+    public MapMatchedTrajectory aommMapMatch(Trajectory traj) {
 
-        // 使用 LinkedList 来保存过去四个 TimeStep
         LinkedList<TimeStep> preTimeSteps = new LinkedList<>();
         List<SequenceState> seq = new ArrayList<>();
         TiViterbi viterbi = new TiViterbi();
@@ -61,7 +56,6 @@ public class AommMapMatcher {
             TimeStep currentTimeStep = tuple2._2();
             viterbi = tuple2._3();
 
-            // 更新 preTimeSteps 列表
             if (!seq.get(seq.size() - 1).getState().isSkip()) {
                 preTimeSteps.addLast(currentTimeStep);
             }
@@ -81,13 +75,6 @@ public class AommMapMatcher {
         return new MapMatchedTrajectory(traj.getTid(), traj.getOid(), mapMatchedPointList);
     }
 
-
-    /**
-     * 计算一个 Viterbi sequence
-     *
-     * @param point 原始轨迹ptList
-     * @return 保存了每一步step的所有状态
-     */
     private Tuple3<List<SequenceState>, TimeStep, TiViterbi> computeViterbiSequence(
             GPSPoint point,
             List<SequenceState> seq,
@@ -95,20 +82,19 @@ public class AommMapMatcher {
             TiViterbi viterbi,
             int index,
             WeightAdjuster weightAdjuster
-    ) throws AlgorithmExecuteException {
-        TimeStep timeStep = this.createTimeStep(point, index); // 轨迹点+候选点集
+    ) {
+        TimeStep timeStep = this.createTimeStep(point, index);
         TimeStep preTimeStep = null;
         if (!preTimeStepList.isEmpty()) {
             preTimeStep = preTimeStepList.getLast();
         }
 
-        // 创建缓存 Map，用于保存候选点之间的最短路径
         Map<Tuple2<CandidatePoint, CandidatePoint>, Path> shortestPathCache = new HashMap<>();
 
         // strategy 1
         if (timeStep == null) {
             CandidatePoint skipPoint = new CandidatePoint();
-            seq.add(new SequenceState(skipPoint, point)); // 添加新状态
+            seq.add(new SequenceState(skipPoint, point));
         }
         // strategy 1
         else {
@@ -121,18 +107,16 @@ public class AommMapMatcher {
                 // strategy 2
                 if (linearDist < 3 && recallNum == 0) {
                     CandidatePoint skipPoint = new CandidatePoint();
-                    seq.add(new SequenceState(skipPoint, point)); // 添加新状态
+                    seq.add(new SequenceState(skipPoint, point));
                     return Tuple3.apply(seq, preTimeStep, viterbi);
                 }
                 // strategy 2
                 else {
-                    // 计算观测概率
+
                     this.computeEmissionProbabilities(timeStep);
 
-                    // 计算转移概率，传入缓存的 shortestPathCache
                     this.computeTransitionProbabilities(preTimeStep, timeStep, shortestPathCache);
 
-                    // 计算维特比
                     viterbi.nextStep(
                             timeStep.getObservation(),
                             timeStep.getCandidates(),
@@ -142,7 +126,7 @@ public class AommMapMatcher {
                     );
 
                     // strategy 3
-                    CandidatePoint maxPoint = StreamMapMatcher.findMaxValuePoint(viterbi.message); // 找到最大概率的候选点
+                    CandidatePoint maxPoint = StreamMapMatcher.findMaxValuePoint(viterbi.message);
                     timeStep.setMatch(maxPoint);
                     if (preTimeStep.getMatch() != null) {
                         Path path = shortestPathCache.getOrDefault(
@@ -170,8 +154,8 @@ public class AommMapMatcher {
                     // strategy 3
                 }
             } else {
-                // 第一个点初始化概率
-                this.computeEmissionProbabilities(timeStep); // 计算观测概率
+
+                this.computeEmissionProbabilities(timeStep);
                 viterbi.startWithInitialObservation(
                         timeStep.getObservation(),
                         timeStep.getCandidates(),
@@ -188,7 +172,7 @@ public class AommMapMatcher {
                         timeStep.getEmissionLogProbabilities()
                 );
             } else {
-                CandidatePoint maxPoint = AommMapMatcher.findMaxValuePoint(viterbi.message); // 找到最大概率的候选点
+                CandidatePoint maxPoint = AommMapMatcher.findMaxValuePoint(viterbi.message);
                 seq.add(new SequenceState(maxPoint, point));
                 timeStep.setMatch(maxPoint);
             }
@@ -207,7 +191,7 @@ public class AommMapMatcher {
         }
         for (int i = 0; i < recallNum; i++) {
             CandidatePoint skipPoint = new CandidatePoint();
-            seq.add(seq.size() - j, new SequenceState(skipPoint, point)); // 添加新状态
+            seq.add(seq.size() - j, new SequenceState(skipPoint, point));
         }
         // strategy 3
 
@@ -215,7 +199,6 @@ public class AommMapMatcher {
     }
 
 
-    // 寻找匹配点
     public static CandidatePoint findMaxValuePoint(Map<CandidatePoint, Double> map) {
         CandidatePoint maxPoint = null;
         double maxProb = Double.MIN_VALUE;
@@ -234,7 +217,7 @@ public class AommMapMatcher {
         return maxPoint;
     }
 
-    // 创建时间步，初始化候选点
+
     private TimeStep createTimeStep(GPSPoint pt, int index) {
         TimeStep timeStep = null;
         List<CandidatePoint> candidates = CandidatePoint.getCandidatePoint(
@@ -249,11 +232,6 @@ public class AommMapMatcher {
         return timeStep;
     }
 
-    /**
-     * 计算观测概率
-     *
-     * @param timeStep    timeStep
-     */
     private void computeEmissionProbabilities(TimeStep timeStep) {
         double distSum = 0;
         for (CandidatePoint candiPt : timeStep.getCandidates()) {
@@ -266,30 +244,23 @@ public class AommMapMatcher {
         }
     }
 
-    /**
-     * 计算转移概率
-     *
-     * @param prevTimeStep  之前的timestep
-     * @param timeStep      当前的timestep
-     */
+
     protected void computeTransitionProbabilities(
             TimeStep prevTimeStep,
             TimeStep timeStep,
             Map<Tuple2<CandidatePoint, CandidatePoint>, Path> shortestPathCache
-    ) throws AlgorithmExecuteException {
-        // 观测点的距离
+    ) {
+
         final double linearDist = GeoFunctions.getDistanceInM(
                 prevTimeStep.getObservation(),
                 timeStep.getObservation()
         );
 
-        // 计算候选点转移概率
         for (CandidatePoint preCandiPt : prevTimeStep.getCandidates()) {
             double sum = 0;
             for (CandidatePoint curCandiPt : timeStep.getCandidates()) {
                 Tuple2<CandidatePoint, CandidatePoint> key = new Tuple2<>(preCandiPt, curCandiPt);
 
-                // 检查缓存是否有最短路径
                 Path path = shortestPathCache.getOrDefault(key, aStarShortestPath.findShortestPath(preCandiPt, curCandiPt));
                 shortestPathCache.putIfAbsent(key, path);
 
@@ -301,7 +272,6 @@ public class AommMapMatcher {
             for (CandidatePoint curCandiPt : timeStep.getCandidates()) {
                 Tuple2<CandidatePoint, CandidatePoint> key = new Tuple2<>(preCandiPt, curCandiPt);
 
-                // 从缓存中获取最短路径
                 Path path = shortestPathCache.get(key);
                 double pathDistance = path.getLengthInMeter();
                 double transitionprob = 1 / Math.abs(linearDist - pathDistance) / mean;

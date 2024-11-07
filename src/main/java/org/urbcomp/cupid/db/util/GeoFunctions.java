@@ -24,33 +24,19 @@ import java.util.List;
 
 public class GeoFunctions {
 
-    /**
-     * 地球长半径
-     */
+
     public static final double EARTH_RADIUS_IN_METER = 6378137.0;
 
-    /**
-     * 扁率
-     */
+
     public static final double FLATTENING = 0.00669342162296594323;
 
-    /**
-     * 将球面距离转化为度（在地理坐标系下做缓冲区时使用）
-     *
-     * @param distance 距离，单位m
-     * @return 弧度
-     */
+
     public static double getDegreeFromM(double distance) {
         double perimeter = 2 * Math.PI * EARTH_RADIUS_IN_METER;
         double degreePerM = 360 / perimeter;
         return distance * degreePerM;
     }
 
-    /**
-     * @param point            point
-     * @param thresholdInMeter MBR扩展的宽度（M）
-     * @return 扩展后的MBR
-     */
     public static Envelope getExtendedBBox(SpatialPoint point, double thresholdInMeter) {
         double perimeter = 2 * Math.PI * EARTH_RADIUS_IN_METER;
         double latPerMeter = 360 / perimeter;
@@ -65,15 +51,6 @@ public class GeoFunctions {
         );
     }
 
-    /**
-     * 计算两经纬度间距离
-     *
-     * @param lng1 经度1
-     * @param lat1 纬度1
-     * @param lng2 经度2
-     * @param lat2 纬度2
-     * @return meter，有误差
-     */
     public static double getDistanceInM(double lng1, double lat1, double lng2, double lat2) {
         double radLat1 = Math.toRadians(lat1);
         double radLat2 = Math.toRadians(lat2);
@@ -169,7 +146,7 @@ public class GeoFunctions {
         double bearing1 = getBearing(point1.getLng(), point1.getLat(), point2.getLng(), point2.getLat());
         double bearing2 = getBearing(point3.getLng(), point3.getLat(), point4.getLng(), point4.getLat());
         double difference = Math.abs(bearing1 - bearing2);
-        // 确保方位角差在 [0, 180] 度之间
+
         if (difference > 180) {
             difference = 360 - difference;
         }

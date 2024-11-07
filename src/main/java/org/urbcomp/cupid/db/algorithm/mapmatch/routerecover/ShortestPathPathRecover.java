@@ -38,11 +38,6 @@ public class ShortestPathPathRecover {
         this.pathAlgo = pathAlgo;
     }
 
-    /**
-     * 返回一个List的原因是，可能两个匹配点之间没有最短路径
-     * @param mmTraj 匹配后的轨迹
-     * @return 补全后的轨迹
-     */
     public List<PathOfTrajectory> recover(MapMatchedTrajectory mmTraj) {
         List<PathOfTrajectory> results = new ArrayList<>();
 
@@ -56,7 +51,7 @@ public class ShortestPathPathRecover {
             CandidatePoint next = mmPoints.get(i + 1).getCandidatePoint();
             RoadSegment preRS = this.roadNetwork.getRoadSegmentById(pre.getRoadSegmentId());
             RoadSegment nextRS = this.roadNetwork.getRoadSegmentById(next.getRoadSegmentId());
-            // 在同一个路段
+
             if (pre.getRoadSegmentId() == next.getRoadSegmentId()) {
                 pt.addRoadSegmentIdIfNotEqual(pre.getRoadSegmentId());
                 pt.addPointIfNotEqual(pre);
@@ -65,7 +60,7 @@ public class ShortestPathPathRecover {
                 }
                 pt.addPointIfNotEqual(next);
             } else {
-                // 添加前一个点到结束点的信息
+
                 pt.addRoadSegmentIdIfNotEqual(pre.getRoadSegmentId());
                 pt.addPointIfNotEqual(pre);
                 for (int j = pre.getMatchedIndex() + 1; j < preRS.getPoints().size(); j++) {
@@ -73,13 +68,13 @@ public class ShortestPathPathRecover {
                 }
                 Path path = pathAlgo.findShortestPath(preRS.getEndNode(), nextRS.getStartNode());
                 if (path.getLengthInMeter() == Double.MAX_VALUE) {
-                    // 未找到最短路径，结果切分
+
                     results.add(pt);
                     pt = new PathOfTrajectory(mmTraj.getTid(), mmTraj.getOid());
                 } else {
                     path.getPoints().forEach(pt::addPointIfNotEqual);
                     path.getRoadSegmentIds().forEach(pt::addRoadSegmentIdIfNotEqual);
-                    // 添加next所在路段的开始点到匹配点的信息
+
                     for (int j = 0; j <= next.getMatchedIndex(); j++) {
                         pt.addPointIfNotEqual(nextRS.getPoints().get(j));
                     }
@@ -88,7 +83,7 @@ public class ShortestPathPathRecover {
                 }
             }
         }
-        // 处理最后一个点的情况，有两种情况会执行这：1、只有一个匹配点；2、最后一个点与前一个点没有最短路径
+
         if (mmPoints.size() > 0) {
             CandidatePoint last = mmPoints.get(mmPoints.size() - 1).getCandidatePoint();
             pt.addPointIfNotEqual(last);
