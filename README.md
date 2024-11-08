@@ -60,7 +60,7 @@ The following resources need to be downloaded and installed:
 
 - Java 8 download: https://www.oracle.com/java/technologies/downloads/#java8
 - IntelliJ IDEA download: https://www.jetbrains.com/idea/
-- git download:https://git-scm.com/download
+- git download: https://git-scm.com/download
 - maven download: https://archive.apache.org/dist/maven/maven-3/
 
 Download and install jdk-8, IntelliJ IDEA and git. IntelliJ IDEA's maven project comes with maven, you can also use your
@@ -69,9 +69,7 @@ own maven environment, just change it in the settings.
 ### Clone code
 
 1. Open *IntelliJ IDEA*, find the *git* column, and select *Clone...*
-
 2. In the *Repository URL* interface, *Version control* selects *git*
-
 3. URL filling: *###*
 4. Due to anonymity restrictions, you can access the code from the following link : *https://anonymous.4open.science/r/StreamingTrajectoryMapMatching-8B8C*
 
@@ -82,4 +80,7 @@ File -> Project Structure -> Project -> Project SDK -> *add SDK*
 Click *JDK* to select the address where you want to download jdk-8.
 
 ### Test STEP
+Select the *test/Experiment* package in the test folder.
+
+#### Datasets
 Due to permission control, we will only publish part of the Chengdu and Wuxi datasets.
