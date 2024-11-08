@@ -10,11 +10,11 @@ EAR-MM is an efficient, adaptive and robust Algorithm
 ## Project Structure
 This project mainly includes the following various online trajectory map matching algorithms:
 
-- The main code for the EAR-MM algorithm is in the *org/urbcomp/cupid/db/algorithm/mapmatch/onlinemm* package.
-- The main code for the DW-RMM algorithm is in the *org/urbcomp/cupid/db/algorithm/mapmatch/dwrmm* package.
-- The main code for the AMM algorithm is in the *org/urbcomp/cupid/db/algorithm/mapmatch/amm* package.
-- The main code for the OHMM algorithm is in the *org/urbcomp/cupid/db/algorithm/mapmatch/stream* package.
-- The main code for the AOMM algorithm is in the *org/urbcomp/cupid/db/algorithm/mapmatch/aomm* package.
+- The main code for the EAR-MM algorithm is in the *gruop/algorithm/mapmatch/onlinemm* package.
+- The main code for the DW-RMM algorithm is in the *group/algorithm/mapmatch/dwrmm* package.
+- The main code for the AMM algorithm is in the *group/algorithm/mapmatch/amm* package.
+- The main code for the OHMM algorithm is in the *group/algorithm/mapmatch/stream* package.
+- The main code for the AOMM algorithm is in the *group/algorithm/mapmatch/aomm* package.
 
 ### EAR-MM Structure
 EAR-MM consists of three primary modules: _Candidate Preparation_, _Probability Calculation_,

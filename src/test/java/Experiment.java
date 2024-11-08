@@ -1,20 +1,20 @@
 import org.junit.Test;
-import org.urbcomp.cupid.db.algorithm.mapmatch.amm.AmmMapMatcher;
-import org.urbcomp.cupid.db.algorithm.mapmatch.amm.inner.Candidate;
-import org.urbcomp.cupid.db.algorithm.mapmatch.aomm.AommMapMatcher;
-import org.urbcomp.cupid.db.algorithm.mapmatch.dwrmm.DwrmmMapMatcher;
-import org.urbcomp.cupid.db.algorithm.mapmatch.stream.StreamMapMatcher;
-import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.TiHmmMapMatcher;
-import org.urbcomp.cupid.db.algorithm.shortestpath.BidirectionalManyToManyShortestPath;
-import org.urbcomp.cupid.db.algorithm.shortestpath.SimpleManyToManyShortestPath;
-import org.urbcomp.cupid.db.algorithm.weightAdjuster.DynamicWeightAdjuster;
-import org.urbcomp.cupid.db.algorithm.weightAdjuster.FixedWeightAdjuster;
-import org.urbcomp.cupid.db.model.point.MapMatchedPoint;
-import org.urbcomp.cupid.db.model.roadnetwork.RoadNetwork;
-import org.urbcomp.cupid.db.model.ModelGenerator;
-import org.urbcomp.cupid.db.model.trajectory.MapMatchedTrajectory;
-import org.urbcomp.cupid.db.model.trajectory.Trajectory;
-import org.urbcomp.cupid.db.util.EvaluateUtils;
+import group.algorithm.mapmatch.amm.AmmMapMatcher;
+import group.algorithm.mapmatch.amm.inner.Candidate;
+import group.algorithm.mapmatch.aomm.AommMapMatcher;
+import group.algorithm.mapmatch.dwrmm.DwrmmMapMatcher;
+import group.algorithm.mapmatch.stream.StreamMapMatcher;
+import group.algorithm.mapmatch.tihmm.TiHmmMapMatcher;
+import group.algorithm.shortestpath.BidirectionalManyToManyShortestPath;
+import group.algorithm.shortestpath.SimpleManyToManyShortestPath;
+import group.algorithm.weightAdjuster.DynamicWeightAdjuster;
+import group.algorithm.weightAdjuster.FixedWeightAdjuster;
+import group.model.point.MapMatchedPoint;
+import group.model.roadnetwork.RoadNetwork;
+import group.model.ModelGenerator;
+import group.model.trajectory.MapMatchedTrajectory;
+import group.model.trajectory.Trajectory;
+import group.util.EvaluateUtils;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -65,14 +65,14 @@ public class Experiment {
             long totalDelay = 0;
             double averageDelay;
             int startIndex = 1;
-            int testNum = 2000;
+            int testNum = 1;
             int windowSize = 20;
             boolean OURS = true;
-            boolean BASE = false;
-            boolean AMM = false;
-            boolean AOMM = false;
-            boolean DWRMM = false;
-            int[] samepleRates = {6};
+            boolean BASE = true;
+            boolean AMM = true;
+            boolean AOMM = true;
+            boolean DWRMM = true;
+            int[] samepleRates = {3, 6, 12, 30, 48, 60};
             testNum += startIndex;
             int originalSampleRate = 3;
             for (int resultSamepleRate: samepleRates) {
@@ -105,9 +105,9 @@ public class Experiment {
                     averageDelay = (double) totalDelay / EvaluateUtils.getTotalNum() / 1_000_000.0;
                     resultLogStream.println("Average Delay: " + averageDelay + " ms");
 
-                    resultLogStream.println("backtrack num: " + ourMapMatcher.getDelayNums());
-                    resultLogStream.println("backtrack time: " + ourMapMatcher.getDelayTime());
-                    resultLogStream.println("average backtrack time: " + ourMapMatcher.getDelayTime() / ourMapMatcher.getDelayNums());
+//                    resultLogStream.println("backtrack num: " + ourMapMatcher.getDelayNums());
+//                    resultLogStream.println("backtrack time: " + ourMapMatcher.getDelayTime());
+//                    resultLogStream.println("average backtrack time: " + ourMapMatcher.getDelayTime() / ourMapMatcher.getDelayNums());
 
                     EvaluateUtils.reset();
                     totalDelay = 0;
