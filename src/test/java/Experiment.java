@@ -65,7 +65,7 @@ public class Experiment {
             long totalDelay = 0;
             double averageDelay;
             int startIndex = 1;
-            int testNum = 1;
+            int testNum = 100;
             int windowSize = 20;
             boolean OURS = true;
             boolean BASE = true;
