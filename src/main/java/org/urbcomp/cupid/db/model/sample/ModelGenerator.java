@@ -40,7 +40,6 @@ public class ModelGenerator {
 
     private static final String TRAJECTORY_PATH = "data/trajectories_chengdu.txt";
     private static final String ROAD_NETWORK_PATH = "data/prepare/roadnetwork_chengdu_origin.csv";
-
     private static final Boolean COORDINATE_SYSTEM_WGS84 = false;
 
     public static Trajectory generateTrajectory() {
@@ -52,96 +51,42 @@ public class ModelGenerator {
     }
 
     public static Trajectory generateTrajectory(int index) {
-        try (
-                InputStream in = ModelGenerator.class.getClassLoader().getResourceAsStream(TRAJECTORY_PATH);
-                BufferedReader br = new BufferedReader(
-                        new InputStreamReader(Objects.requireNonNull(in))
-                )
-        ) {
+        try (InputStream in = ModelGenerator.class.getClassLoader().getResourceAsStream(TRAJECTORY_PATH);
+             BufferedReader br = new BufferedReader(new InputStreamReader(Objects.requireNonNull(in)))) {
             String trajStr = null;
-            for (int i = 0; i < index; ++i) {
-                trajStr = br.readLine();
-            }
-            String correctStr = trajStr.replaceFirst("\\[", "[\"").replaceFirst(",", "\",");
-            List<String> result = JSON.parseArray(correctStr, String.class);
-            String oid = result.get(0);
-            List<String> pointsStrList = JSON.parseArray(result.get(1), String.class);
-            List<GPSPoint> pointsList = pointsStrList.stream()
-                    .map(o -> JSON.parseArray(o, String.class))
-                    .map(o -> {
-                        Timestamp timestamp = Timestamp.valueOf(o.get(0));
-                        double lng = Double.parseDouble(o.get(1));
-                        double lat = Double.parseDouble(o.get(2));
-                        double[] convertedCoords = COORDINATE_SYSTEM_WGS84 ? new double[]{lng, lat} : CoordTransformUtils.gcj02Towgs84(lng, lat);
-                        return new GPSPoint(timestamp, convertedCoords[0], convertedCoords[1]);
-                    })
-                    .collect(Collectors.toList());
-            Trajectory trajectory = new Trajectory(oid + pointsList.get(0).getTime(), oid, pointsList);
-            trajectory.getGPSPointList().sort(Comparator.comparing(GPSPoint::getTime));
-            return trajectory;
+            for (int i = 0; i < index; ++i) trajStr = br.readLine();
+            assert trajStr != null;
+            return convertStrToTrajectory(trajStr);
         } catch (IOException e) {
             throw new RuntimeException("Generate trajectory error: " + e.getMessage());
         }
     }
 
-    public static Trajectory generateTrajectory(int index, int originalSampleRate, int resultSameplRate) {
-        try (
-                InputStream in = ModelGenerator.class.getClassLoader().getResourceAsStream(TRAJECTORY_PATH);
-                BufferedReader br = new BufferedReader(
-                        new InputStreamReader(Objects.requireNonNull(in))
-                )
-        ) {
+    public static Trajectory generateTrajectory(int index, int originalSampleRate, int resultSampleRate) {
+        try (InputStream in = ModelGenerator.class.getClassLoader().getResourceAsStream(TRAJECTORY_PATH);
+             BufferedReader br = new BufferedReader(new InputStreamReader(Objects.requireNonNull(in)))) {
             String trajStr = null;
-            for (int i = 0; i < index; ++i) {
-                trajStr = br.readLine();
-            }
-            if (trajStr != null) {
-                return generateTrajectoryByStr(trajStr, (resultSameplRate / originalSampleRate) - 1);
-            } else return null;
+            for (int i = 0; i < index; ++i) trajStr = br.readLine();
+            assert trajStr != null;
+            return generateTrajectoryByStr(trajStr, (resultSampleRate / originalSampleRate) - 1);
         } catch (IOException e) {
             throw new RuntimeException("Generate trajectory error: " + e.getMessage());
         }
     }
 
-
-    public static Trajectory generateTrajectory(String trajFile, int maxLength) {
-        try (
-                InputStream in = ModelGenerator.class.getClassLoader().getResourceAsStream(trajFile);
-                BufferedReader br = new BufferedReader(
-                        new InputStreamReader(Objects.requireNonNull(in))
-                )
-        ) {
+    public static Trajectory generateTrajectory(String trajectoryFile, int maxLength) {
+        try (InputStream in = ModelGenerator.class.getClassLoader().getResourceAsStream(trajectoryFile);
+             BufferedReader br = new BufferedReader(new InputStreamReader(Objects.requireNonNull(in)))) {
             String trajStr = null;
-            for (int i = 0; i < 15; ++i) {
-                trajStr = br.readLine();
-            }
-            String correctStr = trajStr.replaceFirst("\\[", "[\"").replaceFirst(",", "\",");
-            List<String> result = JSON.parseArray(correctStr, String.class);
-            String oid = result.get(0);
-            List<String> pointsStrList = JSON.parseArray(result.get(1), String.class);
-            List<GPSPoint> pointsList = pointsStrList.stream()
-                    .map(o -> JSON.parseArray(o, String.class))
-                    .map(o -> {
-                        Timestamp timestamp = Timestamp.valueOf(o.get(0));
-                        double lng = Double.parseDouble(o.get(1));
-                        double lat = Double.parseDouble(o.get(2));
-                        double[] convertedCoords = COORDINATE_SYSTEM_WGS84 ? new double[]{lng, lat} : CoordTransformUtils.gcj02Towgs84(lng, lat);
-                        return new GPSPoint(timestamp, convertedCoords[0], convertedCoords[1]);
-                    })
-                    .collect(Collectors.toList());
-            if (maxLength > 0) {
-                pointsList = pointsList.subList(0, maxLength);
-            }
-            Trajectory trajectory = new Trajectory(oid + pointsList.get(0).getTime(), oid, pointsList);
-            trajectory.getGPSPointList().sort(Comparator.comparing(GPSPoint::getTime));
-            return trajectory;
+            for (int i = 0; i < 15; ++i) trajStr = br.readLine();
+            return convertStrToTrajectory(trajStr, maxLength);
         } catch (IOException e) {
             throw new RuntimeException("Generate trajectory error: " + e.getMessage());
         }
     }
 
-    public static Trajectory generateTrajectoryByStr(String trajStr, int skipNum) {
-        String correctStr = trajStr.replaceFirst("\\[", "[\"").replaceFirst(",", "\",");
+    public static Trajectory generateTrajectoryByStr(String trajectoryStr, int skipNum) {
+        String correctStr = trajectoryStr.replaceFirst("\\[", "[\"").replaceFirst(",", "\",");
         // 解析 JSON 字符串
         JSONArray jsonArray = JSON.parseArray(correctStr);
         String oid = jsonArray.getString(0);
@@ -159,10 +104,7 @@ public class ModelGenerator {
                 double lat = point.getDouble(2);
                 double[] convertedCoords = COORDINATE_SYSTEM_WGS84 ? new double[]{lng, lat} : CoordTransformUtils.gcj02Towgs84(lng, lat);
                 pointsList.add(new GPSPoint(timestamp, convertedCoords[0], convertedCoords[1]));
-                flag = false;
-                if (skip == skipNum) {
-                    flag = true;
-                }
+                flag = (skip == skipNum);
             } else {
                 skip++;
                 if (skip == skipNum) {
@@ -177,19 +119,13 @@ public class ModelGenerator {
         return trajectory;
     }
 
-
     public static List<RoadSegment> generateRoadSegments() {
         return generateRoadSegments(-1);
     }
 
     public static List<RoadSegment> generateRoadSegments(int maxLength) {
-        try (
-                InputStream in = ModelGenerator.class.getClassLoader()
-                        .getResourceAsStream(ROAD_NETWORK_PATH);
-                BufferedReader br = new BufferedReader(
-                        new InputStreamReader(Objects.requireNonNull(in))
-                )
-        ) {
+        try (InputStream in = ModelGenerator.class.getClassLoader().getResourceAsStream(ROAD_NETWORK_PATH);
+             BufferedReader br = new BufferedReader(new InputStreamReader(Objects.requireNonNull(in)))) {
             br.readLine(); // read head
             String roadSegmentStr;
             List<RoadSegment> roadSegments = new ArrayList<>();
@@ -219,18 +155,41 @@ public class ModelGenerator {
         } catch (Exception e) {
             throw new RuntimeException("Generate road network error: " + e.getMessage());
         }
-
     }
 
     public static RoadNetwork generateRoadNetwork() {
         return new RoadNetwork(generateRoadSegments());
     }
 
-    public static List<Trajectory> generateMultiTrajectory(int numOfTrajs) {
+    public static List<Trajectory> generateMultiTrajectory(int numOfTrajectories) {
         List<Trajectory> trajectories = new ArrayList<>();
-        for (int i = 0; i < numOfTrajs; i++) {
-            trajectories.add(generateTrajectory(i));
-        }
+        for (int i = 0; i < numOfTrajectories; i++) trajectories.add(generateTrajectory(i));
         return trajectories;
+    }
+
+    private static Trajectory convertStrToTrajectory(String trajectoryStr, int maxLength) {
+        String correctStr = trajectoryStr.replaceFirst("\\[", "[\"").replaceFirst(",", "\",");
+        List<String> result = JSON.parseArray(correctStr, String.class);
+        String oid = result.get(0);
+        List<String> pointsStrList = JSON.parseArray(result.get(1), String.class);
+        List<GPSPoint> pointsList;
+        pointsList = pointsStrList.stream()
+                .map(o -> JSON.parseArray(o, String.class))
+                .map(o -> {
+                    Timestamp timestamp = Timestamp.valueOf(o.get(0));
+                    double lng = Double.parseDouble(o.get(1));
+                    double lat = Double.parseDouble(o.get(2));
+                    double[] convertedCoords = COORDINATE_SYSTEM_WGS84 ? new double[]{lng, lat} : CoordTransformUtils.gcj02Towgs84(lng, lat);
+                    return new GPSPoint(timestamp, convertedCoords[0], convertedCoords[1]);
+                })
+                .collect(Collectors.toList());
+        if (maxLength > 0) pointsList = pointsList.subList(0, maxLength);
+        Trajectory trajectory = new Trajectory(oid + pointsList.get(0).getTime(), oid, pointsList);
+        trajectory.getGPSPointList().sort(Comparator.comparing(GPSPoint::getTime));
+        return trajectory;
+    }
+
+    private static Trajectory convertStrToTrajectory(String trajectoryStr) {
+        return convertStrToTrajectory(trajectoryStr, -1);
     }
 }

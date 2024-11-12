@@ -4,10 +4,8 @@ import org.urbcomp.cupid.db.algorithm.mapmatch.amm.AmmMapMatcher;
 import org.urbcomp.cupid.db.algorithm.mapmatch.amm.inner.Candidate;
 import org.urbcomp.cupid.db.algorithm.mapmatch.aomm.AommMapMatcher;
 import org.urbcomp.cupid.db.algorithm.mapmatch.dwrmm.DwrmmMapMatcher;
-import org.urbcomp.cupid.db.algorithm.mapmatch.routerecover.ShortestPathPathRecover;
 import org.urbcomp.cupid.db.algorithm.mapmatch.stream.StreamMapMatcher;
 import org.urbcomp.cupid.db.algorithm.mapmatch.tihmm.TiHmmMapMatcher;
-import org.urbcomp.cupid.db.algorithm.shortestpath.BiDijkstraShortestPath;
 import org.urbcomp.cupid.db.algorithm.shortestpath.BidirectionalManyToManyShortestPath;
 import org.urbcomp.cupid.db.algorithm.shortestpath.SimpleManyToManyShortestPath;
 import org.urbcomp.cupid.db.algorithm.weightAdjuster.DynamicWeightAdjuster;
@@ -21,8 +19,10 @@ import org.urbcomp.cupid.db.model.trajectory.Trajectory;
 import org.urbcomp.cupid.db.util.EvaluateUtils;
 
 import java.io.File;
-import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.PrintStream;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -35,17 +35,18 @@ public class Experiment {
     private AommMapMatcher aommMapMatcher;
     private DwrmmMapMatcher dwrmmMapMatcher;
 
-    public static void main(String[] args) throws AlgorithmExecuteException {
+    public static void main(String[] args) {
         Experiment experiment = new Experiment();
         experiment.accuracyAndEfficiencyTest();
     }
 
-    public void setUp(){
+    @Before
+    public void setUp() {
         trajectory = ModelGenerator.generateTrajectory();
         RoadNetwork roadNetwork = ModelGenerator.generateRoadNetwork();
         labelMapMatcher = new TiHmmMapMatcher(roadNetwork, new SimpleManyToManyShortestPath(roadNetwork));
         ourMapMatcher = new StreamMapMatcher(roadNetwork, new SimpleManyToManyShortestPath(roadNetwork), new BidirectionalManyToManyShortestPath(roadNetwork));
-        baseMapMatcher = new StreamMapMatcher(roadNetwork, new SimpleManyToManyShortestPath(roadNetwork));
+        baseMapMatcher = new StreamMapMatcher(roadNetwork, new SimpleManyToManyShortestPath(roadNetwork), new BidirectionalManyToManyShortestPath(roadNetwork));
         ammMapMatcher = new AmmMapMatcher(roadNetwork);
         aommMapMatcher = new AommMapMatcher(roadNetwork);
         dwrmmMapMatcher = new DwrmmMapMatcher(roadNetwork);
@@ -61,9 +62,9 @@ public class Experiment {
             File resultFile = new File("result.txt");
             File indexFile = new File("index.txt");
             File errorFile = new File("error.txt");
-            PrintStream resultLogStream = new PrintStream(new FileOutputStream(resultFile));
-            PrintStream indexLogStream = new PrintStream(new FileOutputStream(indexFile));
-            errorLogStream = new PrintStream(new FileOutputStream(errorFile));
+            PrintStream resultLogStream = new PrintStream(Files.newOutputStream(resultFile.toPath()));
+            PrintStream indexLogStream = new PrintStream(Files.newOutputStream(indexFile.toPath()));
+            errorLogStream = new PrintStream(Files.newOutputStream(errorFile.toPath()));
 
             setUp();
             long totalDelay = 0; // 总延迟，单位为纳秒
@@ -76,61 +77,60 @@ public class Experiment {
             boolean AMM = false;
             boolean AOMM = false;
             boolean DWRMM = false;
-            int[] samepleRates = {6};
+            int[] sampleRates = {6};
             testNum += startIndex;
             int originalSampleRate = 3;
-            for (int resultSamepleRate: samepleRates) {
+            for (int resultSampleRate : sampleRates) {
 
-            // our method
-            if (OURS) {
-                resultLogStream.println("---- OURS ----");
-                indexLogStream.println("---- OURS ----");
-                for (int index = startIndex; index < testNum; index++) {
-                    trajectory = ModelGenerator.generateTrajectory(index);
-                    Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(index, originalSampleRate, resultSamepleRate);
-                    DynamicWeightAdjuster dynamicWeightAdjuster = new DynamicWeightAdjuster();
+                // our method
+                if (OURS) {
+                    resultLogStream.println("---- OURS ----");
+                    indexLogStream.println("---- OURS ----");
+                    for (int index = startIndex; index < testNum; index++) {
+                        trajectory = ModelGenerator.generateTrajectory(index);
+                        Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(index, originalSampleRate, resultSampleRate);
+                        DynamicWeightAdjuster dynamicWeightAdjuster = new DynamicWeightAdjuster();
 //                            FixedWeightAdjuster fixedWeightAdjuster = new FixedWeightAdjuster();
 
-                    // 输出当前轨迹的索引到 indexLogStream
-                    indexLogStream.println("Trajectory index: " + index);
+                        // 输出当前轨迹的索引到 indexLogStream
+                        indexLogStream.println("Trajectory index: " + index);
 
-                    // offline hmm(label)
-                    MapMatchedTrajectory labelResult = labelMapMatcher.mapMatch(trajectory);
+                        // offline hmm(label)
+                        MapMatchedTrajectory labelResult = labelMapMatcher.mapMatch(trajectory);
 
-                    // 计算准确率和延迟
-                    long startTime = System.nanoTime();
-                    MapMatchedTrajectory result = ourMapMatcher.onlineStreamMapMatch(sampledTrajectory, dynamicWeightAdjuster, windowSize);
-                    long endTime = System.nanoTime();
-                    long delay = endTime - startTime;
-                    totalDelay += delay;
-                    EvaluateUtils.getAccuracy(labelResult, result, originalSampleRate, resultSamepleRate);
+                        // 计算准确率和延迟
+                        long startTime = System.nanoTime();
+                        MapMatchedTrajectory result = ourMapMatcher.onlineStreamMapMatch(sampledTrajectory, dynamicWeightAdjuster, windowSize);
+                        long endTime = System.nanoTime();
+                        long delay = endTime - startTime;
+                        totalDelay += delay;
+                        EvaluateUtils.getAccuracy(labelResult, result, originalSampleRate, resultSampleRate);
+                        resultLogStream.println("average backtrack time: " + ourMapMatcher.getDelayTime() / ourMapMatcher.getDelayNums());
+                    }
+                    // 准确率
+                    resultLogStream.println("Accuracy: " + EvaluateUtils.getTotalAcc());
+
+                    // 平均延迟
+                    averageDelay = (double) totalDelay / EvaluateUtils.getTotalNum() / 1_000_000.0;
+                    resultLogStream.println("Average Delay: " + averageDelay + " ms");
+
+                    // 平均回溯延迟
+                    resultLogStream.println("backtrack num: " + ourMapMatcher.getDelayNums());
+                    resultLogStream.println("backtrack time: " + ourMapMatcher.getDelayTime());
                     resultLogStream.println("average backtrack time: " + ourMapMatcher.getDelayTime() / ourMapMatcher.getDelayNums());
+
+                    EvaluateUtils.reset();
+                    totalDelay = 0;
+
                 }
-                // 准确率
-                resultLogStream.println("Accuracy: " + EvaluateUtils.getTotalAcc());
-
-                // 平均延迟
-                averageDelay = (double) totalDelay / EvaluateUtils.getTotalNum() / 1_000_000.0;
-                resultLogStream.println("Average Delay: " + averageDelay + " ms");
-
-                // 平均回溯延迟
-                resultLogStream.println("backtrack num: " + ourMapMatcher.getDelayNums());
-                resultLogStream.println("backtrack time: " + ourMapMatcher.getDelayTime());
-                resultLogStream.println("average backtrack time: " + ourMapMatcher.getDelayTime() / ourMapMatcher.getDelayNums());
-
-                EvaluateUtils.reset();
-                totalDelay = 0;
-
-            }
-
 
                 // base onlineHmm
                 if (BASE) {
-                    resultLogStream.println("---- Base onlineHmm ---- sampleRate: " + resultSamepleRate);
-                    indexLogStream.println("---- Base onlineHmm ---- sampleRate: " + resultSamepleRate);
+                    resultLogStream.println("---- Base onlineHmm ---- sampleRate: " + resultSampleRate);
+                    indexLogStream.println("---- Base onlineHmm ---- sampleRate: " + resultSampleRate);
                     for (int index = startIndex; index < testNum; index++) {
                         trajectory = ModelGenerator.generateTrajectory(index);
-                        Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(index, originalSampleRate, resultSamepleRate);
+                        Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(index, originalSampleRate, resultSampleRate);
                         FixedWeightAdjuster fixedWeightAdjuster = new FixedWeightAdjuster();
 
                         // 输出当前轨迹的索引到 indexLogStream
@@ -145,10 +145,10 @@ public class Experiment {
                         long endTime = System.nanoTime();
                         long delay = endTime - startTime;
                         totalDelay += delay;
-                        EvaluateUtils.getAccuracy(labelResult, result, originalSampleRate, resultSamepleRate);
+                        EvaluateUtils.getAccuracy(labelResult, result, originalSampleRate, resultSampleRate);
                     }
                     // 准确率
-                    resultLogStream.println("Accuracy: "+ EvaluateUtils.getTotalAcc());
+                    resultLogStream.println("Accuracy: " + EvaluateUtils.getTotalAcc());
 
                     // 平均延迟
                     averageDelay = (double) totalDelay / EvaluateUtils.getTotalNum() / 1_000_000.0;
@@ -161,11 +161,11 @@ public class Experiment {
 
                 // AMM
                 if (AMM) {
-                    resultLogStream.println("---- AMM ---- sampleRate: " + resultSamepleRate);
-                    indexLogStream.println("---- AMM ---- sampleRate: " + resultSamepleRate);
+                    resultLogStream.println("---- AMM ---- sampleRate: " + resultSampleRate);
+                    indexLogStream.println("---- AMM ---- sampleRate: " + resultSampleRate);
                     for (int index = startIndex; index < testNum; index++) {
                         trajectory = ModelGenerator.generateTrajectory(index);
-                        Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(index, originalSampleRate, resultSamepleRate);
+                        Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(index, originalSampleRate, resultSampleRate);
 
                         // 输出当前轨迹的索引到 indexLogStream
                         indexLogStream.println("Trajectory index: " + index);
@@ -183,83 +183,83 @@ public class Experiment {
                         long endTime = System.nanoTime();
                         long delay = endTime - startTime;
                         totalDelay += delay;
-                        EvaluateUtils.getAccuracy(labelResult, result, originalSampleRate, resultSamepleRate);
+                        EvaluateUtils.getAccuracy(labelResult, result, originalSampleRate, resultSampleRate);
                     }
-                // 准确率
-                resultLogStream.println("Accuracy: "+ EvaluateUtils.getTotalAcc());
+                    // 准确率
+                    resultLogStream.println("Accuracy: " + EvaluateUtils.getTotalAcc());
 
-                // 平均延迟
-                averageDelay = (double) totalDelay / EvaluateUtils.getTotalNum() / 1_000_000.0;
-                resultLogStream.println("Average Delay: " + averageDelay + " ms");
+                    // 平均延迟
+                    averageDelay = (double) totalDelay / EvaluateUtils.getTotalNum() / 1_000_000.0;
+                    resultLogStream.println("Average Delay: " + averageDelay + " ms");
 
-                EvaluateUtils.reset();
-                totalDelay = 0;
-            }
-
-
-            // AOMM
-            if (AOMM) {
-                resultLogStream.println("---- AOMM ---- sampleRate: " + resultSamepleRate);
-                indexLogStream.println("---- AOMM ---- sampleRate: " + resultSamepleRate);
-                for (int index = startIndex; index < testNum; index++) {
-                    trajectory = ModelGenerator.generateTrajectory(index);
-                    Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(index, originalSampleRate, resultSamepleRate);
-
-                    // 输出当前轨迹的索引到 indexLogStream
-                    indexLogStream.println("Trajectory index: " + index);
-
-                    // offline hmm(label)
-                    MapMatchedTrajectory labelResult = labelMapMatcher.mapMatch(trajectory);
-
-                    // 计算准确率和延迟
-                    long startTime = System.nanoTime();
-                    MapMatchedTrajectory result = aommMapMatcher.aommMapMatch(sampledTrajectory);
-                    long endTime = System.nanoTime();
-                    long delay = endTime - startTime;
-                    totalDelay += delay;
-                    EvaluateUtils.getAccuracy(labelResult, result, originalSampleRate, resultSamepleRate);
+                    EvaluateUtils.reset();
+                    totalDelay = 0;
                 }
-                // 准确率
-                resultLogStream.println("Accuracy: "+ EvaluateUtils.getTotalAcc());
-                resultLogStream.println("pointNums: " + EvaluateUtils.getTotalNum());
-
-                // 平均延迟
-                averageDelay = (double) totalDelay / EvaluateUtils.getTotalNum() / 1_000_000.0;
-                resultLogStream.println("Average Delay: " + averageDelay + " ms");
-
-                EvaluateUtils.reset();
-                totalDelay = 0;
-            }
 
 
-            // DW-RMM
-            if (DWRMM) {
-                resultLogStream.println("---- DW-RMM ---- sampleRate: " + resultSamepleRate);
-                indexLogStream.println("---- DW-RMM ---- sampleRate: " + resultSamepleRate);
-                for (int index = startIndex; index < testNum; index++) {
-                    trajectory = ModelGenerator.generateTrajectory(index);
-                    Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(index, originalSampleRate, resultSamepleRate);
+                // AOMM
+                if (AOMM) {
+                    resultLogStream.println("---- AOMM ---- sampleRate: " + resultSampleRate);
+                    indexLogStream.println("---- AOMM ---- sampleRate: " + resultSampleRate);
+                    for (int index = startIndex; index < testNum; index++) {
+                        trajectory = ModelGenerator.generateTrajectory(index);
+                        Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(index, originalSampleRate, resultSampleRate);
 
-                    // 输出当前轨迹的索引到 indexLogStream
-                    indexLogStream.println("Trajectory index: " + index);
+                        // 输出当前轨迹的索引到 indexLogStream
+                        indexLogStream.println("Trajectory index: " + index);
 
-                    // offline hmm(label)
-                    MapMatchedTrajectory labelResult = labelMapMatcher.mapMatch(trajectory);
+                        // offline hmm(label)
+                        MapMatchedTrajectory labelResult = labelMapMatcher.mapMatch(trajectory);
 
-                    // 计算准确率和延迟
-                    long startTime = System.nanoTime();
-                    MapMatchedTrajectory result = dwrmmMapMatcher.dwrmmMapMatch(sampledTrajectory);
-                    long endTime = System.nanoTime();
-                    long delay = endTime - startTime;
-                    totalDelay += delay;
-                    EvaluateUtils.getAccuracy(labelResult, result, originalSampleRate, resultSamepleRate);
+                        // 计算准确率和延迟
+                        long startTime = System.nanoTime();
+                        MapMatchedTrajectory result = aommMapMatcher.aommMapMatch(sampledTrajectory);
+                        long endTime = System.nanoTime();
+                        long delay = endTime - startTime;
+                        totalDelay += delay;
+                        EvaluateUtils.getAccuracy(labelResult, result, originalSampleRate, resultSampleRate);
+                    }
+                    // 准确率
+                    resultLogStream.println("Accuracy: " + EvaluateUtils.getTotalAcc());
+                    resultLogStream.println("pointNums: " + EvaluateUtils.getTotalNum());
+
+                    // 平均延迟
+                    averageDelay = (double) totalDelay / EvaluateUtils.getTotalNum() / 1_000_000.0;
+                    resultLogStream.println("Average Delay: " + averageDelay + " ms");
+
+                    EvaluateUtils.reset();
+                    totalDelay = 0;
                 }
-                // 准确率
-                resultLogStream.println("Accuracy: "+ EvaluateUtils.getTotalAcc());
 
-                // 平均延迟
-                averageDelay = (double) totalDelay / EvaluateUtils.getTotalNum() / 1_000_000.0;
-                resultLogStream.println("Average Delay: " + averageDelay + " ms");
+
+                // DW-RMM
+                if (DWRMM) {
+                    resultLogStream.println("---- DW-RMM ---- sampleRate: " + resultSampleRate);
+                    indexLogStream.println("---- DW-RMM ---- sampleRate: " + resultSampleRate);
+                    for (int index = startIndex; index < testNum; index++) {
+                        trajectory = ModelGenerator.generateTrajectory(index);
+                        Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(index, originalSampleRate, resultSampleRate);
+
+                        // 输出当前轨迹的索引到 indexLogStream
+                        indexLogStream.println("Trajectory index: " + index);
+
+                        // offline hmm(label)
+                        MapMatchedTrajectory labelResult = labelMapMatcher.mapMatch(trajectory);
+
+                        // 计算准确率和延迟
+                        long startTime = System.nanoTime();
+                        MapMatchedTrajectory result = dwrmmMapMatcher.dwrmmMapMatch(sampledTrajectory);
+                        long endTime = System.nanoTime();
+                        long delay = endTime - startTime;
+                        totalDelay += delay;
+                        EvaluateUtils.getAccuracy(labelResult, result, originalSampleRate, resultSampleRate);
+                    }
+                    // 准确率
+                    resultLogStream.println("Accuracy: " + EvaluateUtils.getTotalAcc());
+
+                    // 平均延迟
+                    averageDelay = (double) totalDelay / EvaluateUtils.getTotalNum() / 1_000_000.0;
+                    resultLogStream.println("Average Delay: " + averageDelay + " ms");
                 }
             }
         } catch (Exception e) {
@@ -284,4 +284,59 @@ public class Experiment {
         }
         return new MapMatchedTrajectory(tid, oid, mmPtList);
     }
+
+    @Test
+    public void saveMatchResultTest() {
+        int originalSampleRate = 3;
+        int resultSampleRate = 3;
+        int testNum = 1000;
+        int windowSize = -1;
+        String outputBasePath = "D:\\Results\\MapMatching\\match\\CD-Taxis";
+
+        for (int i = 1; i < testNum; i++) {
+            System.out.println("trajectory: " + i);
+            try {
+                // Generate the trajectory
+                Trajectory trajectory = ModelGenerator.generateTrajectory(i);
+                // Generate sampled trajectory
+                Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(i, originalSampleRate, resultSampleRate);
+
+                // Offline HMM label
+                MapMatchedTrajectory labelResult = labelMapMatcher.mapMatch(trajectory);
+                // Perform matches with different models
+                MapMatchedTrajectory ourResult = ourMapMatcher.onlineStreamMapMatch(sampledTrajectory, new DynamicWeightAdjuster(), windowSize);
+                MapMatchedTrajectory baseResult = baseMapMatcher.streamMapMatch(sampledTrajectory, new FixedWeightAdjuster());
+                ammMapMatcher.mapMatch(sampledTrajectory, i);
+                MapMatchedTrajectory ammResult = convertMatchedListToTrajectory(ammMapMatcher.getMatchedList(), trajectory.getTid(), trajectory.getOid());
+                MapMatchedTrajectory aommResult = aommMapMatcher.aommMapMatch(sampledTrajectory);
+                MapMatchedTrajectory dwrmmResult = dwrmmMapMatcher.dwrmmMapMatch(sampledTrajectory);
+
+                // Save results to respective folders
+                saveMatchResult(ammResult, outputBasePath + "\\AMM\\result_" + i + ".txt");
+                saveMatchResult(aommResult, outputBasePath + "\\AOMM\\result_" + i + ".txt");
+                saveMatchResult(ourResult, outputBasePath + "\\ERA-MM\\result_" + i + ".txt");
+                saveMatchResult(dwrmmResult, outputBasePath + "\\DW-RMM\\result_" + i + ".txt");
+                saveMatchResult(labelResult, outputBasePath + "\\OHMM\\result_" + i + ".txt");
+                saveMatchResult(baseResult, outputBasePath + "\\BASE\\result_" + i + ".txt");
+
+            } catch (AlgorithmExecuteException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private void saveMatchResult(MapMatchedTrajectory result, String filePath) {
+        try {
+            // Create the parent directories if they don't exist
+            Files.createDirectories(Paths.get(filePath).getParent());
+
+            // Write the result to the file
+            try (PrintStream resultLogStream = new PrintStream(Files.newOutputStream(Paths.get(filePath)))) {
+                resultLogStream.println(result.toGeoJSON()); // Adjust this line as needed to format the output
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
 }
