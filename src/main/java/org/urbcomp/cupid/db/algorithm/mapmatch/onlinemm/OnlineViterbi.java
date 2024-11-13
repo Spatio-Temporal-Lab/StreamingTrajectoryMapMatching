@@ -294,6 +294,14 @@ public class OnlineViterbi extends TiViterbi {
             compress(time);
             // Free up dummy states
             freeDummyState(time);
+            // Free states outside window
+            if (isWindowNotDynamic()) {
+//                System.out.println("free State Outside Window:");
+//                System.out.println("free before:" + stateList.size());
+                // TODO: comment it if not free state when time is beyond window.
+                freeExpiredState(-1, time - windowSize);
+//                System.out.println("free after:" + stateList.size());
+            }
             // Check for convergence point and record local solutions
             if (searchForNewRoot()) {
                 isConverge = true;
@@ -355,7 +363,7 @@ public class OnlineViterbi extends TiViterbi {
         }
     }
 
-    private void freeConvergenceState(int startTime, int endTime) {
+    private void freeExpiredState(int startTime, int endTime) {
         OnlineExtendedState lastState = stateList.getLast();
         ListIterator<OnlineExtendedState> iterator = stateList.listIterator(stateList.indexOf(lastState) + 1);
         OnlineExtendedState current;
@@ -456,15 +464,14 @@ public class OnlineViterbi extends TiViterbi {
 
         Collections.reverse(localSequence);
         sequenceStates.addAll(localSequence);
-
-        System.out.println("freeConvergenceState");
-        System.out.println("free before: " + stateList.size());
-
-        int startTime = windowSize == -1 ? currentTime : currentRoot.getTime() - windowSize;
-        freeConvergenceState(startTime, currentRoot.getTime());
-
-        System.out.println("free after: " + stateList.size());
 //        System.out.println("Local added sequence length: " + localSequence.size());
+
+//        System.out.println("freeConvergenceState:");
+//        System.out.println("free before: " + stateList.size());
+        // TODO: comment it if not free state when converging.
+        freeExpiredState(currentTime, currentRoot.getTime());
+//        System.out.println("free after: " + stateList.size());
+
     }
 
     /**
@@ -519,4 +526,11 @@ public class OnlineViterbi extends TiViterbi {
     public boolean isConvergedBefore() {
         return previousRoot != null;
     }
+
+    /**
+     * Checks if the window size is dynamic.
+     *
+     * @return true if window size is not dynamic, false otherwise.
+     */
+    public boolean isWindowNotDynamic() { return windowSize != -1; }
 }
