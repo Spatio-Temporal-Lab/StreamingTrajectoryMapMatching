@@ -362,7 +362,9 @@ public class OnlineViterbi extends TiViterbi {
         while (iterator.hasPrevious()) {
             current = iterator.previous();
             int time = current.getTime();
-            if (time >= startTime && time <= endTime) iterator.remove();
+            if (time >= startTime && time <= endTime) {
+                iterator.remove();
+            }
         }
     }
 
@@ -455,7 +457,13 @@ public class OnlineViterbi extends TiViterbi {
         Collections.reverse(localSequence);
         sequenceStates.addAll(localSequence);
 
-        freeConvergenceState(currentTime, currentRoot.getTime());
+        System.out.println("freeConvergenceState");
+        System.out.println("free before: " + stateList.size());
+
+        int startTime = windowSize == -1 ? currentTime : currentRoot.getTime() - windowSize;
+        freeConvergenceState(startTime, currentRoot.getTime());
+
+        System.out.println("free after: " + stateList.size());
 //        System.out.println("Local added sequence length: " + localSequence.size());
     }
 

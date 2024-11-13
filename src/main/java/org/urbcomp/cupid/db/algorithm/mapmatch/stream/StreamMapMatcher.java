@@ -1,5 +1,6 @@
 package org.urbcomp.cupid.db.algorithm.mapmatch.stream;
 
+import org.openjdk.jol.info.GraphLayout;
 import org.urbcomp.cupid.db.algorithm.bearing.WindowBearing;
 import org.urbcomp.cupid.db.algorithm.mapmatch.onlinemm.OnlineSequenceState;
 import org.urbcomp.cupid.db.algorithm.mapmatch.onlinemm.OnlineViterbi;
@@ -202,6 +203,9 @@ public class StreamMapMatcher {
             }
 
             result = this.computeOnlineViterbiSequence(gpsPoint, sequence, previousTimeStep, viterbi, weightAdjuster, currentTime, index);
+            long memory = GraphLayout.parseInstance(viterbi.getStateList()).totalSize();
+            System.out.println(memory);
+
             index++;
             sequence = result._1();
             previousTimeStep = result._2();
