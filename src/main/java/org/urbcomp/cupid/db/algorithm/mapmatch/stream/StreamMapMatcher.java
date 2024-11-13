@@ -434,12 +434,12 @@ public class StreamMapMatcher {
                             CandidatePoint globalCandidate = globalState.getState();
 
                             // 回溯的候选点时间在窗口外
-                            if (localState.time < earliestTime - onlineViterbi.windowSize) continue;
+                            if (onlineViterbi.windowSize != -1 && localState.time < earliestTime) continue;
                             // 观测点的位置不同
                             if (!isSamePosition(localObservation, globalObservation)) continue;
                             // 经过回溯得到了正确匹配点
                             if (!isSamePosition(localCandidate, globalCandidate)) {
-                                int delayTime = localState.time - earliestTime;
+                                int delayTime = currentTime - localState.time;
                                 traceDelay += delayTime;
                                 correctedPoints++;
                             }

@@ -355,6 +355,17 @@ public class OnlineViterbi extends TiViterbi {
         }
     }
 
+    private void freeConvergenceState(int startTime, int endTime) {
+        OnlineExtendedState lastState = stateList.getLast();
+        ListIterator<OnlineExtendedState> iterator = stateList.listIterator(stateList.indexOf(lastState) + 1);
+        OnlineExtendedState current;
+        while (iterator.hasPrevious()) {
+            current = iterator.previous();
+            int time = current.getTime();
+            if (time >= startTime && time <= endTime) iterator.remove();
+        }
+    }
+
     /**
      * Searches for a new root (convergence point) in the state tree.
      * If a convergence point is found, it updates the current root.
@@ -444,6 +455,7 @@ public class OnlineViterbi extends TiViterbi {
         Collections.reverse(localSequence);
         sequenceStates.addAll(localSequence);
 
+        freeConvergenceState(currentTime, currentRoot.getTime());
 //        System.out.println("Local added sequence length: " + localSequence.size());
     }
 
