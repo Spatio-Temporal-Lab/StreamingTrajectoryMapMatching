@@ -2,6 +2,7 @@ package org.urbcomp.cupid.db.algorithm.shortestpath;
 
 import org.jgrapht.GraphPath;
 import org.jgrapht.alg.shortestpath.BidirectionalDijkstraShortestPath;
+import org.openjdk.jol.info.GraphLayout;
 import org.urbcomp.cupid.db.model.point.CandidatePoint;
 import org.urbcomp.cupid.db.model.point.SpatialPoint;
 import org.urbcomp.cupid.db.model.roadnetwork.Path;
@@ -123,6 +124,10 @@ public class BidirectionalManyToManyShortestPath {
 
         return results;
     }
+    public long getMapResultCache(){
+        return GraphLayout.parseInstance(resultCache).totalSize();
+    }
+
 }
 
 class MapResultCache {

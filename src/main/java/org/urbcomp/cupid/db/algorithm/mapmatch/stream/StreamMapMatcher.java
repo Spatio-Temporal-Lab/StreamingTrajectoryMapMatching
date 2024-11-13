@@ -79,6 +79,7 @@ public class StreamMapMatcher {
      * A list to store converged sequence states during processing.
      */
     public List<SequenceState> convergedSequence = new ArrayList<>();
+    public long totalMemory = 0;
 
 
     private Double delayTime = 0.0;
@@ -184,6 +185,7 @@ public class StreamMapMatcher {
      */
     public MapMatchedTrajectory onlineStreamMapMatch(Trajectory trajectory, WeightAdjuster weightAdjuster, int windowSize) throws AlgorithmExecuteException {
         bidirectionalPathAlgorithm.clearCache();
+        totalMemory = 0;
         TimeStep previousTimeStep = null;
         List<SequenceState> sequence = new ArrayList<>();
         OnlineViterbi viterbi = new OnlineViterbi(0, windowSize);
@@ -204,7 +206,7 @@ public class StreamMapMatcher {
 
             result = this.computeOnlineViterbiSequence(gpsPoint, sequence, previousTimeStep, viterbi, weightAdjuster, currentTime, index);
             long memory = GraphLayout.parseInstance(viterbi.getStateList()).totalSize();
-            System.out.println(memory);
+            totalMemory += memory;
 
             index++;
             sequence = result._1();

@@ -34,6 +34,7 @@ public class Experiment {
     private AmmMapMatcher ammMapMatcher;
     private AommMapMatcher aommMapMatcher;
     private DwrmmMapMatcher dwrmmMapMatcher;
+    private BidirectionalManyToManyShortestPath bi;
 
     public static void main(String[] args) {
         Experiment experiment = new Experiment();
@@ -45,7 +46,8 @@ public class Experiment {
         trajectory = ModelGenerator.generateTrajectory();
         RoadNetwork roadNetwork = ModelGenerator.generateRoadNetwork();
         labelMapMatcher = new TiHmmMapMatcher(roadNetwork, new SimpleManyToManyShortestPath(roadNetwork));
-        ourMapMatcher = new StreamMapMatcher(roadNetwork, new SimpleManyToManyShortestPath(roadNetwork), new BidirectionalManyToManyShortestPath(roadNetwork));
+        bi = new BidirectionalManyToManyShortestPath(roadNetwork);
+        ourMapMatcher = new StreamMapMatcher(roadNetwork, new SimpleManyToManyShortestPath(roadNetwork), bi);
         baseMapMatcher = new StreamMapMatcher(roadNetwork, new SimpleManyToManyShortestPath(roadNetwork), new BidirectionalManyToManyShortestPath(roadNetwork));
         ammMapMatcher = new AmmMapMatcher(roadNetwork);
         aommMapMatcher = new AommMapMatcher(roadNetwork);
@@ -70,8 +72,12 @@ public class Experiment {
             long totalDelay = 0; // 总延迟，单位为纳秒
             double averageDelay;
             int startIndex = 1;
-            int testNum = 2000;
-            int windowSize = 20;
+            int testNum = 10;
+            int windowSize = 10;
+            long totalMemory = 0;
+            double averageMemory;
+            long totalBiMemory = 0;
+            double averageBiMemory;
             boolean OURS = true;
             boolean BASE = false;
             boolean AMM = false;
@@ -105,6 +111,9 @@ public class Experiment {
                         long endTime = System.nanoTime();
                         long delay = endTime - startTime;
                         totalDelay += delay;
+                        totalMemory += ourMapMatcher.totalMemory;
+                        totalBiMemory += bi.getMapResultCache();
+
                         EvaluateUtils.getAccuracy(labelResult, result, originalSampleRate, resultSampleRate);
                         resultLogStream.println("average backtrack time: " + ourMapMatcher.getDelayTime() / ourMapMatcher.getDelayNums());
                     }
@@ -114,6 +123,14 @@ public class Experiment {
                     // 平均延迟
                     averageDelay = (double) totalDelay / EvaluateUtils.getTotalNum() / 1_000_000.0;
                     resultLogStream.println("Average Delay: " + averageDelay + " ms");
+
+                    //总状态内存
+                    averageMemory = (double) totalMemory / EvaluateUtils.getTotalNum() / 1024;
+                    resultLogStream.println("Average Memory: " + averageMemory + " kb");
+
+                    //总Bi内存
+                    averageBiMemory = (double) totalBiMemory / EvaluateUtils.getTotalNum() / 1024;
+                    resultLogStream.println("Average Bi Memory: " + averageBiMemory + " kb");
 
                     // 平均回溯延迟
                     resultLogStream.println("backtrack num: " + ourMapMatcher.getDelayNums());
