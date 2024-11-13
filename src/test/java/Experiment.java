@@ -87,6 +87,7 @@ public class Experiment {
                     resultLogStream.println("---- OURS ----");
                     indexLogStream.println("---- OURS ----");
                     for (int index = startIndex; index < testNum; index++) {
+                        System.out.println("index: " + index);
                         trajectory = ModelGenerator.generateTrajectory(index);
                         Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(index, originalSampleRate, resultSampleRate);
                         DynamicWeightAdjuster dynamicWeightAdjuster = new DynamicWeightAdjuster();
