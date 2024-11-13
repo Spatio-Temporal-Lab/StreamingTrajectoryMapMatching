@@ -1,4 +1,6 @@
 import org.junit.Test;
+import org.openjdk.jol.info.ClassLayout;
+import org.openjdk.jol.info.GraphLayout;
 import org.urbcomp.cupid.db.algorithm.mapmatch.amm.AmmMapMatcher;
 import org.urbcomp.cupid.db.algorithm.mapmatch.amm.inner.Candidate;
 import org.urbcomp.cupid.db.algorithm.mapmatch.aomm.AommMapMatcher;
@@ -30,6 +32,7 @@ public class Experiment {
     private AmmMapMatcher ammMapMatcher;
     private AommMapMatcher aommMapMatcher;
     private DwrmmMapMatcher dwrmmMapMatcher;
+    private BidirectionalManyToManyShortestPath bi;
 
     public static void main(String[] args) {
         Experiment experiment = new Experiment();
@@ -40,7 +43,8 @@ public class Experiment {
         trajectory = ModelGenerator.generateTrajectory();
         RoadNetwork roadNetwork = ModelGenerator.generateRoadNetwork();
         labelMapMatcher = new TiHmmMapMatcher(roadNetwork, new SimpleManyToManyShortestPath(roadNetwork));
-        ourMapMatcher = new StreamMapMatcher(roadNetwork, new SimpleManyToManyShortestPath(roadNetwork), new BidirectionalManyToManyShortestPath(roadNetwork));
+        bi =  new BidirectionalManyToManyShortestPath(roadNetwork);
+        ourMapMatcher = new StreamMapMatcher(roadNetwork, new SimpleManyToManyShortestPath(roadNetwork), bi);
         baseMapMatcher = new StreamMapMatcher(roadNetwork, new SimpleManyToManyShortestPath(roadNetwork));
         ammMapMatcher = new AmmMapMatcher(roadNetwork);
         aommMapMatcher = new AommMapMatcher(roadNetwork);
@@ -65,7 +69,7 @@ public class Experiment {
             long totalDelay = 0;
             double averageDelay;
             int startIndex = 1;
-            int testNum = 2000;
+            int testNum = 1;
             int windowSize = 20;
             boolean OURS = true;
             boolean BASE = false;
@@ -86,7 +90,6 @@ public class Experiment {
                         Trajectory sampledTrajectory = ModelGenerator.generateTrajectory(index, originalSampleRate, resultSamepleRate);
                         DynamicWeightAdjuster dynamicWeightAdjuster = new DynamicWeightAdjuster();
 //                      FixedWeightAdjuster fixedWeightAdjuster = new FixedWeightAdjuster();
-
                         indexLogStream.println("Trajectory index: " + index);
 
                         // offline hmm(label)
