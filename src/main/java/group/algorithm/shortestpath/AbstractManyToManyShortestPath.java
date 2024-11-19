@@ -115,7 +115,6 @@ public class AbstractManyToManyShortestPath {
         return algo.getPath(startNode, endNode) != null;
     }
 
-
     public Path getCompletePath(
             CandidatePoint startCandidatePoint,
             CandidatePoint endCandidatePoint,

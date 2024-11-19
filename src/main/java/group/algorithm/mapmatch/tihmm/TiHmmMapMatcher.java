@@ -25,11 +25,8 @@ import java.util.*;
 public class TiHmmMapMatcher {
 
     private static final double measurementErrorSigma = 50.0;
-
     private static final double transitionProbabilityBeta = 5.0;
-
     protected final RoadNetwork roadNetwork;
-
     protected final AbstractManyToManyShortestPath pathAlgo;
     private final WindowBearing windowBearing = new WindowBearing();
 
@@ -53,7 +50,6 @@ public class TiHmmMapMatcher {
         return new MapMatchedTrajectory(traj.getTid(), traj.getOid(), mapMatchedPointList);
     }
 
-
     private TimeStep createTimeStep(GPSPoint pt, int index) {
         TimeStep timeStep = null;
         List<CandidatePoint> candidates = CandidatePoint.getCandidatePoint(
@@ -67,7 +63,6 @@ public class TiHmmMapMatcher {
         }
         return timeStep;
     }
-
 
     private List<SequenceState> computeViterbiSequence(List<GPSPoint> ptList) {
         List<SequenceState> seq = new ArrayList<>();
@@ -140,7 +135,6 @@ public class TiHmmMapMatcher {
         }
         return seq;
     }
-
 
     public void processBackward(TimeStep preTimeStep, TimeStep curTimeStep, TiViterbi viterbi, Map<RoadNode, Map<RoadNode, Path>> paths, HmmProbabilities probabilities) {
         CandidatePoint preCandiPt = StreamMapMatcher.findMaxValuePoint(viterbi.message);
@@ -245,5 +239,4 @@ public class TiHmmMapMatcher {
             }
         }
     }
-
 }

@@ -10,11 +10,8 @@ import java.util.*;
 public class TiViterbi {
 
     public Map<CandidatePoint, ExtendedState> lastExtendedStates;
-
     public List<CandidatePoint> prevCandidates;
-
     public Map<CandidatePoint, Double> message;
-
     public Boolean isBroken = false;
 
     public TiViterbi(Map<CandidatePoint, ExtendedState> lastExtendedStates, List<CandidatePoint> prevCandidates, Map<CandidatePoint, Double> message, Boolean isBroken) {
@@ -26,7 +23,6 @@ public class TiViterbi {
 
     public TiViterbi() {
     }
-
 
     private void initializeStateProbabilities(
             GPSPoint observation,
@@ -57,13 +53,11 @@ public class TiViterbi {
         }
     }
 
-
     protected Boolean hmmBreak(Map<CandidatePoint, Double> message) {
         for (Double logProbability : message.values())
             if (!logProbability.equals(Double.NEGATIVE_INFINITY)) return false;
         return true;
     }
-
 
     private ForwardStepResult forwardStep(
             GPSPoint observation,
@@ -136,7 +130,6 @@ public class TiViterbi {
         return transitionLogProbabilities.getOrDefault(transition, Double.NEGATIVE_INFINITY);
     }
 
-
     private CandidatePoint mostLikelyState() {
         assert !message.isEmpty();
         CandidatePoint result = null;
@@ -150,7 +143,6 @@ public class TiViterbi {
         assert result != null;
         return result;
     }
-
 
     private List<SequenceState> retrieveMostLikelySequence() {
         assert !message.isEmpty();
@@ -166,7 +158,6 @@ public class TiViterbi {
         return result;
     }
 
-
     public void startWithInitialObservation(
             GPSPoint observation,
             List<CandidatePoint> candidates,
@@ -174,7 +165,6 @@ public class TiViterbi {
     ) {
         initializeStateProbabilities(observation, candidates, emissionLogProbabilities);
     }
-
 
     public void nextStep(
             GPSPoint observation,
@@ -208,7 +198,6 @@ public class TiViterbi {
         lastExtendedStates = forwardStepResult.getNewExtendedStates();
         prevCandidates = new ArrayList<>(candidates);
     }
-
 
     public List<SequenceState> computeMostLikelySequence() {
         if (message == null) {

@@ -8,10 +8,10 @@ import java.util.List;
 
 public class WindowBearing {
 
-    private List<GPSPoint> points;
-    private List<Double> distances;
-    private List<Double> bearings;
-    private List<Double> change;
+    private final List<GPSPoint> points;
+    private final List<Double> distances;
+    private final List<Double> bearings;
+    private final List<Double> change;
     private double currBearing;
     private static final double WINDOWS_SIZE = 8;
 

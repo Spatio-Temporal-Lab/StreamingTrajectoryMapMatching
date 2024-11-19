@@ -14,7 +14,6 @@ public class HmmProbabilities {
         this.beta = beta;
     }
 
-
     public double emissionLogProbability(double distance) {
         return logNormalDistribution(this.sigma, distance);
     }
@@ -30,11 +29,9 @@ public class HmmProbabilities {
 
     }
 
-
     private static double logNormalDistribution(double sigma, double x) {
         return Math.log(1.0 / (Math.sqrt(2.0 * Math.PI) * sigma)) + (-0.5 * Math.pow(x / sigma, 2));
     }
-
 
     private static double logExponentialDistribution(double beta, double x) {
         return Math.log(1.0 / beta) - (x / beta);
@@ -43,6 +40,5 @@ public class HmmProbabilities {
     public double directionLogProbability(double diff) {
         return logNormalDistribution(this.alpha, diff);
     }
-
 
 }

@@ -93,7 +93,6 @@ public abstract class AbstractShortestPath {
             );
         }
 
-
         List<Path> paths = new ArrayList<>();
         paths.add(
             getPathByEndNodeToStartNode(

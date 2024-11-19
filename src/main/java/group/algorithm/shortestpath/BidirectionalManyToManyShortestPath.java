@@ -154,7 +154,6 @@ class MapResultCache {
         }
     }
 
-
     public void evictExpiredEntries(int currentStep, int k) {
         for (Iterator<Map.Entry<RoadNode, Map<RoadNode, CacheEntry>>> it = cache.entrySet().iterator(); it.hasNext(); ) {
             Map.Entry<RoadNode, Map<RoadNode, CacheEntry>> entry = it.next();
@@ -172,7 +171,6 @@ class MapResultCache {
     public void clearCache() {
         cache.clear();
     }
-
 
     static class CacheEntry {
         Path path;
