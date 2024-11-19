@@ -24,13 +24,10 @@ public class ModelGenerator {
 
     private static final String TRAJECTORY_PATH = "data/trajectories_chengdu.txt";
     private static final String ROAD_NETWORK_PATH = "data/prepare/roadnetwork_chengdu_origin.csv";
-
     private static final Boolean COORDINATE_SYSTEM_WGS84 = false;
-
     public static Trajectory generateTrajectory() {
         return generateTrajectory(TRAJECTORY_PATH);
     }
-
     public static Trajectory generateTrajectory(String trajFile) {
         return generateTrajectory(trajFile, -1);
     }

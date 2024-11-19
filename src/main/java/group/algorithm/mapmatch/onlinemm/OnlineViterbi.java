@@ -22,17 +22,14 @@ public class OnlineViterbi extends TiViterbi {
     private final LinkedList<OnlineExtendedState> stateList;
     // Local solutions for the current sequence
     private final List<OnlineSequenceState> sequenceStates;
-
     // Convergence status
     public boolean isConverge;
     // Whether the algorithm was broken before
     public boolean isBrokenBefore;
-
     // Current convergence point
     private OnlineExtendedState currentRoot;
     // Previous convergence point
     private OnlineExtendedState previousRoot;
-
     // Time diff between root and previous root
     public int timeDelta;
     // Starting insert position for global sequence after algorithm interruption

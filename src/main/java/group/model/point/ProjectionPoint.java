@@ -7,11 +7,8 @@ import java.util.List;
 public class ProjectionPoint extends SpatialPoint{
 
     private final double errorDistanceInMeter;
-
     private final double rate;
-
     private final int matchedIndex;
-
 
     public ProjectionPoint(
             SpatialPoint point,

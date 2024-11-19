@@ -14,7 +14,6 @@ public class Attribute {
     public String getType() {
         return type;
     }
-
     public Object getValue() {
         return value;
     }

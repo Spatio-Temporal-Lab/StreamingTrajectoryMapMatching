@@ -16,7 +16,6 @@ public class MapMatchedTrajectory implements Serializable {
 
     private final List<MapMatchedPoint> mmPtList;
 
-
     public MapMatchedTrajectory(String tid, String oid, List<MapMatchedPoint> mmPtList) {
         this.tid = tid;
         this.oid = oid;

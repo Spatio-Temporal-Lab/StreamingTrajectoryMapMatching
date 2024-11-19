@@ -17,37 +17,13 @@ import java.util.List;
 public class AmmMapMatcher {
 
     private List<Candidate> matched_list;
-    /**
-     * 匹配长度
-     */
     private double matchedLength = 0;
-    /**
-     * 路网
-     */
     private static RoadNetwork roadNetwork;
-    /**
-     * GPS点周围被划定为候选点的范围
-     */
     private static double radius;
-    /**
-     * 位置正态分布的参数
-     */
     private static double positionSigma;
-    /**
-     * 优化函数中的惩罚项1
-     */
     private static double punishFactor1;
-    /**
-     * 优化函数中的惩罚项2
-     */
     private static double punishFactor2;
-    /**
-     * 最低得分
-     */
     private final double scoreThreshold;
-    /**
-     * 候选点平均速度和最大速度之差
-     */
     private static double deltaV;
 
     public AmmMapMatcher(RoadNetwork roadNetwork) {

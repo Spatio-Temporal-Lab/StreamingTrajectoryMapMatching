@@ -37,7 +37,6 @@ public class RoadGraph extends AbstractBaseGraph<RoadNode, RoadSegment> {
                 endNode1.equals(startNode2) || endNode1.equals(endNode2);
     }
 
-
     public Set<RoadSegment> getOneHopReachableEdges(RoadSegment edge) {
         RoadNode endNode = edge.getEndNode();
         Set<RoadSegment> reachableEdges = new HashSet<>(this.outgoingEdgesOf(endNode));
@@ -45,7 +44,4 @@ public class RoadGraph extends AbstractBaseGraph<RoadNode, RoadSegment> {
 
         return reachableEdges;
     }
-
-
-
 }

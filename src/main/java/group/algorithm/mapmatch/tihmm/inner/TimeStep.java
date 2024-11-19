@@ -12,13 +12,9 @@ import java.util.Map;
 public class TimeStep {
 
     private CandidatePoint match;
-
     private final GPSPoint observation;
-
     private final List<CandidatePoint> candidates;
-
     private final Map<CandidatePoint, Double> emissionLogProbabilities = new HashMap<>();
-
     private final Map<Tuple2<CandidatePoint, CandidatePoint>, Double> transitionLogProbabilities =
             new HashMap<>();
 
@@ -30,14 +26,12 @@ public class TimeStep {
         this.candidates = candidates;
     }
 
-
     public void addEmissionLogProbability(CandidatePoint candidate, Double emissionLogProbability) {
         if (emissionLogProbabilities.containsKey(candidate)) {
             throw new IllegalArgumentException("Candidate has already been added.");
         }
         emissionLogProbabilities.put(candidate, emissionLogProbability);
     }
-
 
     public void addTransitionLogProbability(
             CandidatePoint fromPosition,
