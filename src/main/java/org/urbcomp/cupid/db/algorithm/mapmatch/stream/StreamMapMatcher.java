@@ -1,6 +1,5 @@
 package org.urbcomp.cupid.db.algorithm.mapmatch.stream;
 
-import org.openjdk.jol.info.GraphLayout;
 import org.urbcomp.cupid.db.algorithm.bearing.WindowBearing;
 import org.urbcomp.cupid.db.algorithm.mapmatch.onlinemm.OnlineSequenceState;
 import org.urbcomp.cupid.db.algorithm.mapmatch.onlinemm.OnlineViterbi;
@@ -75,6 +74,10 @@ public class StreamMapMatcher {
      */
     protected BidirectionalManyToManyShortestPath bidirectionalPathAlgorithm;
 
+    public BidirectionalManyToManyShortestPath getBidirectionalPathAlgorithm() {
+        return bidirectionalPathAlgorithm;
+    }
+
     /**
      * A list to store converged sequence states during processing.
      */
@@ -84,6 +87,8 @@ public class StreamMapMatcher {
     private Double delayTime = 0.0;
 
     private int delayNums = 0;
+
+    public int backtrackNum = 0;
     /**
      * Constructs a StreamMapMatcher with the specified road network and path algorithm.
      *
@@ -203,8 +208,8 @@ public class StreamMapMatcher {
             }
 
             result = this.computeOnlineViterbiSequence(gpsPoint, sequence, previousTimeStep, viterbi, weightAdjuster, currentTime, index);
-            long memory = GraphLayout.parseInstance(viterbi.getStateList()).totalSize();
-            System.out.println(memory);
+            //long memory = GraphLayout.parseInstance(viterbi.getStateList()).totalSize();
+            //System.out.println(memory);
 
             index++;
             sequence = result._1();
@@ -453,6 +458,7 @@ public class StreamMapMatcher {
                         if (correctedPoints != 0 && traceDelay > 0) {
                             delayNums += correctedPoints;
                             delayTime += traceDelay;
+                            backtrackNum ++;
                         }
 
 //                        System.out.println("Actual update size: " + (globalSeqInsertIndex - globalSeqInsertStartIndex));

@@ -38,9 +38,9 @@ import java.util.stream.Collectors;
 
 public class ModelGenerator {
 
-    private static final String TRAJECTORY_PATH = "data/trajectories_chengdu.txt";
-    private static final String ROAD_NETWORK_PATH = "data/prepare/roadnetwork_chengdu_origin.csv";
-    private static final Boolean COORDINATE_SYSTEM_WGS84 = false;
+    private static final String TRAJECTORY_PATH = "data/trajectories_shanghai_seg.txt";
+    private static final String ROAD_NETWORK_PATH = "data/prepare/outputshanghai.csv";
+    private static final Boolean COORDINATE_SYSTEM_WGS84 = true;
 
     public static Trajectory generateTrajectory() {
         return generateTrajectory(TRAJECTORY_PATH);
