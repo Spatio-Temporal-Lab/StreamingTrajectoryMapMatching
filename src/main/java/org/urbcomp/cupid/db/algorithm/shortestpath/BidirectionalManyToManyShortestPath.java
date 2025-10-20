@@ -2,6 +2,7 @@ package org.urbcomp.cupid.db.algorithm.shortestpath;
 
 import org.jgrapht.GraphPath;
 import org.jgrapht.alg.shortestpath.BidirectionalDijkstraShortestPath;
+import org.openjdk.jol.info.GraphLayout;
 import org.urbcomp.cupid.db.model.point.CandidatePoint;
 import org.urbcomp.cupid.db.model.point.SpatialPoint;
 import org.urbcomp.cupid.db.model.roadnetwork.Path;
@@ -15,15 +16,25 @@ public class BidirectionalManyToManyShortestPath {
     private final BidirectionalDijkstraShortestPath<org.urbcomp.cupid.db.model.roadnetwork.RoadNode, org.urbcomp.cupid.db.model.roadnetwork.RoadSegment> algo;
     private final RoadNetwork roadNetwork;
     private final MapResultCache resultCache;
-    private static final int k = 5;  // 时间步窗口大小
+    private int k = 5;  // 时间步窗口大小
     private static final boolean USE_CACHE = true;
-    private int currentStep;
+    public int currentStep;
+    public double cacheMemoryInKB = 0.0;
+    public int totalStep = 0;
 
     public BidirectionalManyToManyShortestPath(RoadNetwork roadNetwork) {
         this.roadNetwork = roadNetwork;
         this.algo = new BidirectionalDijkstraShortestPath<>(roadNetwork.getDirectedRoadGraph());
         this.resultCache = new MapResultCache();
         this.currentStep = 0;
+    }
+
+    public BidirectionalManyToManyShortestPath(RoadNetwork roadNetwork, int k) {
+        this.roadNetwork = roadNetwork;
+        this.algo = new BidirectionalDijkstraShortestPath<>(roadNetwork.getDirectedRoadGraph());
+        this.resultCache = new MapResultCache();
+        this.currentStep = 0;
+        this.k = k;
     }
 
     public void clearCache() {
@@ -37,6 +48,10 @@ public class BidirectionalManyToManyShortestPath {
     ) {
         // 更新当前时间步
         currentStep++;
+        totalStep++;
+//        Map<RoadNode, Map<RoadNode, MapResultCache.CacheEntry>> internalCacheMap = resultCache.getInternalCacheMap();
+//        long cacheMemoryInBytes = GraphLayout.parseInstance(internalCacheMap).totalSize();
+//        cacheMemoryInKB += (double) cacheMemoryInBytes / (1024.0);
 
         // 处理起始点和终点集合
         Set<RoadNode> startNodes = new HashSet<>();
@@ -132,6 +147,20 @@ class MapResultCache {
         this.cache = new HashMap<>();
     }
 
+    public Map<RoadNode, Map<RoadNode, CacheEntry>> getInternalCacheMap() {
+        return this.cache;
+    }
+
+    public int getPathEntryCount() {
+        if (cache.isEmpty()) {
+            return 0;
+        }
+        // 遍历外层Map的所有值（也就是内层Map），然后将它们的size加起来
+        return cache.values().stream()
+                .mapToInt(Map::size)
+                .sum();
+    }
+
     // 获取缓存的路径
     public Path getCachedPath(RoadNode startNode, RoadNode endNode) {
         if (cache.containsKey(startNode)) {
@@ -177,7 +206,7 @@ class MapResultCache {
     }
 
     // 缓存条目类
-    static class CacheEntry {
+    public static class CacheEntry {
         Path path;
         int timeStep;
 

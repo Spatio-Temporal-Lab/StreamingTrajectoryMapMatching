@@ -46,10 +46,10 @@ public class Experiment {
         RoadNetwork roadNetwork = ModelGenerator.generateRoadNetwork();
         labelMapMatcher = new TiHmmMapMatcher(roadNetwork, new SimpleManyToManyShortestPath(roadNetwork));
         ourMapMatcher = new StreamMapMatcher(roadNetwork, new SimpleManyToManyShortestPath(roadNetwork), new BidirectionalManyToManyShortestPath(roadNetwork));
-        baseMapMatcher = new StreamMapMatcher(roadNetwork, new SimpleManyToManyShortestPath(roadNetwork), new BidirectionalManyToManyShortestPath(roadNetwork));
-        ammMapMatcher = new AmmMapMatcher(roadNetwork);
-        aommMapMatcher = new AommMapMatcher(roadNetwork);
-        dwrmmMapMatcher = new DwrmmMapMatcher(roadNetwork);
+//        baseMapMatcher = new StreamMapMatcher(roadNetwork, new SimpleManyToManyShortestPath(roadNetwork), new BidirectionalManyToManyShortestPath(roadNetwork));
+//        ammMapMatcher = new AmmMapMatcher(roadNetwork);
+//        aommMapMatcher = new AommMapMatcher(roadNetwork);
+//        dwrmmMapMatcher = new DwrmmMapMatcher(roadNetwork);
     }
 
     @Test
@@ -77,15 +77,17 @@ public class Experiment {
             boolean AMM = false;
             boolean AOMM = false;
             boolean DWRMM = false;
-            int[] sampleRates = {6};
+            int[] sampleRates = {2};
             testNum += startIndex;
-            int originalSampleRate = 3;
+            int originalSampleRate = 2;
             for (int resultSampleRate : sampleRates) {
-
+                resultLogStream.println("sampleRates: " + resultSampleRate);
+                indexLogStream.println("sampleRates: " + resultSampleRate);
                 // our method
                 if (OURS) {
                     resultLogStream.println("---- OURS ----");
                     indexLogStream.println("---- OURS ----");
+                    TrajectoryMetricsCalculator calculator = new TrajectoryMetricsCalculator();
                     for (int index = startIndex; index < testNum; index++) {
                         System.out.println("index: " + index);
                         trajectory = ModelGenerator.generateTrajectory(index);
@@ -99,6 +101,8 @@ public class Experiment {
                         // offline hmm(label)
                         MapMatchedTrajectory labelResult = labelMapMatcher.mapMatch(trajectory);
 
+                        calculator.calculateAverageMatchingDistance(labelResult);
+
                         // 计算准确率和延迟
                         long startTime = System.nanoTime();
                         MapMatchedTrajectory result = ourMapMatcher.onlineStreamMapMatch(sampledTrajectory, dynamicWeightAdjuster, windowSize);
@@ -106,8 +110,9 @@ public class Experiment {
                         long delay = endTime - startTime;
                         totalDelay += delay;
                         EvaluateUtils.getAccuracy(labelResult, result, originalSampleRate, resultSampleRate);
-                        resultLogStream.println("average backtrack time: " + ourMapMatcher.getDelayTime() / ourMapMatcher.getDelayNums());
                     }
+
+                    System.out.println("平均匹配距离是: " + calculator.totalDistance / calculator.validPointsCount + " 米");
                     // 准确率
                     resultLogStream.println("Accuracy: " + EvaluateUtils.getTotalAcc());
 
@@ -117,8 +122,19 @@ public class Experiment {
 
                     // 平均回溯延迟
                     resultLogStream.println("backtrack num: " + ourMapMatcher.getDelayNums());
-                    resultLogStream.println("backtrack time: " + ourMapMatcher.getDelayTime());
-                    resultLogStream.println("average backtrack time: " + ourMapMatcher.getDelayTime() / ourMapMatcher.getDelayNums());
+                    resultLogStream.println("backtrack time: " + ourMapMatcher.backtrackNum);
+                    //resultLogStream.println("average backtrack time: " + ourMapMatcher.getDelayTime() / ourMapMatcher.getDelayNums());
+
+//                    MapResultCache cache = ourMapMatcher.getBidirectionalPathAlgorithm().getResultCache();
+//                    Map<RoadNode, Map<RoadNode, MapResultCache.CacheEntry>> internalCacheMap = cache.getInternalCacheMap();
+//                    long cacheMemoryInBytes = GraphLayout.parseInstance(internalCacheMap).totalSize();
+////
+////                    // JOL 还可以打印非常详细的内存布局报告，对于调试很有帮助
+////                    // System.out.println(GraphLayout.parseInstance(cache).toPrintable());
+////
+////                    // 4. 打印结果
+//                    double cacheMemoryInKB = (double) cacheMemoryInBytes / (1024);
+//                    resultLogStream.println("cache size: " + ourMapMatcher.getBidirectionalPathAlgorithm().num);
 
                     EvaluateUtils.reset();
                     totalDelay = 0;
